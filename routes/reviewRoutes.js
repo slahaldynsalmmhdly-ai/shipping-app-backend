@@ -69,7 +69,7 @@ router.get(
       "name avatar"
     );
 
-    res.json(reviews);
+    res.json({ data: reviews });
   })
 );
 
