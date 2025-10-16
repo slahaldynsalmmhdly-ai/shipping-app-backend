@@ -1,0 +1,35 @@
+{
+  "name": "shipping-app-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "npm install multer"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slahaldynsalmmhdly-ai/shipping-app-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/slahaldynsalmmhdly-ai/shipping-app-backend/issues"
+  },
+  "homepage": "https://github.com/slahaldynsalmmhdly-ai/shipping-app-backend#readme",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-session": "^2.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-async-handler": "^1.2.0",
+    "firebase-admin": "^13.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1",
+    "multer": "^2.0.2",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}
