@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const asyncHandler = require("express-async-handler");
 const User = require("../models/User");
+const Review = require("../models/Review");
 const { protect } = require("../middleware/authMiddleware");
 
 // @desc    Get all companies
@@ -11,7 +12,25 @@ router.get(
   "/companies",
   asyncHandler(async (req, res) => {
     const companies = await User.find({ userType: "company" }).select("-password");
-    res.json(companies);
+    
+    // Add rating and reviewCount for each company
+    const companiesWithRatings = await Promise.all(
+      companies.map(async (company) => {
+        const reviews = await Review.find({ user: company._id });
+        const rating = reviews.length > 0
+          ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+          : 0;
+        const reviewCount = reviews.length;
+        
+        return {
+          ...company.toObject(),
+          rating,
+          reviewCount
+        };
+      })
+    );
+    
+    res.json(companiesWithRatings);
   })
 );
 
@@ -25,7 +44,18 @@ router.get(
     const user = await User.findById(req.user._id).select("-password");
 
     if (user) {
-      res.json(user);
+      // Calculate rating and reviewCount
+      const reviews = await Review.find({ user: user._id });
+      const rating = reviews.length > 0
+        ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+        : 0;
+      const reviewCount = reviews.length;
+      
+      res.json({
+        ...user.toObject(),
+        rating,
+        reviewCount
+      });
     } else {
       res.status(404);
       throw new Error("User not found");
@@ -95,7 +125,18 @@ router.get(
     const user = await User.findById(req.params.userId).select("-password");
 
     if (user) {
-      res.json(user);
+      // Calculate rating and reviewCount
+      const reviews = await Review.find({ user: user._id });
+      const rating = reviews.length > 0
+        ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+        : 0;
+      const reviewCount = reviews.length;
+      
+      res.json({
+        ...user.toObject(),
+        rating,
+        reviewCount
+      });
     } else {
       res.status(404);
       throw new Error("User not found");
