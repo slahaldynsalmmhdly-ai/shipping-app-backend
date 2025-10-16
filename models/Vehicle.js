@@ -21,6 +21,23 @@ const VehicleSchema = new mongoose.Schema({
   },
   imageUrl: {
     type: String,
+    default: "",
+  },
+  vehicleType: {
+    type: String,
+    default: "",
+  },
+  currentLocation: {
+    type: String,
+    default: "",
+  },
+  vehicleColor: {
+    type: String,
+    default: "",
+  },
+  vehicleModel: {
+    type: String,
+    default: "",
   },
 }, { timestamps: true });
 

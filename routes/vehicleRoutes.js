@@ -17,7 +17,7 @@ router.post(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl } = req.body;
+    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -39,6 +39,10 @@ router.post(
       vehicleName,
       licensePlate,
       imageUrl,
+      vehicleType,
+      currentLocation,
+      vehicleColor,
+      vehicleModel,
     });
 
     const createdVehicle = await vehicle.save();
@@ -76,7 +80,7 @@ router.put(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl } = req.body;
+    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel } = req.body;
 
     const vehicle = await Vehicle.findById(req.params.vehicleId);
 
@@ -90,6 +94,10 @@ router.put(
       vehicle.vehicleName = vehicleName || vehicle.vehicleName;
       vehicle.licensePlate = licensePlate || vehicle.licensePlate;
       vehicle.imageUrl = imageUrl || vehicle.imageUrl;
+      vehicle.vehicleType = vehicleType || vehicle.vehicleType;
+      vehicle.currentLocation = currentLocation || vehicle.currentLocation;
+      vehicle.vehicleColor = vehicleColor || vehicle.vehicleColor;
+      vehicle.vehicleModel = vehicleModel || vehicle.vehicleModel;
 
       const updatedVehicle = await vehicle.save();
       res.json(updatedVehicle);
@@ -126,6 +134,17 @@ router.delete(
       res.status(404);
       throw new Error("Vehicle not found");
     }
+  })
+);
+
+// @desc    Get all vehicles for a specific user (for public profile view)
+// @route   GET /api/vehicles/user/:userId
+// @access  Public
+router.get(
+  "/user/:userId",
+  asyncHandler(async (req, res) => {
+    const vehicles = await Vehicle.find({ user: req.params.userId });
+    res.json(vehicles);
   })
 );
 
