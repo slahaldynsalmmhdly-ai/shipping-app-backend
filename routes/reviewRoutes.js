@@ -12,7 +12,7 @@ router.post(
   "/:userId",
   protect,
   asyncHandler(async (req, res) => {
-    const { rating, comment } = req.body;
+    const { rating, comment, media } = req.body;
     const targetUserId = req.params.userId;
 
     // Ensure the user is not reviewing their own profile
@@ -43,6 +43,7 @@ router.post(
       user: targetUserId,
       rating,
       comment,
+      media: media || [],
     });
 
     const createdReview = await review.save();
