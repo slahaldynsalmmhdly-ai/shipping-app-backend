@@ -7,6 +7,7 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes"); // Added vehicleRoutes
 const uploadRoutes = require("./routes/uploadRoutes"); // Added uploadRoutes
 const postRoutes = require("./routes/postRoutes"); // Added postRoutes
+const shipmentAdRoutes = require("./routes/shipmentAdRoutes"); // Added shipmentAdRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -49,6 +50,7 @@ app.use("/api/reviews", reviewRoutes); // Changed to /api/reviews for clarity
 app.use("/api/vehicles", vehicleRoutes); // Changed to /api/vehicles for clarity
 app.use("/api/upload", uploadRoutes); // Mount upload routes
 app.use("/api/v1/posts", postRoutes); // Mount post routes
+app.use("/api/v1/shipmentads", shipmentAdRoutes); // Mount shipment ad routes
 
 // Serve static uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
