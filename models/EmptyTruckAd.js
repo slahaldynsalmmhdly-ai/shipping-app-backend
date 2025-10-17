@@ -32,6 +32,19 @@ const EmptyTruckAdSchema = mongoose.Schema(
         type: { type: String, enum: ['image', 'video'], required: true },
       },
     ],
+    reactions: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        type: {
+          type: String,
+          enum: ['like', 'love', 'haha', 'wow', 'sad', 'angry'],
+          required: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
