@@ -40,8 +40,7 @@ router.get('/', protect, async (req, res) => {
     const posts = await Post.find().sort({ createdAt: -1 }).populate('user', ['name', 'avatar']);
     res.json(posts);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error(err.message)    res.status(500).json({ message: \'Server Error\', error: err.message });
   }
 });
 

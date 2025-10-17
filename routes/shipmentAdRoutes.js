@@ -38,7 +38,7 @@ router.post("/", protect, async (req, res) => {
     res.status(201).json(shipmentAd);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
@@ -53,7 +53,7 @@ router.get("/", protect, async (req, res) => {
     res.json(shipmentAds);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
@@ -77,7 +77,7 @@ router.get("/:id", protect, async (req, res) => {
     if (err.kind === "ObjectId") {
       return res.status(404).json({ msg: "Shipment ad not found" });
     }
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
@@ -105,7 +105,7 @@ router.delete("/:id", protect, async (req, res) => {
     if (err.kind === "ObjectId") {
       return res.status(404).json({ msg: "Shipment ad not found" });
     }
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
