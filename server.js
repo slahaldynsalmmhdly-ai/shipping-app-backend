@@ -56,6 +56,11 @@ app.use("/api/v1/posts", postRoutes); // Mount post routes
 app.use("/api/v1/shipmentads", shipmentAdRoutes); // Mount shipment ad routes
 app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad routes
 
+// Catch-all for 404 Not Found - MUST be before error handling middleware
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Not Found" });
+});
+
 // Serve static uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
