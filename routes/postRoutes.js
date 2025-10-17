@@ -68,6 +68,41 @@ router.get('/:id', protect, async (req, res) => {
 // @desc    Delete a post
 // @route   DELETE /api/v1/posts/:id
 // @access  Private
+// @desc    Get all comments for a post
+// @route   GET /api/v1/posts/:id/comments
+// @access  Private
+router.get('/:id/comments', protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate({
+        path: 'comments.user',
+        select: 'name avatar'
+      })
+      .populate({
+        path: 'comments.replies.user',
+        select: 'name avatar'
+      });
+
+    if (!post) {
+      return res.status(404).json({ msg: 'Post not found' });
+    }
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 router.delete('/:id', protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -128,7 +163,18 @@ router.put("/:id/react", protect, async (req, res) => {
     }
 
     await post.save();
-    res.json(post.reactions);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate('user', ['name', 'avatar'])
+      .populate('reactions.user', ['name', 'avatar'])
+      .populate({
+        path: 'comments.user',
+        select: 'name avatar'
+      })
+      .populate({
+        path: 'comments.replies.user',
+        select: 'name avatar'
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -157,7 +203,17 @@ router.post("/:id/comment", protect, async (req, res) => {
 
     post.comments.unshift(newComment);
     await post.save();
-    res.json(post.comments);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -198,7 +254,17 @@ router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
     post.comments.splice(removeIndex, 1);
 
     await post.save();
-    res.json(post.comments);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -235,7 +301,17 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
     }
 
     await post.save();
-    res.json(comment.likes);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -269,7 +345,17 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
 
     comment.replies.unshift(newReply);
     await post.save();
-    res.json(comment.replies);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -306,7 +392,17 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
     );
 
     await post.save();
-    res.json(comment.replies);
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
