@@ -1,0 +1,238 @@
+/* --- Modal Styles --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  animation: fadeInOverlay 0.3s ease-out;
+  will-change: opacity;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  position: fixed; /* Changed from absolute to fixed */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-secondary-color);
+  padding: 20px 24px 40px;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -5px 30px var(--shadow-color);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  /* --- Performance Optimizations --- */
+  will-change: transform;
+  transform: translate3d(0, 0, 0); /* Keep for hardware acceleration */
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* --- Fullscreen Modal Styles --- */
+.modal-content.fullscreen-modal-content {
+  top: 0;
+  height: 100%;
+  border-radius: 0;
+  padding: 0; /* Remove padding to allow header/footer to span full width */
+  display: flex;
+  flex-direction: column;
+  animation: slideUpFullScreen 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes slideUpFullScreen {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+
+.modal-handle-bar {
+  width: 40px;
+  height: 5px;
+  background-color: var(--light-gray);
+  border-radius: 3px;
+  margin: 0 auto 20px;
+}
+
+.modal-content h2 {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary-color);
+}
+
+.modal-subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary-color);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-btn {
+  margin-top: 8px;
+}
+
+.modal-error {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: var(--danger-color);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+    margin-bottom: 16px;
+    border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.modal-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-secondary-color);
+    font-size: 13px;
+    margin: 20px 0;
+}
+.modal-divider::before, .modal-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-divider:not(:empty)::before {
+    margin-left: .5em; /* For RTL */
+}
+.modal-divider:not(:empty)::after {
+    margin-right: .5em; /* For RTL */
+}
+
+.btn-google {
+    background-color: var(--bg-secondary-color);
+    color: var(--text-primary-color);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+.btn-google:active {
+    background-color: var(--component-bg-color);
+    transform: translateY(1px);
+    box-shadow: none;
+}
+.btn-google img {
+    width: 20px;
+    height: 20px;
+}
+
+/* Account Type Selection Modal */
+.account-type-options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+}
+.account-type-option-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    border-radius: 16px;
+    border: 2px solid var(--light-gray);
+    background-color: var(--bg-secondary-color);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-family: var(--font-family);
+}
+.account-type-option-btn:hover {
+    border-color: var(--primary-blue);
+    background-color: var(--component-bg-color);
+    transform: translateY(-2px);
+}
+.option-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--component-bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.option-icon svg {
+    width: 28px;
+    height: 28px;
+    color: var(--primary-blue);
+}
+.account-type-option-btn h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+.account-type-option-btn p {
+    font-size: 13px;
+    color: var(--text-secondary-color);
+    margin: 4px 0 0;
+}
+
+/* --- Create Ad Modal Compact Styles --- */
+.create-ad-modal-content {
+    padding: 20px 24px 30px; /* More compact padding */
+}
+
+.create-ad-modal-content .account-type-options {
+    margin-top: 0;
+    gap: 12px;
+}
+
+.create-ad-modal-content .account-type-option-btn {
+    flex-direction: row; /* For RTL: icon on the right, text on the left */
+    justify-content: flex-start;
+    align-items: center;
+    text-align: right; /* For RTL */
+    padding: 12px 16px;
+    border: none;
+    background-color: var(--component-bg-color);
+    gap: 16px; /* Use gap for spacing instead of margin */
+}
+
+.create-ad-modal-content .account-type-option-btn:hover {
+    transform: none;
+    border: none;
+    background-color: var(--light-gray);
+}
+
+.create-ad-modal-content .option-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0; /* Replaced margin with gap on parent */
+    flex-shrink: 0;
+    background-color: var(--bg-secondary-color);
+}
+
+.create-ad-modal-content .account-type-option-btn h3 {
+    font-size: 16px;
+    margin: 0;
+}
+
+.create-ad-modal-content .account-type-option-btn p {
+    display: none; /* Hide description paragraph */
+}

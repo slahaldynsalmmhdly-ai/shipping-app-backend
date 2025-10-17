@@ -1,0 +1,69 @@
+/* --- Live Tracking Screen Specific Styles --- */
+.tracking-container {
+    background-color: var(--bg-secondary-color);
+    justify-content: flex-start;
+}
+
+.tracking-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.tracking-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+
+.tracking-content {
+    padding: 0;
+    overflow: hidden; /* Hide overflow to contain the map */
+    position: relative; /* For positioning info panel */
+    flex-grow: 1; /* Make it fill the remaining space */
+    display: flex; /* Use flex to ensure map fills space */
+    flex-direction: column;
+    padding-bottom: 70px; /* Space for the global bottom nav */
+}
+
+.map-placeholder {
+    flex-grow: 1; /* This will make the map fill the available vertical space */
+    width: 100%;
+    background-color: var(--light-gray); /* Fallback color */
+}
+
+.map-placeholder iframe {
+    width: 100%;
+    height: 100%;
+}
+
+.tracking-info-panel {
+    position: absolute;
+    bottom: 90px; /* Position above the bottom nav */
+    left: 20px;
+    right: 20px;
+    background-color: var(--bg-secondary-color);
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--shadow-color);
+    text-align: center;
+    z-index: 10;
+    border: 1px solid var(--border-color);
+}
+.tracking-info-panel p {
+    margin: 0 0 4px;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-primary-color);
+}
+.tracking-info-panel span {
+    font-size: 14px;
+    color: var(--text-secondary-color);
+}

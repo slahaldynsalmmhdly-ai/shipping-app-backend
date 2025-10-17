@@ -1,0 +1,141 @@
+/* --- Search Screen Specific Styles --- */
+.search-container {
+    background-color: var(--bg-secondary-color);
+    justify-content: flex-start;
+}
+
+.search-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.search-input-wrapper {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--component-bg-color);
+    padding: 10px 14px;
+    border-radius: 14px;
+}
+
+.search-input-wrapper svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+    flex-shrink: 0;
+}
+
+.search-input-wrapper input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    width: 100%;
+}
+
+.search-input-wrapper input::placeholder {
+    color: var(--text-secondary-color);
+}
+
+.back-button-in-search {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: var(--text-primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.back-button-in-search svg {
+    width: 24px;
+    height: 24px;
+}
+
+.mic-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--text-primary-color);
+}
+
+.mic-button svg {
+    width: 24px;
+    height: 24px;
+}
+
+.search-content {
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.search-section {
+    margin-bottom: 28px;
+}
+
+.search-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin-bottom: 16px;
+}
+
+.recent-searches-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.recent-search-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    color: var(--text-primary-color);
+    cursor: pointer;
+}
+
+.recent-search-item svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+}
+
+.quick-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.quick-filter-btn {
+    background-color: var(--component-bg-color);
+    color: var(--component-text-color);
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: none;
+    font-family: var(--font-family);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.quick-filter-btn:hover {
+    background-color: var(--light-gray);
+}

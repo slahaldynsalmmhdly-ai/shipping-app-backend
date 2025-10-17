@@ -1,0 +1,1015 @@
+/* --- General Profile Screen Styles --- */
+.profile-container {
+    background-color: var(--bg-secondary-color);
+    overflow-y: auto;
+}
+
+.profile-container .app-content {
+    padding: 0 20px 20px;
+}
+
+.profile-section {
+    margin-top: 28px;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+}
+
+.profile-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.no-data-message {
+    text-align: center;
+    color: var(--text-secondary-color);
+    padding: 20px 0;
+    width: 100%; /* Ensure it takes full width in flex containers */
+}
+
+/* --- Company Profile Specific Styles --- */
+.profile-header-company {
+    position: relative;
+    margin-bottom: 60px; /* Space for the avatar */
+    flex-shrink: 0;
+}
+
+.profile-cover {
+    height: 180px;
+    background-color: var(--light-gray);
+    position: relative;
+}
+
+.profile-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.back-button-header.on-cover {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.4);
+    color: #ffffff;
+}
+
+
+.profile-avatar-wrapper {
+    position: absolute;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 4px solid var(--bg-secondary-color);
+    background-color: var(--bg-secondary-color);
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+
+.profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.company-info-header {
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.company-name-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.company-email {
+    font-size: 14px;
+    color: var(--text-secondary-color);
+    margin-top: 4px;
+}
+
+.profile-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.edit-profile-icon-btn, .back-button-header {
+    background: var(--component-bg-color);
+    border: none;
+    color: var(--text-primary-color);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    padding: 0;
+}
+.edit-profile-icon-btn:hover, .back-button-header:hover {
+    background-color: var(--light-gray);
+}
+.edit-profile-icon-btn svg, .back-button-header svg {
+    width: 22px;
+    height: 22px;
+}
+
+.profile-action-icon-btn {
+    background: var(--primary-blue);
+    border: none;
+    color: #ffffff;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    padding: 0;
+}
+.profile-action-icon-btn:hover {
+    background-color: #2980b9;
+}
+.profile-action-icon-btn:disabled {
+    background-color: var(--light-gray);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.profile-action-icon-btn:disabled:hover {
+    background-color: var(--light-gray);
+}
+.profile-action-icon-btn svg {
+    width: 22px;
+    height: 22px;
+}
+
+.profile-action-icon-btn.secondary {
+    background-color: var(--component-bg-color);
+    color: var(--text-primary-color);
+}
+.profile-action-icon-btn.secondary:hover {
+    background-color: var(--light-gray);
+}
+
+
+.company-name-verified {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.company-name-verified h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.verified-badge {
+    width: 22px;
+    height: 22px;
+    color: var(--primary-blue);
+}
+
+.company-rating-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0;
+}
+.company-rating-summary span {
+    font-size: 14px;
+    color: var(--text-secondary-color);
+    font-weight: 700;
+    white-space: nowrap; /* Prevent text from wrapping */
+}
+
+.star-rating {
+    display: flex;
+    color: #f1c40f; /* Yellow for stars */
+    flex-shrink: 0; /* Prevent star container from shrinking */
+}
+.star-rating svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* --- Company Info List --- */
+.company-info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+}
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: var(--component-bg-color);
+    padding: 16px;
+    border-radius: 12px;
+}
+.info-item-icon {
+    flex-shrink: 0;
+    color: var(--primary-blue);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-secondary-color);
+    border-radius: 12px;
+}
+.info-item-icon svg {
+    width: 24px;
+    height: 24px;
+}
+.info-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.info-item-label {
+    font-size: 13px;
+    color: var(--text-secondary-color);
+    font-weight: 700;
+}
+.info-item-value {
+    font-size: 15px;
+    color: var(--text-primary-color);
+    font-weight: 500;
+}
+
+
+/* --- Interactive Review Section --- */
+.add-review-prompt-section {
+    background: var(--component-bg-color);
+    border-radius: 16px;
+    margin-top: 24px;
+    padding: 0;
+}
+
+.add-review-prompt-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 20px;
+    font-family: var(--font-family);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    cursor: pointer;
+    text-align: center;
+    border-radius: 16px;
+    transition: background-color 0.2s ease;
+}
+
+.add-review-prompt-btn:hover {
+    background-color: var(--border-color);
+}
+
+
+.interactive-stars {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.interactive-stars svg {
+    width: 32px;
+    height: 32px;
+    color: var(--light-gray);
+    transition: color 0.2s, transform 0.2s;
+}
+.interactive-stars svg.active {
+    color: #f1c40f;
+}
+.interactive-stars svg:hover {
+    transform: scale(1.1);
+}
+
+/* --- NEW Compact Fleet Section Styles --- */
+.fleet-compact-section {
+    margin-top: 24px; /* Space from company info */
+}
+.fleet-compact-section h2 {
+    font-size: 18px; /* Smaller title */
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+.fleet-compact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.manage-fleet-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--component-bg-color);
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-family);
+    color: var(--component-text-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.manage-fleet-btn:active {
+    background-color: var(--light-gray);
+}
+.manage-fleet-btn svg {
+    width: 16px;
+    height: 16px;
+}
+.fleet-compact-scroll-container {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    margin: 0 -20px; /* Extend to screen edges */
+    padding-left: 20px; /* Re-add padding */
+    padding-right: 20px; /* Re-add padding */
+    scrollbar-width: none; /* Firefox */
+}
+.fleet-compact-scroll-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+}
+
+/* --- NEW Fleet Photos Section Styles --- */
+.fleet-photos-section h2 {
+    font-size: 18px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: none;
+}
+
+.fleet-photos-display-container {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    scrollbar-width: none;
+}
+
+.fleet-photos-display-container::-webkit-scrollbar {
+    display: none;
+}
+
+.fleet-photo-display-item {
+    background-color: var(--bg-secondary-color);
+    border-radius: 16px;
+    padding: 10px;
+    width: 260px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px var(--shadow-color-light);
+}
+
+.fleet-photo-display-item img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+
+/* --- New Tab Styles --- */
+.profile-tabs-nav {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-tab-btn {
+    flex: 1;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-secondary-color);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.profile-tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: var(--primary-blue);
+    transform: scaleX(0);
+    transition: transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.profile-tab-btn.active {
+    color: var(--text-primary-color);
+}
+
+.profile-tab-btn.active::after {
+    transform: scaleX(1);
+}
+
+.profile-tab-content {
+    padding-top: 24px;
+}
+
+
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.review-card {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+.review-card:last-child {
+    border: none;
+    padding-bottom: 0;
+}
+.review-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.review-header img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+.review-info h4 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--text-primary-color);
+}
+.review-text {
+    font-size: 14px;
+    color: var(--text-primary-color);
+    line-height: 1.5;
+    padding-right: 52px; /* Align with text under avatar */
+}
+
+.review-media-gallery {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 10px;
+    padding-right: 52px; /* Align with text */
+}
+
+.review-media-item {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 12px;
+    background-color: var(--component-bg-color);
+}
+
+.profile-ads-list {
+    margin: 0 -20px;
+}
+
+.profile-ads-list .shipment-post {
+    box-shadow: 0 4px 12px var(--shadow-color-light);
+    border: none;
+}
+
+/* Review Modal */
+.review-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.review-modal-content textarea {
+    width: 100%;
+    min-height: 100px;
+    border: none;
+    background: var(--component-bg-color);
+    border-radius: 12px;
+    padding: 12px;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    resize: vertical;
+    outline: none;
+}
+.review-modal-content textarea::placeholder {
+    color: var(--text-secondary-color);
+}
+
+
+/* --- Edit Profile Company Screen --- */
+.profile-edit-screen.signup-container .app-content {
+    padding: 0; /* Remove padding to allow cover to be full-width */
+    align-items: stretch;
+}
+.edit-profile-content-wrapper {
+    padding: 0 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.edit-profile-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 16px;
+    margin-top: 16px; /* Added margin top */
+}
+
+.edit-profile-header-actions .edit-profile-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.edit-cover-upload {
+    width: 100%;
+    height: 180px;
+    background-color: var(--component-bg-color);
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.edit-cover-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.edit-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    border-bottom: 2px dashed var(--light-gray);
+}
+.edit-cover-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.edit-cover-upload:hover .edit-cover-overlay {
+    opacity: 1;
+}
+.edit-cover-overlay svg {
+    width: 32px;
+    height: 32px;
+}
+.edit-cover-overlay span {
+    font-weight: 700;
+}
+.edit-avatar-container {
+    margin-top: -60px; /* Pull avatar up */
+    position: relative;
+    z-index: 2;
+}
+
+.edit-avatar-container .logo-upload-container {
+    border: 4px solid var(--bg-secondary-color);
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+
+/* --- Top action icon buttons --- */
+.edit-profile-top-actions {
+    display: flex;
+    flex-direction: row-reverse; /* RTL support */
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.edit-profile-action-icon {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    min-height: 60px;
+    border-radius: 14px;
+}
+
+.edit-profile-action-icon.btn-primary {
+    background-color: var(--primary-blue);
+}
+
+.edit-profile-action-icon.btn-secondary {
+    background-color: var(--component-bg-color);
+    color: var(--component-text-color);
+}
+
+.edit-profile-action-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+
+/* --- Fleet Photos Uploader --- */
+.fleet-photos-scroll-container {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 12px;
+    background-color: var(--component-bg-color);
+    border-radius: 12px;
+    /* Hide scrollbar for a cleaner look */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+}
+.fleet-photos-scroll-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
+}
+
+.fleet-photo-item {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+}
+.fleet-photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+}
+.remove-fleet-photo-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px; /* RTL */
+    background: rgba(0,0,0,0.6);
+    color: #ffffff;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1;
+}
+.remove-fleet-photo-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* === Individual Profile (New Design) === */
+.profile-individual-container {
+    background-color: var(--bg-secondary-color);
+}
+
+.profile-individual-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 12px 10px;
+    background-color: var(--bg-secondary-color);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.profile-individual-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+
+.profile-individual-content {
+    padding: 24px 20px !important;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px; /* Vertical gap between info items */
+}
+
+.profile-individual-avatar-section {
+    margin-bottom: 8px;
+}
+
+.profile-individual-avatar-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--border-color);
+}
+
+.profile-individual-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+
+.profile-individual-detail {
+    font-size: 15px;
+    color: var(--text-secondary-color);
+    margin: 0;
+    text-align: center;
+}
+
+.profile-individual-detail.about {
+    margin-top: 8px;
+    line-height: 1.5;
+    max-width: 80%;
+}
+
+.profile-individual-actions-grid {
+    display: grid;
+    gap: 12px;
+    margin-top: 24px;
+    width: 100%;
+    border-top: 1px solid var(--border-color);
+    padding-top: 24px;
+    justify-items: center;
+}
+
+.profile-individual-actions-grid.my-profile {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.profile-individual-actions-grid.other-profile {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+
+.profile-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-family);
+    padding: 0;
+    width: 64px;
+}
+
+.profile-action-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.profile-action-icon-wrapper {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background-color: var(--component-bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.profile-action-item:active .profile-action-icon-wrapper {
+    background-color: var(--light-gray);
+}
+
+.profile-action-icon-wrapper svg {
+    width: 26px;
+    height: 26px;
+    color: var(--primary-blue);
+}
+
+.profile-action-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary-color);
+}
+
+/* Logout specific styles */
+.profile-action-icon-wrapper.logout svg {
+    color: var(--danger-color);
+}
+.profile-action-label.logout {
+    color: var(--danger-color);
+}
+
+
+.loading-spinner-container, .error-message-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+    font-size: 16px;
+    color: var(--text-secondary-color);
+}
+
+.error-message-container p {
+    color: var(--danger-color);
+}
+
+/* New styles for Individual Edit Screen */
+.edit-profile-individual-container .form-group input:disabled {
+    color: var(--text-secondary-color);
+    background-color: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.edit-profile-individual-container .create-post-content {
+    align-items: center;
+}
+
+.edit-profile-individual-container .logo-upload-container {
+    margin-bottom: 24px;
+}
+
+.edit-profile-individual-container .form-group,
+.edit-profile-individual-container .form-row {
+    width: 100%;
+}
+
+
+/* --- Base Skeleton Styles (reusable) --- */
+.skeleton {
+  background-color: var(--component-bg-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+body.dark-mode .skeleton::after {
+   background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.1) 60%,
+    rgba(255, 255, 255, 0)
+  );
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* --- Individual Profile Skeleton --- */
+.profile-individual-skeleton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding-top: 24px;
+}
+
+.skeleton-avatar-individual {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin-bottom: 8px;
+}
+
+.skeleton-line-individual {
+    height: 16px;
+    border-radius: 6px;
+}
+
+.skeleton-line-individual.title {
+    height: 24px;
+    width: 60%;
+    margin-bottom: 4px;
+}
+
+.skeleton-line-individual.subtitle {
+    width: 70%;
+}
+
+.skeleton-line-individual.about {
+    margin-top: 8px;
+}
+
+.profile-individual-actions-grid-skeleton {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 24px;
+    width: 100%;
+    border-top: 1px solid var(--border-color);
+    padding-top: 24px;
+    justify-items: center;
+}
+
+.skeleton-action-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+}
+/* Re-add Textarea styles for Edit Profile */
+.form-group-textarea {
+    background-color: var(--component-bg-color);
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.form-group-textarea-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group-textarea-header svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+    flex-shrink: 0;
+}
+
+.form-group-textarea-header label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.edit-profile-individual-container textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    resize: vertical;
+    min-height: 80px;
+    padding-right: 4px;
+}
+
+.edit-profile-individual-container textarea::placeholder {
+  color: var(--text-secondary-color);
+}

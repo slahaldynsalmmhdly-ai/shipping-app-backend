@@ -1,0 +1,168 @@
+.profile-skeleton-wrapper {
+    padding-bottom: 20px;
+}
+
+.skeleton {
+  background-color: var(--component-bg-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+body.dark-mode .skeleton::after {
+   background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.1) 60%,
+    rgba(255, 255, 255, 0)
+  );
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-header-wrapper {
+  position: relative;
+  margin-bottom: 60px;
+}
+
+.skeleton-cover {
+  height: 180px;
+  width: 100%;
+}
+
+.skeleton-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid var(--bg-secondary-color);
+  background-color: var(--bg-secondary-color);
+}
+
+.skeleton-avatar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+
+.skeleton-info-wrapper {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-line {
+  height: 20px;
+  border-radius: 8px;
+}
+
+.skeleton-line.title {
+  width: 60%;
+  height: 28px;
+  margin-bottom: 4px;
+}
+
+.skeleton-line.subtitle {
+  width: 40%;
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.skeleton-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.skeleton-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-section {
+  padding: 0 20px;
+  margin-top: 28px;
+}
+
+.skeleton-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.skeleton-line.section-title {
+    width: 120px;
+    height: 24px;
+}
+
+.skeleton-line.section-btn {
+    width: 80px;
+    height: 30px;
+    border-radius: 10px;
+}
+
+.skeleton-card-container {
+    display: flex;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.skeleton-card {
+    width: 260px;
+    height: 110px;
+    border-radius: 16px;
+    flex-shrink: 0;
+}
+
+.skeleton-review-prompt {
+    height: 100px;
+    border-radius: 16px;
+    margin-top: 24px;
+}
+
+.skeleton-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+}
+
+.skeleton-tab {
+    flex: 1;
+    height: 50px;
+}
+
+.skeleton-line-long {
+  height: 16px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}

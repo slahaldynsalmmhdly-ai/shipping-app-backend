@@ -1,0 +1,71 @@
+.logo-upload-container {
+  width: 100px;
+  height: 100px;
+  background-color: var(--light-blue);
+  border-radius: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  border: 2px dashed var(--light-gray);
+  transition: all 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.logo-upload-container:hover {
+  border-color: var(--primary-blue);
+  background-color: #e3f2fd;
+}
+
+.logo-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--medium-gray);
+}
+
+.logo-upload-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--primary-blue);
+}
+
+.logo-preview-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.logo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.change-logo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--white);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.logo-preview-wrapper:hover .change-logo-overlay {
+  opacity: 1;
+}
+
+.change-logo-overlay svg {
+    width: 20px;
+    height: 20px;
+}

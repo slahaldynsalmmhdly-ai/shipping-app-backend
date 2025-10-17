@@ -1,0 +1,139 @@
+:root {
+  --primary-blue: #3498db;
+  --light-blue: #ecf5fb;
+  --white: #ffffff;
+  --dark-gray: #34495e;
+  --medium-gray: #7f8c8d;
+  --light-gray: #bdc3c7;
+  --font-family: 'Cairo', sans-serif;
+
+  /* New variables for easier theme switching */
+  --bg-color: #f8f9fa;
+  --bg-secondary-color: #ffffff;
+  --text-primary-color: #34495e;
+  --text-secondary-color: #7f8c8d;
+  --border-color: #f0f0f0;
+  --shadow-color-light: rgba(0,0,0,0.04);
+  --shadow-color: rgba(0,0,0,0.05);
+  --component-bg-color: #ecf5fb;
+  --component-text-color: #3498db;
+  --danger-color: #e74c3c;
+  --danger-shadow-color: rgba(231, 76, 60, 0.4);
+}
+
+body.dark-mode {
+  --bg-color: #1a202c;
+  --bg-secondary-color: #2d3748;
+  --text-primary-color: #e2e8f0;
+  --text-secondary-color: #a0aec0;
+  --border-color: #4a5568;
+  --shadow-color-light: rgba(0,0,0,0.1);
+  --shadow-color: rgba(0,0,0,0.15);
+  --component-bg-color: #2c3e50;
+  --component-text-color: #3498db;
+  --danger-color: #e53e3e;
+  --danger-shadow-color: rgba(229, 62, 62, 0.4);
+  
+  /* Legacy variable mapping for compatibility */
+  --light-blue: #2c3e50;
+  --white: #2d3748;
+  --dark-gray: #e2e8f0;
+  --medium-gray: #a0aec0;
+  --light-gray: #4a5568;
+}
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-primary-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- General Component Styles --- */
+.btn {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 4px 15px var(--shadow-color);
+}
+
+.btn-primary {
+  background-color: var(--primary-blue);
+  color: #ffffff; /* This text should always be white for contrast */
+}
+
+.btn-primary:active {
+  transform: translateY(2px) scale(0.98);
+  box-shadow: 0 2px 10px rgba(52, 152, 219, 0.4);
+}
+
+.btn-secondary {
+  background-color: var(--component-bg-color);
+  color: var(--component-text-color);
+}
+
+.btn-secondary:active {
+  transform: translateY(2px) scale(0.98);
+  box-shadow: 0 2px 10px var(--shadow-color);
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--component-bg-color);
+  padding: 6px 12px; /* Made fields shorter */
+  border-radius: 12px;
+}
+
+.form-group svg {
+  width: 22px;
+  height: 22px;
+  color: var(--text-secondary-color);
+  flex-shrink: 0;
+}
+
+.form-group input {
+  flex-grow: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-family);
+  font-size: 15px;
+  color: var(--text-primary-color);
+  width: 100%; /* Fix for flexbox issue in some browsers */
+}
+
+.form-group input::placeholder {
+  color: var(--text-secondary-color);
+}
+
+.form-row {
+    display: flex;
+    flex-direction: row-reverse; /* RTL support */
+    gap: 14px;
+    width: 100%;
+}
+.form-row > .form-group {
+    flex: 1;
+}

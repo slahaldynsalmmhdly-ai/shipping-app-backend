@@ -1,0 +1,179 @@
+/* --- Create Ad Screen Specific Styles --- */
+
+.ad-creation-container.app-container {
+  padding-top: 12px;
+  justify-content: flex-start;
+  background-color: var(--white);
+}
+
+.ad-creation-form-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+
+.ad-creation-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.ad-creation-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--dark-gray);
+  text-align: center;
+  margin: 0;
+}
+
+.ad-header-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--dark-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ad-header-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.header-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: end;
+}
+
+.feature-ad-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    background-color: var(--component-bg-color);
+    color: var(--component-text-color);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.feature-ad-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.feature-ad-btn.active {
+    background: linear-gradient(45deg, #f1c40f, #f39c12);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(241, 196, 15, 0.4);
+}
+
+
+.ad-header-btn.send-btn {
+    color: var(--primary-blue);
+}
+
+.ad-header-btn.send-btn:disabled {
+    color: var(--text-secondary-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.ad-creation-container .app-content {
+  width: 100%;
+  padding: 0 24px;
+  justify-content: flex-start;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.ad-creation-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 20px;
+}
+
+.form-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--dark-gray);
+  margin-bottom: -8px;
+  padding-right: 4px;
+  margin-top: 10px;
+}
+
+/* New styles for two-column layout */
+.form-row {
+    display: flex;
+    flex-direction: row-reverse; /* For RTL layout */
+    gap: 14px;
+    width: 100%;
+}
+.form-row > .form-group {
+    flex: 1;
+}
+
+
+/* --- New styles for textarea --- */
+.form-group-textarea {
+    background-color: var(--light-blue);
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group-textarea-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group-textarea-header svg {
+    width: 20px;
+    height: 20px;
+    color: var(--medium-gray);
+    flex-shrink: 0;
+}
+
+.form-group-textarea-header label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--dark-gray);
+}
+
+.ad-creation-form textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--dark-gray);
+    resize: vertical;
+    min-height: 80px;
+    padding-right: 4px;
+}
+
+.ad-creation-form textarea::placeholder {
+  color: var(--medium-gray);
+}
+
+.ad-creation-container .app-footer {
+  display: none;
+}

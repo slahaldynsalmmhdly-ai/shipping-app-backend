@@ -1,0 +1,115 @@
+/* --- Report Problem Screen Specific Styles --- */
+.report-problem-container {
+    background-color: var(--bg-secondary-color);
+}
+
+.report-problem-form-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+
+.report-problem-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 12px 20px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.report-problem-header h1 {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+
+.header-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--text-primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-action-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.header-action-btn.back-btn {
+    justify-self: start;
+}
+
+.header-action-btn.send-btn {
+    justify-self: end;
+    color: var(--primary-blue);
+}
+
+.send-btn:disabled {
+    color: var(--text-secondary-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.report-problem-content {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.report-description-box {
+    background-color: var(--component-bg-color);
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.report-description-box .form-group-textarea-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.report-description-box .form-group-textarea-header svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+    flex-shrink: 0;
+}
+
+.report-description-box .form-group-textarea-header label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.report-description-box textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    resize: vertical;
+    min-height: 120px;
+    padding-right: 4px;
+}
+
+.report-description-box textarea::placeholder {
+  color: var(--text-secondary-color);
+}

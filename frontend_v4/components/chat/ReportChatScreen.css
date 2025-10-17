@@ -1,0 +1,51 @@
+/* --- Report Chat Screen Specific Styles --- */
+.report-chat-container {
+    background-color: var(--bg-secondary-color);
+}
+
+/* Use existing report-problem-content for main layout */
+.report-chat-container .report-problem-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* User info specific to this screen */
+.reported-user-info-chat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-primary-color);
+    padding: 0 4px; /* small padding for alignment */
+}
+
+.reported-user-info-chat img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.reported-user-info-chat strong {
+    font-weight: 700;
+}
+
+/* Ensure form elements have no extra background */
+.report-chat-container .form-group-textarea {
+    background-color: transparent;
+    padding: 0;
+}
+
+.report-chat-container .report-description-box textarea {
+    background-color: var(--component-bg-color);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 150px; /* Make it taller */
+}
+
+.report-chat-container .media-upload-area {
+    background-color: var(--component-bg-color);
+    border: 2px dashed var(--border-color);
+    margin-bottom: 0; /* remove default margin */
+}

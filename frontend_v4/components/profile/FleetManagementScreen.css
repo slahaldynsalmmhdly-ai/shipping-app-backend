@@ -1,0 +1,176 @@
+/* --- Fleet Management Screen Specific Styles --- */
+.fleet-management-container {
+    background-color: var(--bg-secondary-color);
+    justify-content: flex-start;
+}
+
+.fleet-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center title */
+    position: relative;
+    padding: 12px 24px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.fleet-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.fleet-header .back-button {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.fleet-content {
+    padding: 16px 20px;
+    overflow-y: auto;
+    position: relative;
+    flex-grow: 1;
+}
+
+.fleet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.fleet-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background-color: var(--component-bg-color);
+    border-radius: 12px;
+}
+
+.fleet-item-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background-color: var(--light-gray);
+}
+
+.fleet-item-details {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.fleet-item-details h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fleet-item-details p {
+    font-size: 13px;
+    color: var(--text-secondary-color);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fleet-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.fleet-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-secondary-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.fleet-action-btn:active {
+    background-color: var(--light-gray);
+}
+
+
+.fleet-action-btn.delete {
+    color: var(--danger-color);
+}
+
+.fleet-action-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.empty-fleet {
+    text-align: center;
+    color: var(--text-secondary-color);
+    padding-top: 40px;
+}
+.empty-fleet h3 {
+    color: var(--text-primary-color);
+}
+
+
+.add-vehicle-fab {
+    position: absolute;
+    bottom: 30px;
+    left: 30px; /* For RTL, this is the correct side */
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s ease;
+    z-index: 10;
+}
+
+.add-vehicle-fab:active {
+    transform: scale(0.95);
+}
+
+.add-vehicle-fab svg {
+    width: 28px;
+    height: 28px;
+}
+
+.vehicle-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.vehicle-status-badge.available {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.vehicle-status-badge.busy {
+  background-color: #fff3cd;
+  color: #856404;
+}

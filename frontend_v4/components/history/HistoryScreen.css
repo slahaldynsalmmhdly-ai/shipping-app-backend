@@ -1,0 +1,58 @@
+/* --- History Screen Specific Styles --- */
+.history-container {
+    background-color: var(--bg-secondary-color);
+    justify-content: flex-start;
+}
+
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center title */
+    position: relative;
+    padding: 12px 24px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.history-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.history-content {
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 70px; /* Space for the global bottom nav */
+}
+
+/* Empty State */
+.empty-history {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    color: var(--text-secondary-color);
+}
+.empty-history svg {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+.empty-history h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0 0 8px;
+}
+.empty-history p {
+    font-size: 14px;
+}

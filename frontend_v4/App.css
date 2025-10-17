@@ -1,0 +1,126 @@
+.app-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+/* Base styles for all app pages */
+.app-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: var(--bg-color);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.app-wrapper.initial-load .app-container {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Base state for all screens when not active/exiting */
+.app-container:not(.page-active):not(.page-exit) {
+    display: none; /* Hide them completely to improve performance */
+    pointer-events: none;
+}
+
+
+/* --- Screen States --- */
+/* The base class for active screens */
+.page-active {
+    pointer-events: auto;
+    z-index: 2;
+    display: flex; /* Make it visible */
+}
+
+/* The base class for exiting screens */
+.page-exit {
+    pointer-events: none;
+    z-index: 1;
+    display: flex; /* Make it visible for animation */
+}
+
+/* FORWARD animations */
+.page-enter-forward {
+    animation: slideInFromLeft 0.4s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+}
+.page-exit-forward {
+    animation: slideOutToRight 0.4s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+}
+
+/* BACKWARD animations */
+.page-enter-backward {
+    animation: slideInFromRight 0.4s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+}
+.page-exit-backward {
+    animation: slideOutToLeft 0.4s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+}
+
+@keyframes slideInFromLeft {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+@keyframes slideOutToRight {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+}
+@keyframes slideInFromRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+@keyframes slideOutToLeft {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+}
+
+
+/* Special handling for splash screen to fade */
+.splash-container.page-active {
+    animation: fadeIn 0.4s ease-in-out forwards;
+}
+.splash-container.page-exit {
+    animation: fadeOut 0.4s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+
+/* Screens that have a white background instead of the default */
+.signup-container,
+.notifications-container,
+.ad-creation-container,
+.create-post-container,
+.profile-container,
+.report-post-container,
+.settings-container,
+.chat-container,
+.chat-list-container,
+.new-chat-container,
+.voice-call-container,
+.video-call-container {
+  background-color: var(--bg-secondary-color);
+}
+
+/* --- General Component Styles --- */
+.app-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 24px 20px;
+  width: 100%;
+  background-color: var(--bg-secondary-color);
+}

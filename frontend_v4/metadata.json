@@ -1,0 +1,7 @@
+{
+  "name": "Copy of",
+  "description": "An empty app",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

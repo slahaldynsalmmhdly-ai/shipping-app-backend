@@ -1,0 +1,120 @@
+/* --- New Chat Screen --- */
+.new-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.new-chat-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: var(--bg-secondary-color);
+    /* border-bottom removed for cleaner look */
+    flex-shrink: 0;
+    gap: 12px;
+}
+
+.new-chat-header .back-button {
+    /* Resetting global styles to keep the button in the flex flow */
+    position: static;
+    transform: none;
+    
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    margin-right: -10px; /* Align with edge */
+    color: var(--text-primary-color);
+}
+.new-chat-header .back-button svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* This is now the search bar inside the header */
+.new-chat-search-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--component-bg-color);
+    padding: 10px 14px;
+    border-radius: 14px;
+    width: 100%;
+    flex-grow: 1; /* Make search bar fill remaining space */
+}
+
+.new-chat-search-input svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+}
+
+.new-chat-search-input input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+}
+
+.mic-button {
+    background: var(--component-bg-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary-color);
+    flex-shrink: 0;
+    transition: background-color 0.2s ease;
+}
+
+.mic-button:active {
+    background-color: var(--light-gray);
+}
+
+.mic-button svg {
+    width: 22px;
+    height: 22px;
+}
+
+.new-chat-content {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.contact-list {
+    padding: 8px 0;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.contact-item:hover {
+    background-color: var(--component-bg-color);
+}
+
+.contact-item-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.contact-item-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}

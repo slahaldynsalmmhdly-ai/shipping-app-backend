@@ -1,0 +1,146 @@
+/* --- Voice Call Screen Styles --- */
+.voice-call-container {
+    /* A beautiful, subtle dark gradient background */
+    background: linear-gradient(160deg, #3a506b 0%, #1c2541 100%);
+}
+
+.voice-call-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 80px 24px 60px; /* More top padding, less bottom */
+    height: 100%;
+    color: #ffffff;
+}
+
+.caller-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
+.avatar-animation-wrapper {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.caller-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+    position: relative;
+    z-index: 2;
+}
+
+/* Pulsating Ring Animation */
+.pulse-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    animation: pulse 2.5s ease-out infinite;
+    z-index: 1;
+}
+
+.pulse-ring.delay-1 {
+    animation-delay: 0.8s;
+}
+.pulse-ring.delay-2 {
+    animation-delay: 1.6s;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+.caller-name {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.call-status {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-family: monospace; /* Gives the timer a techy feel */
+    letter-spacing: 1px;
+}
+
+.call-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+}
+
+.control-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.control-btn:active {
+    transform: scale(0.9);
+}
+
+.control-btn.active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.control-btn.record-active {
+    color: #e74c3c;
+}
+
+.control-btn svg {
+    width: 32px;
+    height: 32px;
+}
+
+.end-call-btn {
+    background-color: #e74c3c;
+    transform-origin: center;
+    animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounce-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.end-call-btn svg {
+    transform: rotate(135deg);
+}

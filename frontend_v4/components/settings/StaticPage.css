@@ -1,0 +1,144 @@
+.static-page-container {
+    background-color: var(--bg-secondary-color);
+}
+
+.static-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 12px 24px;
+    width: 100%;
+    flex-shrink: 0;
+    /* Removed bottom border for a seamless look */
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+
+.static-page-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+
+.static-page-header .back-button {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.static-page-content {
+    padding: 24px 24px 40px; /* Increased bottom padding */
+    overflow-y: auto;
+    color: var(--text-primary-color);
+    line-height: 1.7;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.static-page-content.centered-content {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.static-page-content h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.static-page-content p {
+    font-size: 15px;
+    margin-bottom: 16px;
+    color: var(--text-secondary-color);
+}
+
+/* About App Page Specifics */
+.about-app-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+.about-app-logo .logo-icon {
+    width: 70px;
+    height: 70px;
+    color: var(--primary-blue);
+}
+.about-app-logo h2 {
+    border: none;
+    margin: 0;
+}
+.about-app-logo p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Help Center Page Specifics */
+.faq-item {
+    margin-bottom: 20px;
+}
+.faq-item h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin-bottom: 8px;
+}
+
+/* Warnings Page Specifics */
+.warning-intro {
+    font-size: 16px !important;
+    font-weight: 700;
+    color: var(--text-primary-color) !important;
+    margin-bottom: 24px !important;
+    text-align: right;
+}
+
+.warnings-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.warning-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background-color: var(--component-bg-color);
+    padding: 16px;
+    border-radius: 12px;
+    border-right: 5px solid var(--danger-color); /* For RTL */
+}
+
+.warning-icon {
+    flex-shrink: 0;
+    color: var(--danger-color);
+}
+
+.warning-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.warning-text h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0 0 4px;
+}
+
+.warning-text p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary-color);
+}

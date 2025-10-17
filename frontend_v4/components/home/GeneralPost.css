@@ -1,0 +1,67 @@
+/* components/home/GeneralPost.css */
+.general-post .general-post-header {
+    padding: 12px 16px;
+    position: relative;
+    display: flex;
+}
+
+.general-post .post-header-actions {
+    position: absolute;
+    top: 8px;
+    left: 8px; /* For RTL */
+}
+
+.general-post .post-identity {
+    flex-direction: row;
+    gap: 12px;
+}
+
+.general-post .post-avatar {
+    width: 44px;
+    height: 44px;
+    border: none;
+}
+
+.general-post .post-author-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.general-post .post-company-name {
+    font-size: 15px;
+    margin: 0;
+}
+
+.general-post .post-time {
+    position: static;
+    font-size: 12px;
+}
+
+.general-post-body {
+    padding: 0;
+}
+
+.general-post-body .post-text-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-primary-color);
+    padding: 4px 16px 12px;
+    margin: 0;
+    white-space: pre-wrap; /* To respect newlines */
+}
+
+.post-media-container {
+    max-height: 500px;
+    background-color: var(--component-bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.post-media-content {
+    display: block;
+    width: 100%;
+    max-height: 500px;
+    object-fit: contain; /* Use contain to see the whole media */
+}

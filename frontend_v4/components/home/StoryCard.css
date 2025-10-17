@@ -1,0 +1,74 @@
+.story-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 70px; /* Fixed width for each card */
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.story-avatar-wrapper {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #8a2be2, #4169e1, #00ffff); /* Story ring gradient */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px;
+    transition: transform 0.2s ease;
+}
+
+.story-card:active .story-avatar-wrapper {
+    transform: scale(0.95);
+}
+
+.story-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid var(--white); /* Inner border to separate from gradient */
+}
+
+.story-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--white);
+    text-align: center;
+    width: 100%;
+    margin: 0;
+    line-height: 1.3;
+    /* Allow text to wrap and clamp to 2 lines */
+    height: 29px; /* Approx 11px * 1.3 * 2 lines */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word; /* Break long words if necessary */
+}
+
+/* Add Story Variant */
+.story-avatar-wrapper.add-story {
+    background: none;
+    padding: 0;
+}
+
+.add-story-icon {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 2px dashed #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.add-story-icon svg {
+    width: 24px;
+    height: 24px;
+    color: #ffffff;
+}

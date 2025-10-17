@@ -1,0 +1,158 @@
+/* --- Video Call Screen Styles --- */
+.video-call-container {
+    background-color: #1a1a1a; /* Dark background for the call */
+    color: #ffffff;
+    overflow: hidden; /* Prevent elements from overflowing */
+    position: relative;
+}
+
+.video-background-blurry {
+    position: absolute;
+    top: -5%;
+    left: -5%;
+    width: 110%;
+    height: 110%;
+    object-fit: cover;
+    filter: blur(25px) brightness(0.6);
+    transform: scale(1.1);
+    z-index: 0;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1;
+}
+
+.video-call-header,
+.video-call-content,
+.video-controls-footer {
+    position: relative;
+    z-index: 2;
+}
+
+.video-call-header {
+    padding-top: 20px;
+    width: 100%;
+    text-align: center;
+}
+
+.caller-info-top {
+    display: inline-block;
+    background: rgba(0,0,0,0.3);
+    padding: 6px 16px;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.caller-info-top h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.caller-info-top p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+.video-call-content {
+    flex-grow: 1;
+    position: relative;
+}
+
+.self-view-pip {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 100px;
+    height: 133px; /* Changed for 3:4 aspect ratio */
+    background-color: #333;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.self-view-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-off-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.camera-off-overlay svg {
+    width: 40px;
+    height: 40px;
+    color: rgba(255,255,255,0.7);
+}
+
+
+.video-controls-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    flex-shrink: 0;
+}
+
+.video-control-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25); /* Added subtle border */
+    background-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.video-control-btn:active {
+    transform: scale(0.9);
+}
+
+.video-control-btn.active {
+    background-color: var(--primary-blue);
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.5); /* Added glow effect */
+}
+
+.video-control-btn svg {
+    width: 28px;
+    height: 28px;
+}
+
+.end-call-btn {
+    background-color: #e74c3c;
+    width: 68px;
+    height: 68px;
+}
+
+.end-call-btn:active {
+    background-color: #c0392b;
+}
+
+.end-call-btn svg {
+     transform: rotate(135deg);
+}

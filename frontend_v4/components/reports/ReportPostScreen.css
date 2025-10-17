@@ -1,0 +1,193 @@
+/* --- Report Post Screen Specific Styles --- */
+.report-post-container {
+    background-color: var(--bg-secondary-color);
+}
+
+.report-post-container .form-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary-color);
+  margin-bottom: -8px;
+  padding-right: 4px;
+  margin-top: 10px;
+}
+
+.report-post-container .form-row {
+    display: flex;
+    flex-direction: row-reverse; /* For RTL layout */
+    gap: 14px;
+    width: 100%;
+}
+.report-post-container .form-row > .form-group {
+    flex: 1;
+}
+
+.reported-post-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background-color: var(--component-bg-color);
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--text-primary-color);
+}
+
+.reported-post-info img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.reported-post-info strong {
+    font-weight: 700;
+}
+
+/* Select dropdown styling */
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: '▼';
+    font-size: 12px;
+    color: var(--text-secondary-color);
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.select-wrapper select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.select-wrapper select:invalid {
+  color: var(--text-secondary-color);
+}
+
+/* Word counter */
+.word-counter {
+    text-align: left; /* for RTL */
+    font-size: 12px;
+    color: var(--text-secondary-color);
+    margin-top: -4px;
+    padding: 0 4px;
+}
+
+.word-counter.exceeded {
+    color: var(--danger-color);
+    font-weight: 700;
+}
+
+.report-post-container .report-problem-form-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+.report-post-container .report-problem-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 12px 20px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    z-index: 5;
+}
+.report-post-container .report-problem-header h1 {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+    margin: 0;
+}
+.report-post-container .header-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--text-primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.report-post-container .header-action-btn svg {
+    width: 24px;
+    height: 24px;
+}
+.report-post-container .header-action-btn.back-btn {
+    justify-self: start;
+}
+.report-post-container .header-action-btn.send-btn {
+    justify-self: end;
+    color: var(--primary-blue);
+}
+.report-post-container .send-btn:disabled {
+    color: var(--text-secondary-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Reverted styles */
+.report-problem-content {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.report-post-container .report-description-box {
+    background-color: var(--component-bg-color);
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.report-post-container .report-description-box .form-group-textarea-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.report-post-container .report-description-box .form-group-textarea-header svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary-color);
+    flex-shrink: 0;
+}
+.report-post-container .report-description-box .form-group-textarea-header label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary-color);
+}
+.report-post-container .report-description-box textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 15px;
+    color: var(--text-primary-color);
+    resize: vertical;
+    min-height: 80px;
+    padding-right: 4px;
+}
+.report-post-container .report-description-box textarea::placeholder {
+  color: var(--text-secondary-color);
+}
