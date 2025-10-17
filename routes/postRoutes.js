@@ -27,7 +27,8 @@ router.post('/', protect, async (req, res) => {
     const post = await newPost.save();
     res.status(201).json(post);
   } catch (err) {
-    console.error(err.message); res.status(500).json({ message: \'Server Error\', error: err.message });
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 
@@ -39,7 +40,8 @@ router.get('/', protect, async (req, res) => {
     const posts = await Post.find().sort({ createdAt: -1 }).populate('user', ['name', 'avatar']);
     res.json(posts);
   } catch (err) {
-    console.error(err.message); res.status(500).json({ message: \'Server Error\', error: err.message });
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 
@@ -59,7 +61,8 @@ router.get('/:id', protect, async (req, res) => {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
       return res.status(404).json({ msg: 'Post not found' });
-        res.status(500).json({ message: \'Server Error\', error: err.message });
+    }
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 
@@ -87,7 +90,8 @@ router.delete('/:id', protect, async (req, res) => {
     if (err.kind === 'ObjectId') {
       return res.status(404).json({ msg: 'Post not found' });
     }
-    res.status(500).json({ message: \'Server Error\', error: err.message });
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
 });
 
 // @desc    Add/Remove a reaction to a post
@@ -179,7 +183,8 @@ router.post("/:id/comment", protect, async (req, res) => {
       });
     res.json(updatedPost);
   } catch (err) {
-    console.error(err.message); res.status(500).json({ message: \'Server Error\', error: err.message });
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 
@@ -324,7 +329,8 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
     res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
-   res.status(500).json({ message: \'Server Error\', error: err.message });  }
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
 });
 
 // @desc    Delete a reply from a comment
@@ -371,7 +377,8 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
     res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: \'Server Error\', error: err.message });
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
 });
 
 module.exports = router;
