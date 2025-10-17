@@ -27,7 +27,7 @@ const storage = new CloudinaryStorage({
     }
     return {
       folder: folder,
-      format: file.mimetype.split("/")[1], // Use original file format
+      format: file.mimetype.startsWith("image") ? file.mimetype.split("/")[1] : undefined, // Let Cloudinary handle video format automatically
       public_id: `${folder.split("/").pop()}-${Date.now()}`,
     };
   },
