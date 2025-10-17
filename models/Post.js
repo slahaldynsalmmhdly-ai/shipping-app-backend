@@ -15,7 +15,7 @@ const PostSchema = new mongoose.Schema({
       url: String,
       type: { type: String, enum: ['image', 'video'] }, // 'image' or 'video'
     },
-  },
+  ],
   reactions: [
     {
       user: {
