@@ -17,7 +17,7 @@ router.post(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel } = req.body;
+    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel, status } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -43,6 +43,7 @@ router.post(
       currentLocation,
       vehicleColor,
       vehicleModel,
+      status: status || "متاح",
     });
 
     const createdVehicle = await vehicle.save();
@@ -80,7 +81,7 @@ router.put(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel } = req.body;
+    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel, status } = req.body;
 
     const vehicle = await Vehicle.findById(req.params.vehicleId);
 
@@ -98,6 +99,7 @@ router.put(
       vehicle.currentLocation = currentLocation || vehicle.currentLocation;
       vehicle.vehicleColor = vehicleColor || vehicle.vehicleColor;
       vehicle.vehicleModel = vehicleModel || vehicle.vehicleModel;
+      vehicle.status = status || vehicle.status;
 
       const updatedVehicle = await vehicle.save();
       res.json(updatedVehicle);

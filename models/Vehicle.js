@@ -39,6 +39,11 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  status: {
+    type: String,
+    enum: ["متاح", "في العمل"],
+    default: "متاح",
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Vehicle", VehicleSchema);
