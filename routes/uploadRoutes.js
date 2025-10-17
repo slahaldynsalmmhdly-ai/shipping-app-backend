@@ -1,69 +1,81 @@
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// Configure multer for file storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir); // Store files in the 'uploads' directory
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+// Configure Cloudinary storage for Multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    let folder;
+    if (file.mimetype.startsWith("image")) {
+      folder = "shipping-app/images";
+    } else if (file.mimetype.startsWith("video")) {
+      folder = "shipping-app/videos";
+    } else {
+      folder = "shipping-app/others";
+    }
+    return {
+      folder: folder,
+      format: file.mimetype.startsWith("image") ? "jpg" : "mp4", // Default format
+      public_id: `${folder.split("/").pop()}-${Date.now()}`,
+    };
   },
 });
 
-// Filter for image files
+// Filter for image and video files
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image")) {
+  if (file.mimetype.startsWith("image") || file.mimetype.startsWith("video")) {
     cb(null, true);
   } else {
-    cb(new Error("Only image files are allowed!"), false);
+    cb(new Error("Only image and video files are allowed!"), false);
   }
 };
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
-// @desc    Upload single image
-// @route   POST /api/upload/image
+// @desc    Upload single image/video
+// @route   POST /api/upload/single
 // @access  Private
-router.post("/image", protect, upload.single("image"), (req, res) => {
+router.post("/single", protect, upload.single("file"), (req, res) => {
   if (req.file) {
-    // Return the URL of the uploaded image
-    // In a production environment, this would be a public URL from a cloud storage service
-    // For local development, we'll return a path that can be served statically
     res.json({
-      message: "Image uploaded successfully",
-      filePath: `/uploads/${req.file.filename}`,
+      message: "File uploaded successfully",
+      filePath: req.file.path, // Cloudinary URL
+      fileType: req.file.mimetype.startsWith("image") ? "image" : "video",
     });
   } else {
-    res.status(400).json({ message: "No image file provided" });
+    res.status(400).json({ message: "No file provided" });
   }
 });
 
-// @desc    Upload multiple images (e.g., for fleet)
-// @route   POST /api/upload/multiple-images
+// @desc    Upload multiple images/videos
+// @route   POST /api/upload/multiple
 // @access  Private
-router.post("/multiple-images", protect, upload.array("images", 10), (req, res) => {
+router.post("/multiple", protect, upload.array("files", 10), (req, res) => {
   if (req.files && req.files.length > 0) {
-    const filePaths = req.files.map(file => `/uploads/${file.filename}`);
+    const filePaths = req.files.map((file) => file.path); // Cloudinary URLs
+    const fileTypes = req.files.map((file) =>
+      file.mimetype.startsWith("image") ? "image" : "video"
+    );
     res.json({
-      message: "Images uploaded successfully",
+      message: "Files uploaded successfully",
       filePaths: filePaths,
+      fileTypes: fileTypes,
     });
   } else {
-    res.status(400).json({ message: "No image files provided" });
+    res.status(400).json({ message: "No files provided" });
   }
 });
 
 module.exports = router;
-
