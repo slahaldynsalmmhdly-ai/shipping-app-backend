@@ -132,6 +132,54 @@ router.post("/:id/repost", protect, async (req, res) => {
   }
 });
 
+// @desc    Add/Remove a reaction to a shipment ad
+// @route   PUT /api/v1/shipmentads/:id/react
+// @access  Private
+router.put("/:id/react", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const { reactionType } = req.body;
+    if (!reactionType || !["like"].includes(reactionType)) {
+      return res.status(400).json({ msg: "Invalid reaction type" });
+    }
+
+    // Check if the user has already reacted
+    const existingReactionIndex = shipmentAd.reactions.findIndex(
+      (reaction) => reaction.user.toString() === req.user.id
+    );
+
+    if (existingReactionIndex > -1) {
+      // User has already reacted, check if it's the same reaction type
+      if (shipmentAd.reactions[existingReactionIndex].type === reactionType) {
+        // Same reaction type, remove it (toggle off)
+        shipmentAd.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // Different reaction type, update it
+        shipmentAd.reactions[existingReactionIndex].type = reactionType;
+      }
+    } else {
+      // User has not reacted, add new reaction
+      shipmentAd.reactions.unshift({ user: req.user.id, type: reactionType });
+    }
+
+    shipmentAd.markModified("reactions");
+    await shipmentAd.save();
+
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", ["name", "avatar"])
+      .populate("reactions.user", ["name", "avatar"]);
+
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 // @desc    Delete a shipment ad
 // @route   DELETE /api/v1/shipmentads/:id
 // @access  Private

@@ -32,6 +32,19 @@ const ShipmentAdSchema = new mongoose.Schema({
       type: { type: String, enum: ["image", "video"] }, // 'image' or 'video'
     },
   ],
+  reactions: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      type: {
+        type: String,
+        enum: ["like"],
+        required: true,
+      },
+    },
+  ],
   createdAt: {
     type: Date,
     default: Date.now,
