@@ -42,6 +42,21 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
+// @desc    Get all shipment ads by a specific user
+// @route   GET /api/v1/shipmentads/user/:userId
+// @access  Private
+router.get("/user/:userId", protect, async (req, res) => {
+  try {
+    const shipmentAds = await ShipmentAd.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate("user", ["name", "avatar"]);
+    res.json(shipmentAds);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 // @desc    Get all shipment ads
 // @route   GET /api/v1/shipmentads
 // @access  Private

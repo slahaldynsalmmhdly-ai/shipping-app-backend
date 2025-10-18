@@ -32,6 +32,19 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// @desc    Get all posts by a specific user
+// @route   GET /api/v1/posts/user/:userId
+// @access  Private
+router.get('/user/:userId', protect, async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.params.userId }).sort({ createdAt: -1 }).populate('user', ['name', 'avatar']);
+    res.json(posts);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 // @desc    Get all posts
 // @route   GET /api/v1/posts
 // @access  Private

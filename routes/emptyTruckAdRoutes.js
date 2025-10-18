@@ -30,6 +30,20 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
+// @desc    Get all empty truck ads by a specific user
+// @route   GET /api/v1/emptytruckads/user/:userId
+// @access  Private
+router.get("/user/:userId", protect, async (req, res) => {
+  try {
+    const emptyTruckAds = await EmptyTruckAd.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate("user", "name avatar");
+    res.status(200).json(emptyTruckAds);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @desc    Get all empty truck ads
 // @route   GET /api/v1/emptytruckads
 // @access  Private
