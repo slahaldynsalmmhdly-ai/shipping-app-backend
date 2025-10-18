@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
+const User = require("../models/User");
 
 // @desc    Create a new empty truck ad
 // @route   POST /api/v1/emptytruckads
@@ -160,6 +161,231 @@ router.delete("/:id", protect, async (req, res) => {
     res.status(200).json({ message: "Empty truck ad removed" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Add a comment to an empty truck ad
+// @route   POST /api/v1/emptytruckads/:id/comment
+// @access  Private
+router.post("/:id/comment", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const newComment = {
+      user: req.user.id,
+      text: req.body.text,
+    };
+
+    emptyTruckAd.comments.unshift(newComment);
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+});
+
+// @desc    Delete a comment from an empty truck ad
+// @route   DELETE /api/v1/emptytruckads/:id/comment/:comment_id
+// @access  Private
+router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const comment = emptyTruckAd.comments.find(
+      (comment) => comment.id === req.params.comment_id
+    );
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment does not exist" });
+    }
+
+    if (comment.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "User not authorized" });
+    }
+
+    const removeIndex = emptyTruckAd.comments
+      .map((comment) => comment._id.toString())
+      .indexOf(req.params.comment_id);
+
+    emptyTruckAd.comments.splice(removeIndex, 1);
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// @desc    Like a comment on an empty truck ad
+// @route   PUT /api/v1/emptytruckads/:id/comment/:comment_id/like
+// @access  Private
+router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    if (
+      comment.likes.filter((like) => like.user.toString() === req.user.id)
+        .length > 0
+    ) {
+      comment.likes = comment.likes.filter(
+        (like) => like.user.toString() !== req.user.id
+      );
+    } else {
+      comment.likes.unshift({ user: req.user.id });
+    }
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// @desc    Reply to a comment on an empty truck ad
+// @route   POST /api/v1/emptytruckads/:id/comment/:comment_id/reply
+// @access  Private
+router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    const newReply = {
+      user: req.user.id,
+      text: req.body.text,
+    };
+
+    comment.replies.unshift(newReply);
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+});
+
+// @desc    Delete a reply from a comment on an empty truck ad
+// @route   DELETE /api/v1/emptytruckads/:id/comment/:comment_id/reply/:reply_id
+// @access  Private
+router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) {
+      return res.status(404).json({ message: "Reply not found" });
+    }
+
+    if (reply.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "User not authorized" });
+    }
+
+    comment.replies = comment.replies.filter(
+      (r) => r._id.toString() !== req.params.reply_id
+    );
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
 });
 

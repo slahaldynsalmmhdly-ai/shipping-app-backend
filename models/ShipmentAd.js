@@ -45,6 +45,48 @@ const ShipmentAdSchema = new mongoose.Schema({
       },
     },
   ],
+  comments: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      text: String,
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+      likes: [
+        {
+          user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+        },
+      ],
+      replies: [
+        {
+          user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+          text: String,
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+          likes: [
+            {
+              user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
   createdAt: {
     type: Date,
     default: Date.now,

@@ -180,6 +180,231 @@ router.put("/:id/react", protect, async (req, res) => {
   }
 });
 
+// @desc    Add a comment to a shipment ad
+// @route   POST /api/v1/shipmentads/:id/comment
+// @access  Private
+router.post("/:id/comment", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const newComment = {
+      user: req.user.id,
+      text: req.body.text,
+    };
+
+    shipmentAd.comments.unshift(newComment);
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Delete a comment from a shipment ad
+// @route   DELETE /api/v1/shipmentads/:id/comment/:comment_id
+// @access  Private
+router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const comment = shipmentAd.comments.find(
+      (comment) => comment.id === req.params.comment_id
+    );
+
+    if (!comment) {
+      return res.status(404).json({ msg: "Comment does not exist" });
+    }
+
+    if (comment.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "User not authorized" });
+    }
+
+    const removeIndex = shipmentAd.comments
+      .map((comment) => comment._id.toString())
+      .indexOf(req.params.comment_id);
+
+    shipmentAd.comments.splice(removeIndex, 1);
+
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Like a comment on a shipment ad
+// @route   PUT /api/v1/shipmentads/:id/comment/:comment_id/like
+// @access  Private
+router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const comment = shipmentAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ msg: "Comment not found" });
+    }
+
+    if (
+      comment.likes.filter((like) => like.user.toString() === req.user.id)
+        .length > 0
+    ) {
+      comment.likes = comment.likes.filter(
+        (like) => like.user.toString() !== req.user.id
+      );
+    } else {
+      comment.likes.unshift({ user: req.user.id });
+    }
+
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Reply to a comment on a shipment ad
+// @route   POST /api/v1/shipmentads/:id/comment/:comment_id/reply
+// @access  Private
+router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const comment = shipmentAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ msg: "Comment not found" });
+    }
+
+    const newReply = {
+      user: req.user.id,
+      text: req.body.text,
+    };
+
+    comment.replies.unshift(newReply);
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Delete a reply from a comment on a shipment ad
+// @route   DELETE /api/v1/shipmentads/:id/comment/:comment_id/reply/:reply_id
+// @access  Private
+router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const comment = shipmentAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ msg: "Comment not found" });
+    }
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) {
+      return res.status(404).json({ msg: "Reply not found" });
+    }
+
+    if (reply.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "User not authorized" });
+    }
+
+    comment.replies = comment.replies.filter(
+      (r) => r._id.toString() !== req.params.reply_id
+    );
+
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 // @desc    Delete a shipment ad
 // @route   DELETE /api/v1/shipmentads/:id
 // @access  Private
