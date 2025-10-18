@@ -24,7 +24,7 @@ const PostSchema = new mongoose.Schema({
       },
       type: {
         type: String,
-        enum: ['like', 'love', 'haha', 'wow', 'sad', 'angry'], // Example reaction types
+        enum: ['like'], // Only like reaction type
       },
     },
   ],

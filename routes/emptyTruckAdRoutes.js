@@ -143,7 +143,7 @@ router.put("/:id/react", protect, async (req, res) => {
     }
 
     const { reactionType } = req.body;
-    if (!reactionType || !["like", "love", "haha", "wow", "sad", "angry"].includes(reactionType)) {
+    if (!reactionType || !["like"].includes(reactionType)) {
       return res.status(400).json({ msg: "Invalid reaction type" });
     }
 

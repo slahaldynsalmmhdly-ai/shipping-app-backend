@@ -40,7 +40,7 @@ const EmptyTruckAdSchema = mongoose.Schema(
         },
         type: {
           type: String,
-          enum: ['like', 'love', 'haha', 'wow', 'sad', 'angry'],
+          enum: ['like'],
           required: true,
         },
       },
