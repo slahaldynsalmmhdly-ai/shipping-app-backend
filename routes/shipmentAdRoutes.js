@@ -77,10 +77,16 @@ router.get("/", protect, async (req, res) => {
 // @access  Private
 router.get("/:id", protect, async (req, res) => {
   try {
-    const shipmentAd = await ShipmentAd.findById(req.params.id).populate(
-      "user",
-      ["name", "avatar"]
-    );
+    const shipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", ["name", "avatar"])
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
 
     if (!shipmentAd) {
       return res.status(404).json({ msg: "Shipment ad not found" });

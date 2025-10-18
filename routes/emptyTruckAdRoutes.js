@@ -394,7 +394,16 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
 // @access  Private
 router.get("/:id", protect, async (req, res) => {
   try {
-    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id).populate("user", "name avatar");
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
 
     if (!emptyTruckAd) {
       return res.status(404).json({ message: "Empty truck ad not found" });

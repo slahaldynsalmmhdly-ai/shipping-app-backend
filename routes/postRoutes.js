@@ -378,7 +378,16 @@ router.delete('/:id', protect, async (req, res) => {
 // @access  Private
 router.get('/:id', protect, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate('user', ['name', 'avatar']);
+    const post = await Post.findById(req.params.id)
+      .populate('user', ['name', 'avatar'])
+      .populate({
+        path: 'comments.user',
+        select: 'name avatar'
+      })
+      .populate({
+        path: 'comments.replies.user',
+        select: 'name avatar'
+      });
 
     if (!post) {
       return res.status(404).json({ msg: 'Post not found' });
