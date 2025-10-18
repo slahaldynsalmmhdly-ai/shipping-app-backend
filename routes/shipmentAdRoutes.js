@@ -96,6 +96,42 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+// @desc    Repost a shipment ad (create a copy with new date)
+// @route   POST /api/v1/shipmentads/:id/repost
+// @access  Private
+router.post("/:id/repost", protect, async (req, res) => {
+  try {
+    const originalAd = await ShipmentAd.findById(req.params.id);
+
+    if (!originalAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    // Check user authorization
+    if (originalAd.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "User not authorized" });
+    }
+
+    // Create a new ad with the same data but new createdAt
+    const repostedAd = new ShipmentAd({
+      user: originalAd.user,
+      pickupLocation: originalAd.pickupLocation,
+      deliveryLocation: originalAd.deliveryLocation,
+      pickupDate: originalAd.pickupDate,
+      truckType: originalAd.truckType,
+      description: originalAd.description,
+      media: originalAd.media,
+    });
+
+    await repostedAd.save();
+    const populatedAd = await ShipmentAd.findById(repostedAd._id).populate("user", ["name", "avatar"]);
+    res.status(201).json(populatedAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 // @desc    Delete a shipment ad
 // @route   DELETE /api/v1/shipmentads/:id
 // @access  Private

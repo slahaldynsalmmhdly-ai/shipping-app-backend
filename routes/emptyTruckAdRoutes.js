@@ -73,6 +73,41 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+// // @desc    Repost an empty truck ad (create a copy with new date)
+// @route   POST /api/v1/emptytruckads/:id/repost
+// @access  Private
+router.post("/:id/repost", protect, async (req, res) => {
+  try {
+    const originalAd = await EmptyTruckAd.findById(req.params.id);
+
+    if (!originalAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    // Check user authorization
+    if (originalAd.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "User not authorized" });
+    }
+
+    // Create a new ad with the same data but new createdAt
+    const repostedAd = await EmptyTruckAd.create({
+      user: originalAd.user,
+      currentLocation: originalAd.currentLocation,
+      preferredDestination: originalAd.preferredDestination,
+      availabilityDate: originalAd.availabilityDate,
+      truckType: originalAd.truckType,
+      additionalNotes: originalAd.additionalNotes,
+      media: originalAd.media,
+      reactions: [], // Reset reactions for new post
+    });
+
+    const populatedAd = await EmptyTruckAd.findById(repostedAd._id).populate("user", "name avatar");
+    res.status(201).json(populatedAd);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @desc    Delete empty truck ad
 // @route   DELETE /api/v1/emptytruckads/:id
 // @access  Private
