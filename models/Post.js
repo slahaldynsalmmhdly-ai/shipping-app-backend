@@ -8,7 +8,10 @@ const PostSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true,
+    required: function() {
+      // Text is required only for regular posts, not for reposts
+      return !this.isRepost;
+    },
   },
   media: [
     {
