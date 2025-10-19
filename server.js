@@ -10,6 +10,7 @@ const uploadRoutes = require("./routes/uploadRoutes"); // Added uploadRoutes
 const postRoutes = require("./routes/postRoutes"); // Added postRoutes
 const shipmentAdRoutes = require("./routes/shipmentAdRoutes"); // Added shipmentAdRoutes
 const emptyTruckAdRoutes = require("./routes/emptyTruckAdRoutes"); // Added emptyTruckAdRoutes
+const userRoutes = require("./routes/userRoutes"); // Added userRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -55,6 +56,7 @@ app.use("/api/upload", uploadRoutes); // Mount upload routes
 app.use("/api/v1/posts", postRoutes); // Mount post routes
 app.use("/api/v1/shipmentads", shipmentAdRoutes); // Mount shipment ad routes
 app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad routes
+app.use("/api/v1/users", userRoutes); // Mount user routes
 
 // Catch-all for 404 Not Found - MUST be before error handling middleware
 app.use((req, res, next) => {

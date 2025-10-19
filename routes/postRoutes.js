@@ -102,13 +102,40 @@ router.put("/:id/react", protect, async (req, res) => {
       if (post.reactions[existingReactionIndex].type === reactionType) {
         // Same reaction type, remove it (toggle off)
         post.reactions.splice(existingReactionIndex, 1);
+
+        // Remove notification for the post owner
+        if (post.user.toString() !== req.user.id) {
+          const postOwner = await User.findById(post.user);
+          if (postOwner) {
+            postOwner.notifications = postOwner.notifications.filter(
+              (notif) =>
+                !(notif.type === 'like' &&
+                  notif.sender.toString() === req.user.id &&
+                  notif.post.toString() === post._id.toString())
+            );
+            await postOwner.save();
+          }
+        }
       } else {
         // Different reaction type, update it
         post.reactions[existingReactionIndex].type = reactionType;
       }
     } else {
       // User has not reacted, add new reaction
-      post.reactions.unshift({ user: req.user.id, type: reactionType });
+        post.reactions.unshift({ user: req.user.id, type: reactionType });
+
+        // Create notification for the post owner if not self-liking
+        if (post.user.toString() !== req.user.id) {
+          const postOwner = await User.findById(post.user);
+          if (postOwner) {
+            postOwner.notifications.unshift({
+              type: 'like',
+              sender: req.user.id,
+              post: post._id,
+            });
+            await postOwner.save();
+          }
+        }
     }
 
     post.markModified("reactions");

@@ -76,6 +76,33 @@ const UserSchema = new mongoose.Schema({
   fleetImages: [
     { type: String } // Array of URLs to fleet images
   ],
+  notifications: [
+    {
+      type: {
+        type: String,
+        enum: ['like', 'new_post'], // Add other notification types as needed
+        required: true,
+      },
+      sender: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      post: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Post',
+      },
+
+      read: {
+        type: Boolean,
+        default: false,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 }, { timestamps: true });
 
 // Hash password before saving
