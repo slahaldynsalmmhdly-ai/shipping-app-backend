@@ -1,6 +1,7 @@
 
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
@@ -37,7 +38,16 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.get('/user/:userId', protect, async (req, res) => {
   try {
-    const posts = await Post.find({ user: req.params.userId }).sort({ createdAt: -1 }).populate('user', ['name', 'avatar']);
+    const posts = await Post.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate('user', ['name', 'avatar'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      });
     res.json(posts);
   } catch (err) {
     console.error(err.message);
@@ -50,7 +60,16 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).populate('user', ['name', 'avatar']);
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .populate('user', ['name', 'avatar'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      });
     res.json(posts);
   } catch (err) {
     console.error(err.message);
@@ -434,6 +453,13 @@ router.get('/:id', protect, async (req, res) => {
     const post = await Post.findById(req.params.id)
       .populate('user', ['name', 'avatar'])
       .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      })
+      .populate({
         path: 'comments.user',
         select: 'name avatar'
       })
@@ -451,6 +477,85 @@ router.get('/:id', protect, async (req, res) => {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
       return res.status(404).json({ msg: 'Post not found' });
+    }
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Repost a post, shipment ad, or empty truck ad
+// @route   POST /api/v1/posts/repost
+// @access  Private
+router.post('/repost', protect, async (req, res) => {
+  try {
+    const { text, originalPostId, originalPostType } = req.body;
+
+    // Validate required fields
+    if (!originalPostId || !originalPostType) {
+      return res.status(400).json({ msg: 'Original post ID and type are required' });
+    }
+
+    // Validate originalPostType
+    const validTypes = ['post', 'shipmentAd', 'emptyTruckAd'];
+    if (!validTypes.includes(originalPostType)) {
+      return res.status(400).json({ msg: 'Invalid original post type' });
+    }
+
+    // Map the type to the model name
+    const modelMap = {
+      'post': 'Post',
+      'shipmentAd': 'ShipmentAd',
+      'emptyTruckAd': 'EmptyTruckAd'
+    };
+    const modelName = modelMap[originalPostType];
+
+    // Check if the original post exists
+    const Model = mongoose.model(modelName);
+    const originalPost = await Model.findById(originalPostId);
+    if (!originalPost) {
+      return res.status(404).json({ msg: 'Original post not found' });
+    }
+
+    // Check if user has already reposted this content
+    const existingRepost = await Post.findOne({
+      user: req.user.id,
+      isRepost: true,
+      originalPost: originalPostId,
+      originalPostType: modelName
+    });
+
+    if (existingRepost) {
+      return res.status(400).json({ msg: 'You have already reposted this content' });
+    }
+
+    // Create the repost
+    const newRepost = new Post({
+      user: req.user.id,
+      text: text || '', // Optional comment on the repost
+      isRepost: true,
+      originalPost: originalPostId,
+      originalPostType: modelName,
+      repostText: text || '',
+      media: [] // Reposts don't have their own media
+    });
+
+    const savedRepost = await newRepost.save();
+    
+    // Populate user info before sending response
+    const populatedRepost = await Post.findById(savedRepost._id)
+      .populate('user', ['name', 'avatar'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      });
+
+    res.status(201).json(populatedRepost);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Original post not found' });
     }
     res.status(500).json({ message: 'Server Error', error: err.message });
   }

@@ -74,6 +74,22 @@ const PostSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // Repost fields
+  isRepost: {
+    type: Boolean,
+    default: false,
+  },
+  originalPost: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'originalPostType',
+  },
+  originalPostType: {
+    type: String,
+    enum: ['Post', 'ShipmentAd', 'EmptyTruckAd'],
+  },
+  repostText: {
+    type: String,
+  },
 });
 
 module.exports = mongoose.model('Post', PostSchema);
