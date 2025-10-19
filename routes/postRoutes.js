@@ -300,7 +300,7 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
 // @desc    Like a reply
 // @route   PUT /api/v1/posts/:id/comment/:comment_id/reply/:reply_id/like
 // @access  Private
-router.put(":id/comment/:comment_id/reply/:reply_id/like", protect, async (req, res) => {
+router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) {
