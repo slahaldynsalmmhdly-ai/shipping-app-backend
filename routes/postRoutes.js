@@ -353,7 +353,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
 // @desc    Delete a reply from a comment
 // @route   DELETE /api/v1/posts/:id/comment/:comment_id/reply/:reply_id
 // @access  Private
-router.delete(":id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) {

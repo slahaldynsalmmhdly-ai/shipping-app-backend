@@ -420,7 +420,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
 // @desc    Delete a reply from a comment on a shipment ad
 // @route   DELETE /api/v1/shipmentads/:id/comment/:comment_id/reply/:reply_id
 // @access  Private
-router.delete(":id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
   try {
     const shipmentAd = await ShipmentAd.findById(req.params.id);
     if (!shipmentAd) {

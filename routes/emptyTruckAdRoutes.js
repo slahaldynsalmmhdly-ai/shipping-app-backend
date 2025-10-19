@@ -398,7 +398,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
 // @desc    Delete a reply from a comment on an empty truck ad
 // @route   DELETE /api/v1/emptytruckads/:id/comment/:comment_id/reply/:reply_id
 // @access  Private
-router.delete(":id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
   try {
     const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
     if (!emptyTruckAd) {
