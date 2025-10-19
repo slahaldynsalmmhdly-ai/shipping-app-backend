@@ -342,10 +342,63 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
   }
 });
 
+// @desc    Like a reply on an empty truck ad
+// @route   PUT /api/v1/emptytruckads/:id/comment/:comment_id/reply/:reply_id/like
+// @access  Private
+router.put(":id/comment/:comment_id/reply/:reply_id/like", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) {
+      return res.status(404).json({ message: "Reply not found" });
+    }
+
+    // Check if the user has already liked this reply
+    if (
+      reply.likes.filter((like) => like.user.toString() === req.user.id)
+        .length > 0
+    ) {
+      // User already liked, so unlike it
+      reply.likes = reply.likes.filter(
+        (like) => like.user.toString() !== req.user.id
+      );
+    } else {
+      // User has not liked, so like it
+      reply.likes.unshift({ user: req.user.id });
+    }
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 // @desc    Delete a reply from a comment on an empty truck ad
 // @route   DELETE /api/v1/emptytruckads/:id/comment/:comment_id/reply/:reply_id
 // @access  Private
-router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+router.delete(":id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
   try {
     const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
     if (!emptyTruckAd) {

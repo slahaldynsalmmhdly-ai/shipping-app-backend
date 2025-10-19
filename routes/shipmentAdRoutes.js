@@ -364,10 +364,63 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
   }
 });
 
+// @desc    Like a reply on a shipment ad
+// @route   PUT /api/v1/shipmentads/:id/comment/:comment_id/reply/:reply_id/like
+// @access  Private
+router.put(":id/comment/:comment_id/reply/:reply_id/like", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    const comment = shipmentAd.comments.id(req.params.comment_id);
+    if (!comment) {
+      return res.status(404).json({ msg: "Comment not found" });
+    }
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) {
+      return res.status(404).json({ msg: "Reply not found" });
+    }
+
+    // Check if the user has already liked this reply
+    if (
+      reply.likes.filter((like) => like.user.toString() === req.user.id)
+        .length > 0
+    ) {
+      // User already liked, so unlike it
+      reply.likes = reply.likes.filter(
+        (like) => like.user.toString() !== req.user.id
+      );
+    } else {
+      // User has not liked, so like it
+      reply.likes.unshift({ user: req.user.id });
+    }
+
+    shipmentAd.markModified("comments");
+    await shipmentAd.save();
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 // @desc    Delete a reply from a comment on a shipment ad
 // @route   DELETE /api/v1/shipmentads/:id/comment/:comment_id/reply/:reply_id
 // @access  Private
-router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
+router.delete(":id/comment/:comment_id/reply/:reply_id", protect, async (req, res) => {
   try {
     const shipmentAd = await ShipmentAd.findById(req.params.id);
     if (!shipmentAd) {
