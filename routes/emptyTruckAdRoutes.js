@@ -468,5 +468,74 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+// @desc    Update an empty truck ad
+// @route   PUT /api/v1/emptytruckads/:id
+// @access  Private
+router.put("/:id", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+
+    if (!emptyTruckAd) {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+
+    // Check user authorization
+    if (emptyTruckAd.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "User not authorized" });
+    }
+
+    const {
+      currentLocation,
+      preferredDestination,
+      availabilityDate,
+      truckType,
+      additionalNotes,
+      media,
+    } = req.body;
+
+    // Update fields
+    if (currentLocation !== undefined) {
+      emptyTruckAd.currentLocation = currentLocation;
+    }
+    if (preferredDestination !== undefined) {
+      emptyTruckAd.preferredDestination = preferredDestination;
+    }
+    if (availabilityDate !== undefined) {
+      emptyTruckAd.availabilityDate = availabilityDate;
+    }
+    if (truckType !== undefined) {
+      emptyTruckAd.truckType = truckType;
+    }
+    if (additionalNotes !== undefined) {
+      emptyTruckAd.additionalNotes = additionalNotes;
+    }
+    if (media !== undefined) {
+      emptyTruckAd.media = media;
+    }
+
+    await emptyTruckAd.save();
+
+    // Return updated empty truck ad with populated fields
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    res.status(200).json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({ message: "Empty truck ad not found" });
+    }
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
 

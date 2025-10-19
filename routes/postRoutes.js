@@ -561,5 +561,59 @@ router.post('/repost', protect, async (req, res) => {
   }
 });
 
+// @desc    Update a post
+// @route   PUT /api/v1/posts/:id
+// @access  Private
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ msg: 'Post not found' });
+    }
+
+    // Check user authorization
+    if (post.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+
+    // Don't allow editing reposts
+    if (post.isRepost) {
+      return res.status(400).json({ msg: 'Cannot edit a repost' });
+    }
+
+    const { text, media } = req.body;
+
+    // Update fields
+    if (text !== undefined) {
+      post.text = text;
+    }
+    if (media !== undefined) {
+      post.media = media;
+    }
+
+    await post.save();
+
+    // Return updated post with populated fields
+    const updatedPost = await Post.findById(req.params.id)
+      .populate('user', ['name', 'avatar'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      });
+
+    res.json(updatedPost);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Post not found' });
+    }
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
 

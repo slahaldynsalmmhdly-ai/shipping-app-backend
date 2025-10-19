@@ -492,5 +492,74 @@ router.delete("/:id", protect, async (req, res) => {
   }
 });
 
+// @desc    Update a shipment ad
+// @route   PUT /api/v1/shipmentads/:id
+// @access  Private
+router.put("/:id", protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+
+    // Check user authorization
+    if (shipmentAd.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "User not authorized" });
+    }
+
+    const {
+      pickupLocation,
+      deliveryLocation,
+      pickupDate,
+      truckType,
+      description,
+      media,
+    } = req.body;
+
+    // Update fields
+    if (pickupLocation !== undefined) {
+      shipmentAd.pickupLocation = pickupLocation;
+    }
+    if (deliveryLocation !== undefined) {
+      shipmentAd.deliveryLocation = deliveryLocation;
+    }
+    if (pickupDate !== undefined) {
+      shipmentAd.pickupDate = pickupDate;
+    }
+    if (truckType !== undefined) {
+      shipmentAd.truckType = truckType;
+    }
+    if (description !== undefined) {
+      shipmentAd.description = description;
+    }
+    if (media !== undefined) {
+      shipmentAd.media = media;
+    }
+
+    await shipmentAd.save();
+
+    // Return updated shipment ad with populated fields
+    const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
+      .populate("user", ["name", "avatar"])
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    res.json(updatedShipmentAd);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Shipment ad not found" });
+    }
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 module.exports = router;
 
