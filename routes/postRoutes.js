@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
@@ -181,6 +180,20 @@ router.post("/:id/comment", protect, async (req, res) => {
     post.comments.unshift(newComment);
     post.markModified("comments");
     await post.save();
+
+    // Create notification for the post owner if not self-commenting
+    if (post.user.toString() !== req.user.id) {
+      const postOwner = await User.findById(post.user);
+      if (postOwner) {
+        postOwner.notifications.unshift({
+          type: 'comment',
+          sender: req.user.id,
+          post: post._id,
+          commentId: post.comments[0]._id,
+        });
+        await postOwner.save();
+      }
+    }
     const updatedPost = await Post.findById(req.params.id)
       .populate("user", "name avatar")
       .populate({
@@ -231,6 +244,21 @@ router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
 
     post.comments.splice(removeIndex, 1);
 
+    // Remove notification for the post owner if comment was deleted
+    if (post.user.toString() !== req.user.id) {
+      const postOwner = await User.findById(post.user);
+      if (postOwner) {
+        postOwner.notifications = postOwner.notifications.filter(
+          (notif) =>
+            !(notif.type === 'comment' &&
+              notif.sender.toString() === req.user.id &&
+              notif.post.toString() === post._id.toString() &&
+              notif.commentId.toString() === comment._id.toString())
+        );
+        await postOwner.save();
+      }
+    }
+
     post.markModified("comments");
     await post.save();
     const updatedPost = await Post.findById(req.params.id)
@@ -274,9 +302,38 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       comment.likes = comment.likes.filter(
         (like) => like.user.toString() !== req.user.id
       );
+
+      // Remove notification for the comment owner
+      if (comment.user.toString() !== req.user.id) {
+        const commentOwner = await User.findById(comment.user);
+        if (commentOwner) {
+          commentOwner.notifications = commentOwner.notifications.filter(
+            (notif) =>
+              !(notif.type === 'comment_like' &&
+                notif.sender.toString() === req.user.id &&
+                notif.post.toString() === post._id.toString() &&
+                notif.commentId.toString() === comment._id.toString())
+          );
+          await commentOwner.save();
+        }
+      }
     } else {
       // User has not liked, so like it
       comment.likes.unshift({ user: req.user.id });
+
+      // Create notification for the comment owner if not self-liking
+      if (comment.user.toString() !== req.user.id) {
+        const commentOwner = await User.findById(comment.user);
+        if (commentOwner) {
+          commentOwner.notifications.unshift({
+            type: 'comment_like',
+            sender: req.user.id,
+            post: post._id,
+            commentId: comment._id,
+          });
+          await commentOwner.save();
+        }
+      }
     }
 
     post.markModified("comments");
@@ -372,9 +429,40 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       reply.likes = reply.likes.filter(
         (like) => like.user.toString() !== req.user.id
       );
+
+      // Remove notification for the reply owner
+      if (reply.user.toString() !== req.user.id) {
+        const replyOwner = await User.findById(reply.user);
+        if (replyOwner) {
+          replyOwner.notifications = replyOwner.notifications.filter(
+            (notif) =>
+              !(notif.type === 'reply_like' &&
+                notif.sender.toString() === req.user.id &&
+                notif.post.toString() === post._id.toString() &&
+                notif.commentId.toString() === comment._id.toString() &&
+                notif.replyId.toString() === reply._id.toString())
+          );
+          await replyOwner.save();
+        }
+      }
     } else {
       // User has not liked, so like it
       reply.likes.unshift({ user: req.user.id });
+
+      // Create notification for the reply owner if not self-liking
+      if (reply.user.toString() !== req.user.id) {
+        const replyOwner = await User.findById(reply.user);
+        if (replyOwner) {
+          replyOwner.notifications.unshift({
+            type: 'reply_like',
+            sender: req.user.id,
+            post: post._id,
+            commentId: comment._id,
+            replyId: reply._id,
+          });
+          await replyOwner.save();
+        }
+      }
     }
 
     post.markModified("comments");
@@ -425,6 +513,22 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
       (r) => r._id.toString() !== req.params.reply_id
     );
 
+    // Remove notification for the comment owner if reply was deleted
+    if (reply.user.toString() !== req.user.id) {
+      const commentOwner = await User.findById(comment.user);
+      if (commentOwner) {
+        commentOwner.notifications = commentOwner.notifications.filter(
+          (notif) =>
+            !(notif.type === 'reply' &&
+              notif.sender.toString() === req.user.id &&
+              notif.post.toString() === post._id.toString() &&
+              notif.commentId.toString() === comment._id.toString() &&
+              notif.replyId.toString() === reply._id.toString())
+        );
+        await commentOwner.save();
+      }
+    }
+
     post.markModified("comments");
     await post.save();
     const updatedPost = await Post.findById(req.params.id)
@@ -440,98 +544,98 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
     res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
 // @desc    Delete a post
 // @route   DELETE /api/v1/posts/:id
 // @access  Private
-router.delete('/:id', protect, async (req, res) => {
+router.delete("/:id", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ msg: 'Post not found' });
+      return res.status(404).json({ msg: "Post not found" });
     }
 
     // Check user
     if (post.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
+      return res.status(401).json({ msg: "User not authorized" });
     }
 
     await post.deleteOne(); // Use deleteOne() instead of remove()
 
-    res.json({ msg: 'Post removed' });
+    res.json({ msg: "Post removed" });
   } catch (err) {
     console.error(err.message);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Post not found' });
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Post not found" });
     }
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
 // @desc    Get post by ID
 // @route   GET /api/v1/posts/:id
 // @access  Private
-router.get('/:id', protect, async (req, res) => {
+router.get("/:id", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate('user', ['name', 'avatar'])
+      .populate("user", ["name", "avatar"])
       .populate({
-        path: 'originalPost',
+        path: "originalPost",
         populate: {
-          path: 'user',
-          select: 'name avatar'
+          path: "user",
+          select: "name avatar"
         }
       })
       .populate({
-        path: 'comments.user',
-        select: 'name avatar'
+        path: "comments.user",
+        select: "name avatar"
       })
       .populate({
-        path: 'comments.replies.user',
-        select: 'name avatar'
+        path: "comments.replies.user",
+        select: "name avatar"
       });
 
     if (!post) {
-      return res.status(404).json({ msg: 'Post not found' });
+      return res.status(404).json({ msg: "Post not found" });
     }
 
     res.json(post);
   } catch (err) {
     console.error(err.message);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Post not found' });
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Post not found" });
     }
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
 // @desc    Repost a post, shipment ad, or empty truck ad
 // @route   POST /api/v1/posts/repost
 // @access  Private
-router.post('/repost', protect, async (req, res) => {
+router.post("/repost", protect, async (req, res) => {
   try {
     const { text, originalPostId, originalPostType } = req.body;
 
     // Validate required fields
     if (!originalPostId || !originalPostType) {
-      return res.status(400).json({ msg: 'Original post ID and type are required' });
+      return res.status(400).json({ msg: "Original post ID and type are required" });
     }
 
     // Validate originalPostType
-    const validTypes = ['post', 'shipmentAd', 'emptyTruckAd'];
+    const validTypes = ["post", "shipmentAd", "emptyTruckAd"];
     if (!validTypes.includes(originalPostType)) {
-      return res.status(400).json({ msg: 'Invalid original post type' });
+      return res.status(400).json({ msg: "Invalid original post type" });
     }
 
     // Map the type to the model name
     const modelMap = {
-      'post': 'Post',
-      'shipmentAd': 'ShipmentAd',
-      'emptyTruckAd': 'EmptyTruckAd'
+      "post": "Post",
+      "shipmentAd": "ShipmentAd",
+      "emptyTruckAd": "EmptyTruckAd"
     };
     const modelName = modelMap[originalPostType];
 
@@ -539,7 +643,7 @@ router.post('/repost', protect, async (req, res) => {
     const Model = mongoose.model(modelName);
     const originalPost = await Model.findById(originalPostId);
     if (!originalPost) {
-      return res.status(404).json({ msg: 'Original post not found' });
+      return res.status(404).json({ msg: "Original post not found" });
     }
 
     // Check if user has already reposted this content
@@ -551,17 +655,17 @@ router.post('/repost', protect, async (req, res) => {
     });
 
     if (existingRepost) {
-      return res.status(400).json({ msg: 'You have already reposted this content' });
+      return res.status(400).json({ msg: "You have already reposted this content" });
     }
 
     // Create the repost
     const newRepost = new Post({
       user: req.user.id,
-      text: text || '', // Optional comment on the repost
+      text: text || "", // Optional comment on the repost
       isRepost: true,
       originalPost: originalPostId,
       originalPostType: modelName,
-      repostText: text || '',
+      repostText: text || "",
       media: [] // Reposts don't have their own media
     });
 
@@ -569,44 +673,44 @@ router.post('/repost', protect, async (req, res) => {
     
     // Populate user info before sending response
     const populatedRepost = await Post.findById(savedRepost._id)
-      .populate('user', ['name', 'avatar'])
+      .populate("user", ["name", "avatar"])
       .populate({
-        path: 'originalPost',
+        path: "originalPost",
         populate: {
-          path: 'user',
-          select: 'name avatar'
+          path: "user",
+          select: "name avatar"
         }
       });
 
     res.status(201).json(populatedRepost);
   } catch (err) {
     console.error(err.message);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Original post not found' });
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Original post not found" });
     }
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 
 // @desc    Update a post
 // @route   PUT /api/v1/posts/:id
 // @access  Private
-router.put('/:id', protect, async (req, res) => {
+router.put("/:id", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ msg: 'Post not found' });
+      return res.status(404).json({ msg: "Post not found" });
     }
 
     // Check user authorization
     if (post.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
+      return res.status(401).json({ msg: "User not authorized" });
     }
 
     // Don't allow editing reposts
     if (post.isRepost) {
-      return res.status(400).json({ msg: 'Cannot edit a repost' });
+      return res.status(400).json({ msg: "Cannot edit a repost" });
     }
 
     const { text, media } = req.body;
@@ -623,22 +727,22 @@ router.put('/:id', protect, async (req, res) => {
 
     // Return updated post with populated fields
     const updatedPost = await Post.findById(req.params.id)
-      .populate('user', ['name', 'avatar'])
+      .populate("user", ["name", "avatar"])
       .populate({
-        path: 'originalPost',
+        path: "originalPost",
         populate: {
-          path: 'user',
-          select: 'name avatar'
+          path: "user",
+          select: "name avatar"
         }
       });
 
     res.json(updatedPost);
   } catch (err) {
     console.error(err.message);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Post not found' });
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Post not found" });
     }
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
 

@@ -53,7 +53,7 @@ const UserSchema = new mongoose.Schema({
     default: "",
   },
   city: {
-    type: String, // For company city
+    type: String,
     default: "",
   },
   // Company specific fields
@@ -80,17 +80,25 @@ const UserSchema = new mongoose.Schema({
     {
       type: {
         type: String,
-        enum: ['like', 'new_post'], // Add other notification types as needed
+        enum: ["like", "new_post", "comment", "reply", "comment_like", "reply_like"], // Add other notification types as needed
         required: true,
       },
       sender: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
         required: true,
       },
       post: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Post',
+        ref: "Post",
+      },
+      commentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        // ref: "Post.comments", // لا يمكن الإشارة إلى subdocument مباشرة بهذه الطريقة في Mongoose لل populate
+      },
+      replyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        // ref: "Post.comments.replies", // لا يمكن الإشارة إلى subdocument مباشرة بهذه الطريقة في Mongoose لل populate
       },
 
       read: {
