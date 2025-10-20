@@ -383,6 +383,21 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
     comment.replies.unshift(newReply);
     post.markModified("comments");
     await post.save();
+
+    // Create notification for the comment owner if not self-replying
+    if (comment.user.toString() !== req.user.id) {
+      const commentOwner = await User.findById(comment.user);
+      if (commentOwner) {
+        commentOwner.notifications.unshift({
+          type: 'reply',
+          sender: req.user.id,
+          post: post._id,
+          commentId: comment._id,
+          replyId: comment.replies[0]._id,
+        });
+        await commentOwner.save();
+      }
+    }
     const updatedPost = await Post.findById(req.params.id)
       .populate("user", "name avatar")
       .populate({
@@ -514,16 +529,18 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
     );
 
     // Remove notification for the comment owner if reply was deleted
-    if (reply.user.toString() !== req.user.id) {
+    // Remove notification for the comment owner if reply was deleted
+    // This check ensures we only remove notifications if the reply was not from the comment owner themselves
+    if (comment.user.toString() !== req.user.id) {
       const commentOwner = await User.findById(comment.user);
       if (commentOwner) {
         commentOwner.notifications = commentOwner.notifications.filter(
           (notif) =>
             !(notif.type === 'reply' &&
               notif.sender.toString() === req.user.id &&
-              notif.post.toString() === post._id.toString() &&
-              notif.commentId.toString() === comment._id.toString() &&
-              notif.replyId.toString() === reply._id.toString())
+              notif.post && notif.post.toString() === post._id.toString() &&
+              notif.commentId && notif.commentId.toString() === comment._id.toString() &&
+              notif.replyId && notif.replyId.toString() === reply._id.toString())
         );
         await commentOwner.save();
       }
