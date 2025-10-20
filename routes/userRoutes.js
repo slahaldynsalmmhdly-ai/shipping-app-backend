@@ -28,7 +28,56 @@ router.get('/me/notifications', protect, async (req, res) => {
   }
 });
 
-// @desc    Mark user notifications as read
+// @desc    Mark a single notification as read
+// @route   PUT /api/v1/users/me/notifications/:id/read
+// @access  Private
+router.put('/me/notifications/:id/read', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const notification = user.notifications.id(req.params.id);
+    if (!notification) {
+      return res.status(404).json({ msg: 'Notification not found' });
+    }
+
+    notification.read = true;
+    await user.save();
+    
+    res.json({ msg: 'Notification marked as read' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @desc    Mark all user notifications as read
+// @route   POST /api/v1/users/me/notifications/mark-all-as-read
+// @access  Private
+router.post('/me/notifications/mark-all-as-read', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.notifications.forEach(notif => {
+      notif.read = true;
+    });
+
+    await user.save();
+    res.json({ msg: 'All notifications marked as read' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @desc    Mark user notifications as read (legacy endpoint)
 // @route   PUT /api/v1/users/me/notifications/mark-as-read
 // @access  Private
 router.put('/me/notifications/mark-as-read', protect, async (req, res) => {
