@@ -12,6 +12,7 @@ const shipmentAdRoutes = require("./routes/shipmentAdRoutes"); // Added shipment
 const emptyTruckAdRoutes = require("./routes/emptyTruckAdRoutes"); // Added emptyTruckAdRoutes
 const userRoutes = require("./routes/userRoutes"); // Added userRoutes
 const exploreRoutes = require("./routes/exploreRoutes"); // Added exploreRoutes
+const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -62,6 +63,7 @@ app.use("/api/v1/shipmentads", shipmentAdRoutes); // Mount shipment ad routes
 app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad routes
 app.use("/api/v1/users", userRoutes); // Mount user routes
 app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
+app.use("/api/v1/chat", chatRoutes); // Mount chat routes
 
 // Catch-all for 404 Not Found - MUST be after all routes and static files
 app.use((req, res, next) => {
