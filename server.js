@@ -48,6 +48,9 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Serve static uploaded files - MUST be before routes
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // Mount routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/profile", profileRoutes);
@@ -60,13 +63,10 @@ app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad ro
 app.use("/api/v1/users", userRoutes); // Mount user routes
 app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
 
-// Catch-all for 404 Not Found - MUST be before error handling middleware
+// Catch-all for 404 Not Found - MUST be after all routes and static files
 app.use((req, res, next) => {
   res.status(404).json({ message: "Not Found" });
 });
-
-// Serve static uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Basic error handling middleware (for asyncHandler)
 app.use((err, req, res, next) => {
