@@ -82,12 +82,19 @@ router.put(
 
       if (user.userType === "company") {
         user.companyName = req.body.companyName || user.companyName;
+        user.companyEmail = req.body.companyEmail || user.companyEmail;
         user.address = req.body.address || user.address;
         user.city = req.body.city || user.city;
+        user.country = req.body.country || user.country;
+        user.streetName = req.body.streetName || user.streetName;
+        user.districtName = req.body.districtName || user.districtName;
+        user.website = req.body.website || user.website;
+        user.workClassification = req.body.workClassification || user.workClassification;
         user.truckCount = req.body.truckCount || user.truckCount;
         user.truckTypes = req.body.truckTypes || user.truckTypes;
         user.registrationNumber = req.body.registrationNumber || user.registrationNumber;
         user.fleetImages = req.body.fleetImages || user.fleetImages;
+        user.licenseImages = req.body.licenseImages || user.licenseImages;
       }
 
       const updatedUser = await user.save();
@@ -102,12 +109,19 @@ router.put(
         phone: updatedUser.phone,
         description: updatedUser.description,
         companyName: updatedUser.companyName,
+        companyEmail: updatedUser.companyEmail,
         address: updatedUser.address,
         city: updatedUser.city,
+        country: updatedUser.country,
+        streetName: updatedUser.streetName,
+        districtName: updatedUser.districtName,
+        website: updatedUser.website,
+        workClassification: updatedUser.workClassification,
         truckCount: updatedUser.truckCount,
         truckTypes: updatedUser.truckTypes,
         registrationNumber: updatedUser.registrationNumber,
         fleetImages: updatedUser.fleetImages,
+        licenseImages: updatedUser.licenseImages,
       });
     } else {
       res.status(404);
