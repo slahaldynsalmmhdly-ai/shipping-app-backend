@@ -12,7 +12,7 @@ const admin = require("../config/firebase"); // استيراد Firebase Admin SD
 router.post(
   "/register",
   asyncHandler(async (req, res) => {
-    const { name, email, password, userType } = req.body;
+    const { name, email, password, userType, phone, companyName } = req.body;
 
     const userExists = await User.findOne({ email });
 
@@ -21,12 +21,19 @@ router.post(
       throw new Error("User already exists");
     }
 
-    const user = await User.create({
+    // Create user with all provided fields
+    const userData = {
       name,
       email,
       password,
       userType,
-    });
+    };
+
+    // Add optional fields if provided
+    if (phone) userData.phone = phone;
+    if (companyName) userData.companyName = companyName;
+
+    const user = await User.create(userData);
 
     if (user) {
       res.status(201).json({
@@ -35,6 +42,14 @@ router.post(
         email: user.email,
         userType: user.userType,
         token: generateToken(user._id),
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          userType: user.userType,
+          phone: user.phone,
+          companyName: user.companyName,
+        },
       });
     } else {
       res.status(400);
