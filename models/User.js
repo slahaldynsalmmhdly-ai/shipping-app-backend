@@ -56,8 +56,32 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  country: {
+    type: String,
+    default: "",
+  },
+  streetName: {
+    type: String,
+    default: "",
+  },
+  districtName: {
+    type: String,
+    default: "",
+  },
   // Company specific fields
   companyName: {
+    type: String,
+    default: "",
+  },
+  companyEmail: {
+    type: String,
+    default: "",
+  },
+  website: {
+    type: String,
+    default: "",
+  },
+  workClassification: {
     type: String,
     default: "",
   },
@@ -75,6 +99,9 @@ const UserSchema = new mongoose.Schema({
   },
   fleetImages: [
     { type: String } // Array of URLs to fleet images
+  ],
+  licenseImages: [
+    { type: String } // Array of URLs to license images
   ],
   notifications: [
     {
