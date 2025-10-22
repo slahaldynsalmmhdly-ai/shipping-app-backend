@@ -100,8 +100,12 @@ const server = app.listen(PORT, () => {
 const { ExpressPeerServer } = require('peer');
 const peerServer = ExpressPeerServer(server, {
   debug: true,
-  path: '/peerjs',
+  path: '/',
   allow_discovery: true,
+  proxied: true,
+  alive_timeout: 60000,
+  key: 'peerjs',
+  concurrent_limit: 5000,
 });
 
 app.use('/peerjs', peerServer);
