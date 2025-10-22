@@ -67,6 +67,11 @@ app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
 app.use("/api/v1/chat", chatRoutes); // Mount chat routes
 app.use("/api/v1/search", searchRoutes); // Mount search routes
 
+// Health check / Ping endpoint to keep server awake
+app.get("/api/v1/ping", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is awake", timestamp: new Date().toISOString() });
+});
+
 // Catch-all for 404 Not Found - MUST be after all routes and static files
 app.use((req, res, next) => {
   res.status(404).json({ message: "Not Found" });
