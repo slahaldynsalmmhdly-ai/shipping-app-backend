@@ -52,7 +52,7 @@ router.get("/companies", async (req, res) => {
     // Get review counts and average ratings for each company
     const companiesWithReviews = await Promise.all(
       companies.map(async (company) => {
-        const reviews = await Review.find({ reviewedUser: company._id });
+        const reviews = await Review.find({ user: company._id });
         const reviewCount = reviews.length;
         const averageRating = reviewCount > 0
           ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1)
@@ -111,7 +111,7 @@ router.get("/companies/featured", async (req, res) => {
     // Get review counts and average ratings
     const companiesWithReviews = await Promise.all(
       companies.map(async (company) => {
-        const reviews = await Review.find({ reviewedUser: company._id });
+        const reviews = await Review.find({ user: company._id });
         const reviewCount = reviews.length;
         const averageRating = reviewCount > 0
           ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1)
