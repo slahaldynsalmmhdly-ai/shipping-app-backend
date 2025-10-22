@@ -9,7 +9,7 @@ const Review = require("../models/Review");
 // @access  Public (or Private if you want to protect it)
 router.get("/companies", async (req, res) => {
   try {
-    const { search, city, truckType, sortBy, page = 1, limit = 20 } = req.query;
+    const { search, city, truckType, workClassification, sortBy, page = 1, limit = 20 } = req.query;
 
     // Build query for companies only
     let query = { userType: "company" };
@@ -32,6 +32,11 @@ router.get("/companies", async (req, res) => {
     // Truck type filter
     if (truckType) {
       query.truckTypes = { $regex: truckType, $options: "i" };
+    }
+
+    // Work classification filter
+    if (workClassification) {
+      query.workClassification = { $regex: workClassification, $options: "i" };
     }
 
     // Calculate pagination
@@ -177,6 +182,39 @@ router.get("/truck-types", async (req, res) => {
     });
 
     res.json({ truckTypes: Array.from(truckTypesSet) });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+module.exports = router;
+
+
+
+// @desc    Get available work classifications (for filter dropdown)
+// @route   GET /api/v1/explore/work-classifications
+// @access  Public
+router.get("/work-classifications", async (req, res) => {
+  try {
+    const companies = await User.find({ 
+      userType: "company",
+      workClassification: { $ne: "" }
+    }).select("workClassification");
+
+    // Extract and deduplicate work classifications
+    const classificationsSet = new Set();
+    companies.forEach(company => {
+      if (company.workClassification) {
+        // Split by comma and trim each classification
+        const classifications = company.workClassification.split(/[،,]/).map(c => c.trim());
+        classifications.forEach(classification => {
+          if (classification) classificationsSet.add(classification);
+        });
+      }
+    });
+
+    res.json({ workClassifications: Array.from(classificationsSet) });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
