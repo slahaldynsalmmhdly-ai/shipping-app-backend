@@ -232,7 +232,7 @@ router.get("/", async (req, res) => {
 
     res.json({
       success: true,
-      ...results
+      results: results
     });
 
   } catch (err) {
