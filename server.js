@@ -88,9 +88,29 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(
     `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
   );
 });
+
+// PeerJS Server for Video/Audio Calls
+const { ExpressPeerServer } = require('peer');
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: '/peerjs',
+  allow_discovery: true,
+});
+
+app.use('/peerjs', peerServer);
+
+peerServer.on('connection', (client) => {
+  console.log(`PeerJS client connected: ${client.getId()}`);
+});
+
+peerServer.on('disconnect', (client) => {
+  console.log(`PeerJS client disconnected: ${client.getId()}`);
+});
+
+console.log('PeerJS Server is running on /peerjs');
 
