@@ -62,6 +62,8 @@ router.get("/companies", async (req, res) => {
           ...company,
           reviewCount,
           averageRating: parseFloat(averageRating),
+          rating: parseFloat(averageRating), // Add rating field for frontend compatibility
+          truckCount: company.truckCount || 0, // Use truckCount from company model
         };
       })
     );
@@ -119,6 +121,8 @@ router.get("/companies/featured", async (req, res) => {
           ...company,
           reviewCount,
           averageRating: parseFloat(averageRating),
+          rating: parseFloat(averageRating), // Add rating field for frontend compatibility
+          truckCount: company.truckCount || 0, // Use truckCount from company model
         };
       })
     );
