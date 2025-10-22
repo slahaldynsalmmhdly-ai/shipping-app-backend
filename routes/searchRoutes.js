@@ -7,6 +7,33 @@ const ShipmentAd = require("../models/ShipmentAd");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const Review = require("../models/Review");
 
+// دالة للتحقق من الكلمات المفتاحية
+function matchesKeywords(searchQuery, keywords) {
+  const query = searchQuery.toLowerCase().trim();
+  return keywords.some(keyword => query.includes(keyword.toLowerCase()));
+}
+
+// كلمات مفتاحية للشاحنات الفارغة
+const emptyTruckKeywords = [
+  'شاحنة فارغة', 'شاحنه فارغه', 'حمولة فارغة', 'حموله فارغه',
+  'أسطول فاضي', 'اسطول فاضي', 'شاحنة متاحة', 'شاحنه متاحه',
+  'ترحيلة فارغة', 'ترحيله فارغه', 'empty truck', 'available truck',
+  'فارغ', 'فارغه', 'فاضي', 'فاضيه', 'متاح', 'متاحه', 'متاحة'
+];
+
+// كلمات مفتاحية لإعلانات الشحن
+const shipmentKeywords = [
+  'إعلان شحن', 'اعلان شحن', 'طلب شحن', 'حمولة', 'حموله',
+  'شحنة', 'شحنه', 'بضاعة', 'بضاعه', 'نقل بضائع',
+  'shipment', 'cargo', 'شحن'
+];
+
+// كلمات مفتاحية عامة للإعلانات
+const generalAdKeywords = [
+  'إعلان', 'اعلان', 'إعلانات', 'اعلانات', 'منشور',
+  'ad', 'ads', 'post'
+];
+
 // @desc    البحث المتكامل في جميع أنواع المحتوى
 // @route   GET /api/v1/search
 // @access  Public
@@ -39,6 +66,11 @@ router.get("/", async (req, res) => {
         limit: limitNum,
       }
     };
+
+    // التحقق من الكلمات المفتاحية
+    const isEmptyTruckSearch = matchesKeywords(searchQuery, emptyTruckKeywords);
+    const isShipmentSearch = matchesKeywords(searchQuery, shipmentKeywords);
+    const isGeneralAdSearch = matchesKeywords(searchQuery, generalAdKeywords);
 
     // البحث في الشركات
     if (category === "all" || category === "companies") {
@@ -155,15 +187,35 @@ router.get("/", async (req, res) => {
     }
 
     // البحث في إعلانات الشحن
-    if (category === "all" || category === "shipments") {
-      const shipmentAdsQuery = {
-        $or: [
-          { pickupLocation: { $regex: searchQuery, $options: "i" } },
-          { deliveryLocation: { $regex: searchQuery, $options: "i" } },
-          { truckType: { $regex: searchQuery, $options: "i" } },
-          { description: { $regex: searchQuery, $options: "i" } },
-        ]
-      };
+    // إذا كان البحث يحتوي على كلمات مفتاحية عامة أو كلمات شحن، نجلب جميع الإعلانات
+    if (category === "all" || category === "shipments" || 
+        isShipmentSearch || isGeneralAdSearch) {
+      
+      let shipmentAdsQuery;
+      
+      // إذا كان البحث عن كلمات مفتاحية عامة فقط، نجلب كل الإعلانات
+      if (isGeneralAdSearch && !searchQuery.match(/[a-zA-Z\u0600-\u06FF]{3,}/)) {
+        shipmentAdsQuery = {};
+      } else if (isShipmentSearch) {
+        // إذا كان البحث يحتوي على كلمات شحن، نجلب كل الإعلانات أو نبحث في الحقول
+        shipmentAdsQuery = {
+          $or: [
+            { pickupLocation: { $regex: searchQuery, $options: "i" } },
+            { deliveryLocation: { $regex: searchQuery, $options: "i" } },
+            { truckType: { $regex: searchQuery, $options: "i" } },
+            { description: { $regex: searchQuery, $options: "i" } },
+          ]
+        };
+      } else {
+        shipmentAdsQuery = {
+          $or: [
+            { pickupLocation: { $regex: searchQuery, $options: "i" } },
+            { deliveryLocation: { $regex: searchQuery, $options: "i" } },
+            { truckType: { $regex: searchQuery, $options: "i" } },
+            { description: { $regex: searchQuery, $options: "i" } },
+          ]
+        };
+      }
 
       const shipmentAds = await ShipmentAd.find(shipmentAdsQuery)
         .populate("user", "name avatar userType companyName")
@@ -188,15 +240,35 @@ router.get("/", async (req, res) => {
     }
 
     // البحث في إعلانات الشاحنات الفارغة
-    if (category === "all" || category === "emptyTrucks") {
-      const emptyTruckAdsQuery = {
-        $or: [
-          { currentLocation: { $regex: searchQuery, $options: "i" } },
-          { preferredDestination: { $regex: searchQuery, $options: "i" } },
-          { truckType: { $regex: searchQuery, $options: "i" } },
-          { additionalNotes: { $regex: searchQuery, $options: "i" } },
-        ]
-      };
+    // إذا كان البحث يحتوي على كلمات مفتاحية للشاحنات الفارغة أو كلمات عامة، نجلب جميع الإعلانات
+    if (category === "all" || category === "emptyTrucks" || 
+        isEmptyTruckSearch || isGeneralAdSearch) {
+      
+      let emptyTruckAdsQuery;
+      
+      // إذا كان البحث عن كلمات مفتاحية عامة أو شاحنات فارغة فقط، نجلب كل الإعلانات
+      if ((isGeneralAdSearch || isEmptyTruckSearch) && !searchQuery.match(/[a-zA-Z\u0600-\u06FF]{3,}/)) {
+        emptyTruckAdsQuery = {};
+      } else if (isEmptyTruckSearch) {
+        // إذا كان البحث يحتوي على كلمات شاحنات فارغة، نجلب كل الإعلانات أو نبحث في الحقول
+        emptyTruckAdsQuery = {
+          $or: [
+            { currentLocation: { $regex: searchQuery, $options: "i" } },
+            { preferredDestination: { $regex: searchQuery, $options: "i" } },
+            { truckType: { $regex: searchQuery, $options: "i" } },
+            { additionalNotes: { $regex: searchQuery, $options: "i" } },
+          ]
+        };
+      } else {
+        emptyTruckAdsQuery = {
+          $or: [
+            { currentLocation: { $regex: searchQuery, $options: "i" } },
+            { preferredDestination: { $regex: searchQuery, $options: "i" } },
+            { truckType: { $regex: searchQuery, $options: "i" } },
+            { additionalNotes: { $regex: searchQuery, $options: "i" } },
+          ]
+        };
+      }
 
       const emptyTruckAds = await EmptyTruckAd.find(emptyTruckAdsQuery)
         .populate("user", "name avatar userType companyName")
