@@ -13,6 +13,7 @@ const emptyTruckAdRoutes = require("./routes/emptyTruckAdRoutes"); // Added empt
 const userRoutes = require("./routes/userRoutes"); // Added userRoutes
 const exploreRoutes = require("./routes/exploreRoutes"); // Added exploreRoutes
 const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
+const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -64,6 +65,7 @@ app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad ro
 app.use("/api/v1/users", userRoutes); // Mount user routes
 app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
 app.use("/api/v1/chat", chatRoutes); // Mount chat routes
+app.use("/api/v1/search", searchRoutes); // Mount search routes
 
 // Catch-all for 404 Not Found - MUST be after all routes and static files
 app.use((req, res, next) => {
