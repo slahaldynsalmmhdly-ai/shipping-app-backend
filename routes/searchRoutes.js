@@ -7,34 +7,71 @@ const ShipmentAd = require("../models/ShipmentAd");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const Review = require("../models/Review");
 
-// دالة للتحقق من الكلمات المفتاحية
-function matchesKeywords(searchQuery, keywords) {
-  const query = searchQuery.toLowerCase().trim();
-  return keywords.some(keyword => query.includes(keyword.toLowerCase()));
+// دالة لإنشاء استعلام بحث ذكي يجمع الكلمات المدخلة
+function buildSmartSearchQuery(searchText, fields) {
+  const query = searchText.trim();
+  
+  // إذا كان البحث فارغاً، نرجع استعلام فارغ
+  if (!query) {
+    return {};
+  }
+
+  // تقسيم النص إلى كلمات
+  const words = query.split(/\s+/).filter(word => word.length > 0);
+  
+  // إنشاء استعلام OR لكل حقل مع كل كلمة
+  const orConditions = [];
+  
+  fields.forEach(field => {
+    // البحث عن النص الكامل
+    orConditions.push({
+      [field]: { $regex: query, $options: "i" }
+    });
+    
+    // البحث عن كل كلمة على حدة
+    words.forEach(word => {
+      if (word.length >= 2) { // نتجاهل الكلمات القصيرة جداً
+        orConditions.push({
+          [field]: { $regex: word, $options: "i" }
+        });
+      }
+    });
+  });
+  
+  return orConditions.length > 0 ? { $or: orConditions } : {};
 }
 
-// كلمات مفتاحية للشاحنات الفارغة
-const emptyTruckKeywords = [
-  'شاحنة فارغة', 'شاحنه فارغه', 'حمولة فارغة', 'حموله فارغه',
-  'أسطول فاضي', 'اسطول فاضي', 'شاحنة متاحة', 'شاحنه متاحه',
-  'ترحيلة فارغة', 'ترحيله فارغه', 'empty truck', 'available truck',
-  'فارغ', 'فارغه', 'فاضي', 'فاضيه', 'متاح', 'متاحه', 'متاحة'
-];
+// دالة لحساب درجة الملاءمة (relevance score)
+function calculateRelevanceScore(item, searchQuery, fields) {
+  const query = searchQuery.toLowerCase();
+  const words = query.split(/\s+/).filter(word => word.length > 0);
+  let score = 0;
+  
+  fields.forEach(field => {
+    const value = String(item[field] || '').toLowerCase();
+    
+    // تطابق كامل للنص
+    if (value.includes(query)) {
+      score += 10;
+    }
+    
+    // تطابق لكل كلمة
+    words.forEach(word => {
+      if (value.includes(word)) {
+        score += 3;
+      }
+    });
+    
+    // تطابق في بداية النص (أكثر أهمية)
+    if (value.startsWith(query)) {
+      score += 5;
+    }
+  });
+  
+  return score;
+}
 
-// كلمات مفتاحية لإعلانات الشحن
-const shipmentKeywords = [
-  'إعلان شحن', 'اعلان شحن', 'طلب شحن', 'حمولة', 'حموله',
-  'شحنة', 'شحنه', 'بضاعة', 'بضاعه', 'نقل بضائع',
-  'shipment', 'cargo', 'شحن'
-];
-
-// كلمات مفتاحية عامة للإعلانات
-const generalAdKeywords = [
-  'إعلان', 'اعلان', 'إعلانات', 'اعلانات', 'منشور',
-  'ad', 'ads', 'post'
-];
-
-// @desc    البحث المتكامل في جميع أنواع المحتوى
+// @desc    البحث الذكي المتكامل في جميع أنواع المحتوى
 // @route   GET /api/v1/search
 // @access  Public
 router.get("/", async (req, res) => {
@@ -67,32 +104,25 @@ router.get("/", async (req, res) => {
       }
     };
 
-    // التحقق من الكلمات المفتاحية
-    const isEmptyTruckSearch = matchesKeywords(searchQuery, emptyTruckKeywords);
-    const isShipmentSearch = matchesKeywords(searchQuery, shipmentKeywords);
-    const isGeneralAdSearch = matchesKeywords(searchQuery, generalAdKeywords);
-
     // البحث في الشركات
     if (category === "all" || category === "companies") {
+      const companiesSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'companyName', 'name', 'description', 'city', 
+        'workClassification', 'truckTypes'
+      ]);
+      
       const companiesQuery = {
         userType: "company",
-        $or: [
-          { companyName: { $regex: searchQuery, $options: "i" } },
-          { name: { $regex: searchQuery, $options: "i" } },
-          { description: { $regex: searchQuery, $options: "i" } },
-          { city: { $regex: searchQuery, $options: "i" } },
-          { workClassification: { $regex: searchQuery, $options: "i" } },
-          { truckTypes: { $regex: searchQuery, $options: "i" } },
-        ]
+        ...companiesSearchQuery
       };
 
       const companies = await User.find(companiesQuery)
         .select("-password -googleId -firebaseUid -notifications")
-        .limit(category === "companies" ? limitNum : 10)
+        .limit(category === "companies" ? limitNum : 15)
         .skip(category === "companies" ? skip : 0)
         .lean();
 
-      // إضافة التقييمات لكل شركة
+      // إضافة التقييمات ودرجة الملاءمة لكل شركة
       const companiesWithReviews = await Promise.all(
         companies.map(async (company) => {
           const reviews = await Review.find({ user: company._id });
@@ -101,17 +131,27 @@ router.get("/", async (req, res) => {
             ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1)
             : 0;
 
+          const relevanceScore = calculateRelevanceScore(
+            company, 
+            searchQuery, 
+            ['companyName', 'name', 'description', 'city', 'workClassification', 'truckTypes']
+          );
+
           return {
             ...company,
             reviewCount,
             averageRating: parseFloat(averageRating),
             rating: parseFloat(averageRating),
             truckCount: company.truckCount || 0,
-            type: "company"
+            type: "company",
+            relevanceScore
           };
         })
       );
 
+      // ترتيب حسب درجة الملاءمة
+      companiesWithReviews.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      
       results.companies = companiesWithReviews;
 
       if (category === "companies") {
@@ -124,26 +164,44 @@ router.get("/", async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      const postsQuery = {
-        $or: [
-          { text: { $regex: searchQuery, $options: "i" } },
-          { repostText: { $regex: searchQuery, $options: "i" } },
-        ]
-      };
+      const postsSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'text', 'repostText'
+      ]);
+      
+      const postsQuery = postsSearchQuery;
 
       const posts = await Post.find(postsQuery)
         .populate("user", "name avatar userType companyName")
         .sort({ createdAt: -1 })
-        .limit(category === "posts" ? limitNum : 10)
+        .limit(category === "posts" ? limitNum : 15)
         .skip(category === "posts" ? skip : 0)
         .lean();
 
-      results.posts = posts.map(post => ({
-        ...post,
-        type: "post",
-        likesCount: post.reactions?.filter(r => r.type === "like").length || 0,
-        commentsCount: post.comments?.length || 0,
-      }));
+      const postsWithRelevance = posts.map(post => {
+        const relevanceScore = calculateRelevanceScore(
+          post, 
+          searchQuery, 
+          ['text', 'repostText']
+        );
+
+        return {
+          ...post,
+          type: "post",
+          likesCount: post.reactions?.filter(r => r.type === "like").length || 0,
+          commentsCount: post.comments?.length || 0,
+          relevanceScore
+        };
+      });
+
+      // ترتيب حسب درجة الملاءمة ثم التاريخ
+      postsWithRelevance.sort((a, b) => {
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      results.posts = postsWithRelevance;
 
       if (category === "posts") {
         const totalPosts = await Post.countDocuments(postsQuery);
@@ -155,28 +213,41 @@ router.get("/", async (req, res) => {
 
     // البحث في الأساطيل (المركبات المتاحة)
     if (category === "all" || category === "vehicles") {
+      const vehiclesSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'vehicleName', 'vehicleType', 'currentLocation', 
+        'driverName', 'vehicleModel'
+      ]);
+      
       const vehiclesQuery = {
         status: "متاح",
-        $or: [
-          { vehicleName: { $regex: searchQuery, $options: "i" } },
-          { vehicleType: { $regex: searchQuery, $options: "i" } },
-          { currentLocation: { $regex: searchQuery, $options: "i" } },
-          { driverName: { $regex: searchQuery, $options: "i" } },
-          { vehicleModel: { $regex: searchQuery, $options: "i" } },
-        ]
+        ...vehiclesSearchQuery
       };
 
       const vehicles = await Vehicle.find(vehiclesQuery)
         .populate("user", "name avatar userType companyName city")
         .sort({ createdAt: -1 })
-        .limit(category === "vehicles" ? limitNum : 10)
+        .limit(category === "vehicles" ? limitNum : 15)
         .skip(category === "vehicles" ? skip : 0)
         .lean();
 
-      results.vehicles = vehicles.map(vehicle => ({
-        ...vehicle,
-        type: "vehicle"
-      }));
+      const vehiclesWithRelevance = vehicles.map(vehicle => {
+        const relevanceScore = calculateRelevanceScore(
+          vehicle, 
+          searchQuery, 
+          ['vehicleName', 'vehicleType', 'currentLocation', 'driverName', 'vehicleModel']
+        );
+
+        return {
+          ...vehicle,
+          type: "vehicle",
+          relevanceScore
+        };
+      });
+
+      // ترتيب حسب درجة الملاءمة
+      vehiclesWithRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+      results.vehicles = vehiclesWithRelevance;
 
       if (category === "vehicles") {
         const totalVehicles = await Vehicle.countDocuments(vehiclesQuery);
@@ -187,49 +258,45 @@ router.get("/", async (req, res) => {
     }
 
     // البحث في إعلانات الشحن
-    // إذا كان البحث يحتوي على كلمات مفتاحية عامة أو كلمات شحن، نجلب جميع الإعلانات
-    if (category === "all" || category === "shipments" || 
-        isShipmentSearch || isGeneralAdSearch) {
+    if (category === "all" || category === "shipments") {
+      const shipmentAdsSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'pickupLocation', 'deliveryLocation', 'truckType', 'description'
+      ]);
       
-      let shipmentAdsQuery;
-      
-      // إذا كان البحث عن كلمات مفتاحية عامة فقط، نجلب كل الإعلانات
-      if (isGeneralAdSearch && !searchQuery.match(/[a-zA-Z\u0600-\u06FF]{3,}/)) {
-        shipmentAdsQuery = {};
-      } else if (isShipmentSearch) {
-        // إذا كان البحث يحتوي على كلمات شحن، نجلب كل الإعلانات أو نبحث في الحقول
-        shipmentAdsQuery = {
-          $or: [
-            { pickupLocation: { $regex: searchQuery, $options: "i" } },
-            { deliveryLocation: { $regex: searchQuery, $options: "i" } },
-            { truckType: { $regex: searchQuery, $options: "i" } },
-            { description: { $regex: searchQuery, $options: "i" } },
-          ]
-        };
-      } else {
-        shipmentAdsQuery = {
-          $or: [
-            { pickupLocation: { $regex: searchQuery, $options: "i" } },
-            { deliveryLocation: { $regex: searchQuery, $options: "i" } },
-            { truckType: { $regex: searchQuery, $options: "i" } },
-            { description: { $regex: searchQuery, $options: "i" } },
-          ]
-        };
-      }
+      const shipmentAdsQuery = shipmentAdsSearchQuery;
 
       const shipmentAds = await ShipmentAd.find(shipmentAdsQuery)
         .populate("user", "name avatar userType companyName")
         .sort({ createdAt: -1 })
-        .limit(category === "shipments" ? limitNum : 10)
+        .limit(category === "shipments" ? limitNum : 15)
         .skip(category === "shipments" ? skip : 0)
         .lean();
 
-      results.shipmentAds = shipmentAds.map(ad => ({
-        ...ad,
-        type: "shipment",
-        likesCount: ad.reactions?.filter(r => r.type === "like").length || 0,
-        commentsCount: ad.comments?.length || 0,
-      }));
+      const shipmentAdsWithRelevance = shipmentAds.map(ad => {
+        const relevanceScore = calculateRelevanceScore(
+          ad, 
+          searchQuery, 
+          ['pickupLocation', 'deliveryLocation', 'truckType', 'description']
+        );
+
+        return {
+          ...ad,
+          type: "shipment",
+          likesCount: ad.reactions?.filter(r => r.type === "like").length || 0,
+          commentsCount: ad.comments?.length || 0,
+          relevanceScore
+        };
+      });
+
+      // ترتيب حسب درجة الملاءمة ثم التاريخ
+      shipmentAdsWithRelevance.sort((a, b) => {
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      results.shipmentAds = shipmentAdsWithRelevance;
 
       if (category === "shipments") {
         const totalShipmentAds = await ShipmentAd.countDocuments(shipmentAdsQuery);
@@ -240,49 +307,45 @@ router.get("/", async (req, res) => {
     }
 
     // البحث في إعلانات الشاحنات الفارغة
-    // إذا كان البحث يحتوي على كلمات مفتاحية للشاحنات الفارغة أو كلمات عامة، نجلب جميع الإعلانات
-    if (category === "all" || category === "emptyTrucks" || 
-        isEmptyTruckSearch || isGeneralAdSearch) {
+    if (category === "all" || category === "emptyTrucks") {
+      const emptyTruckAdsSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'currentLocation', 'preferredDestination', 'truckType', 'additionalNotes'
+      ]);
       
-      let emptyTruckAdsQuery;
-      
-      // إذا كان البحث عن كلمات مفتاحية عامة أو شاحنات فارغة فقط، نجلب كل الإعلانات
-      if ((isGeneralAdSearch || isEmptyTruckSearch) && !searchQuery.match(/[a-zA-Z\u0600-\u06FF]{3,}/)) {
-        emptyTruckAdsQuery = {};
-      } else if (isEmptyTruckSearch) {
-        // إذا كان البحث يحتوي على كلمات شاحنات فارغة، نجلب كل الإعلانات أو نبحث في الحقول
-        emptyTruckAdsQuery = {
-          $or: [
-            { currentLocation: { $regex: searchQuery, $options: "i" } },
-            { preferredDestination: { $regex: searchQuery, $options: "i" } },
-            { truckType: { $regex: searchQuery, $options: "i" } },
-            { additionalNotes: { $regex: searchQuery, $options: "i" } },
-          ]
-        };
-      } else {
-        emptyTruckAdsQuery = {
-          $or: [
-            { currentLocation: { $regex: searchQuery, $options: "i" } },
-            { preferredDestination: { $regex: searchQuery, $options: "i" } },
-            { truckType: { $regex: searchQuery, $options: "i" } },
-            { additionalNotes: { $regex: searchQuery, $options: "i" } },
-          ]
-        };
-      }
+      const emptyTruckAdsQuery = emptyTruckAdsSearchQuery;
 
       const emptyTruckAds = await EmptyTruckAd.find(emptyTruckAdsQuery)
         .populate("user", "name avatar userType companyName")
         .sort({ createdAt: -1 })
-        .limit(category === "emptyTrucks" ? limitNum : 10)
+        .limit(category === "emptyTrucks" ? limitNum : 15)
         .skip(category === "emptyTrucks" ? skip : 0)
         .lean();
 
-      results.emptyTruckAds = emptyTruckAds.map(ad => ({
-        ...ad,
-        type: "emptyTruck",
-        likesCount: ad.reactions?.filter(r => r.type === "like").length || 0,
-        commentsCount: ad.comments?.length || 0,
-      }));
+      const emptyTruckAdsWithRelevance = emptyTruckAds.map(ad => {
+        const relevanceScore = calculateRelevanceScore(
+          ad, 
+          searchQuery, 
+          ['currentLocation', 'preferredDestination', 'truckType', 'additionalNotes']
+        );
+
+        return {
+          ...ad,
+          type: "emptyTruck",
+          likesCount: ad.reactions?.filter(r => r.type === "like").length || 0,
+          commentsCount: ad.comments?.length || 0,
+          relevanceScore
+        };
+      });
+
+      // ترتيب حسب درجة الملاءمة ثم التاريخ
+      emptyTruckAdsWithRelevance.sort((a, b) => {
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      results.emptyTruckAds = emptyTruckAdsWithRelevance;
 
       if (category === "emptyTrucks") {
         const totalEmptyTruckAds = await EmptyTruckAd.countDocuments(emptyTruckAdsQuery);
@@ -355,25 +418,57 @@ router.get("/suggestions", async (req, res) => {
       city: { $regex: searchQuery, $options: "i" }
     });
     
-    cities.slice(0, 3).forEach(city => {
+    cities.slice(0, 5).forEach(city => {
       if (city && !suggestions.includes(city)) {
         suggestions.push(city);
       }
     });
 
+    // اقتراحات من مواقع الشاحنات
+    const vehicleLocations = await Vehicle.distinct("currentLocation", {
+      currentLocation: { $regex: searchQuery, $options: "i" }
+    });
+
+    vehicleLocations.slice(0, 3).forEach(location => {
+      if (location && !suggestions.includes(location)) {
+        suggestions.push(location);
+      }
+    });
+
+    // اقتراحات من مواقع الاستلام والتسليم
+    const pickupLocations = await ShipmentAd.distinct("pickupLocation", {
+      pickupLocation: { $regex: searchQuery, $options: "i" }
+    });
+
+    pickupLocations.slice(0, 3).forEach(location => {
+      if (location && !suggestions.includes(location)) {
+        suggestions.push(location);
+      }
+    });
+
+    const deliveryLocations = await ShipmentAd.distinct("deliveryLocation", {
+      deliveryLocation: { $regex: searchQuery, $options: "i" }
+    });
+
+    deliveryLocations.slice(0, 3).forEach(location => {
+      if (location && !suggestions.includes(location)) {
+        suggestions.push(location);
+      }
+    });
+
     // اقتراحات من أنواع الشاحنات
-    const vehicles = await Vehicle.distinct("vehicleType", {
+    const vehicleTypes = await Vehicle.distinct("vehicleType", {
       vehicleType: { $regex: searchQuery, $options: "i" }
     });
 
-    vehicles.slice(0, 3).forEach(type => {
+    vehicleTypes.slice(0, 3).forEach(type => {
       if (type && !suggestions.includes(type)) {
         suggestions.push(type);
       }
     });
 
     res.json({ 
-      suggestions: suggestions.slice(0, 8) // أقصى 8 اقتراحات
+      suggestions: suggestions.slice(0, 10) // أقصى 10 اقتراحات
     });
 
   } catch (err) {
