@@ -14,6 +14,7 @@ const userRoutes = require("./routes/userRoutes"); // Added userRoutes
 const exploreRoutes = require("./routes/exploreRoutes"); // Added exploreRoutes
 const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
 const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
+const callLogRoutes = require("./routes/callLogRoutes"); // Added callLogRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -66,6 +67,7 @@ app.use("/api/v1/users", userRoutes); // Mount user routes
 app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
 app.use("/api/v1/chat", chatRoutes); // Mount chat routes
 app.use("/api/v1/search", searchRoutes); // Mount search routes
+app.use("/api/v1/call-logs", callLogRoutes); // Mount call log routes
 
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {
