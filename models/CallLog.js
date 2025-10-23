@@ -19,8 +19,8 @@ const callLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["missed", "answered", "rejected", "cancelled", "completed", "declined"],
-      default: "missed",
+      enum: ["connecting", "missed", "answered", "rejected", "cancelled", "completed", "declined"],
+      default: "connecting",
     },
     duration: {
       type: Number, // بالثواني

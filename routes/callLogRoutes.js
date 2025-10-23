@@ -76,7 +76,7 @@ router.post("/", protect, async (req, res) => {
       caller: req.user._id,
       receiver: receiverId,
       callType,
-      status: status || "missed",
+      status: status || "connecting",
       startedAt: new Date(),
     });
 
