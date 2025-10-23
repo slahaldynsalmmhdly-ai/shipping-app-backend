@@ -69,7 +69,7 @@ router.post("/", protect, async (req, res) => {
     const { receiverId, type, status } = req.body;
 
     if (!receiverId || !type) {
-      return res.status(400).json({ message: "receiverId و callType مطلوبان" });
+      return res.status(400).json({ message: "receiverId و type مطلوبان" });
     }
 
     const callLog = await CallLog.create({
