@@ -66,16 +66,16 @@ router.get("/unread-count", protect, async (req, res) => {
 // @access  Private
 router.post("/", protect, async (req, res) => {
   try {
-    const { receiverId, callType, status } = req.body;
+    const { receiverId, type, status } = req.body;
 
-    if (!receiverId || !callType) {
+    if (!receiverId || !type) {
       return res.status(400).json({ message: "receiverId و callType مطلوبان" });
     }
 
     const callLog = await CallLog.create({
       caller: req.user._id,
       receiver: receiverId,
-      callType,
+      type,
       status: status || "missed",
       startedAt: new Date(),
     });
