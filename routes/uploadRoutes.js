@@ -18,65 +18,137 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     let folder;
+    let resourceType = "auto"; // Let Cloudinary detect automatically
+    
     if (file.mimetype.startsWith("image")) {
       folder = "shipping-app/images";
+      resourceType = "image";
     } else if (file.mimetype.startsWith("video")) {
       folder = "shipping-app/videos";
+      resourceType = "video";
     } else {
-      folder = "shipping-app/others";
+      // Fallback: check file extension
+      const fileExt = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+      if (['.mp4', '.mpeg', '.mov', '.webm', '.avi'].includes(fileExt)) {
+        folder = "shipping-app/videos";
+        resourceType = "video";
+      } else {
+        folder = "shipping-app/others";
+        resourceType = "auto";
+      }
     }
+    
     return {
       folder: folder,
-      format: file.mimetype.startsWith("image") ? file.mimetype.split("/")[1] : undefined, // Let Cloudinary handle video format automatically
+      resource_type: resourceType,
       public_id: `${folder.split("/").pop()}-${Date.now()}`,
+      // Don't specify format, let Cloudinary handle it automatically
     };
   },
 });
 
 // Filter for image and video files
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image") || file.mimetype.startsWith("video")) {
+  // Check file extension as fallback for cases where mimetype is generic
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', 
+                             '.mp4', '.mpeg', '.mov', '.webm', '.avi'];
+  const fileExt = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+  
+  if (file.mimetype.startsWith("image") || 
+      file.mimetype.startsWith("video") ||
+      allowedExtensions.includes(fileExt)) {
     cb(null, true);
   } else {
-    console.log(`Rejected file with mimetype: ${file.mimetype}`);
-    cb(new Error(`Only image and video files are allowed! Received: ${file.mimetype}`), false);
+    console.log(`Rejected file: ${file.originalname}, mimetype: ${file.mimetype}`);
+    cb(new Error(`نوع الملف غير مدعوم. يرجى رفع صورة أو فيديو فقط.`), false);
   }
 };
 
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ 
+  storage: storage, 
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB max
+  }
+});
 
 // @desc    Upload single image/video
 // @route   POST /api/upload/single
 // @access  Private
-router.post("/single", protect, upload.single("file"), (req, res) => {
-  if (req.file) {
-    res.json({
-      message: "File uploaded successfully",
-      filePath: req.file.path, // Cloudinary URL
-      fileType: req.file.mimetype.startsWith("image") ? "image" : "video",
-    });
-  } else {
-    res.status(400).json({ message: "No file provided" });
-  }
+router.post("/single", protect, (req, res) => {
+  upload.single("file")(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.error("Multer error:", err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          message: "حجم الملف كبير جداً. الحد الأقصى 100 ميجابايت" 
+        });
+      }
+      return res.status(400).json({ 
+        message: "خطأ في رفع الملف", 
+        error: err.message 
+      });
+    } else if (err) {
+      console.error("Upload error:", err);
+      return res.status(500).json({ 
+        message: "فشل في رفع الملف", 
+        error: err.message
+      });
+    }
+    
+    if (req.file) {
+      console.log("File uploaded successfully:", req.file.path);
+      res.json({
+        message: "File uploaded successfully",
+        filePath: req.file.path, // Cloudinary URL
+        fileType: req.file.mimetype.startsWith("image") ? "image" : "video",
+      });
+    } else {
+      res.status(400).json({ message: "لم يتم تحديد ملف" });
+    }
+  });
 });
 
 // @desc    Upload multiple images/videos
 // @route   POST /api/upload/multiple
 // @access  Private
-router.post("/multiple", protect, upload.array("files", 10), (req, res) => {
-  if (req.files && req.files.length > 0) {
-    const filePaths = req.files.map((file) => file.path); // Cloudinary URLs
-    const fileTypes = req.files.map((file) =>
-      file.mimetype.startsWith("image") ? "image" : "video"
-    );
-    res.json({
-      message: "Files uploaded successfully",
-      filePaths: filePaths,
-      fileTypes: fileTypes,
-    });
-  } else {
-    res.status(400).json({ message: "No files provided" });
-  }
+router.post("/multiple", protect, (req, res) => {
+  upload.array("files", 10)(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.error("Multer error:", err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          message: "حجم أحد الملفات كبير جداً. الحد الأقصى 100 ميجابايت لكل ملف" 
+        });
+      }
+      return res.status(400).json({ 
+        message: "خطأ في رفع الملفات", 
+        error: err.message 
+      });
+    } else if (err) {
+      console.error("Upload error:", err);
+      return res.status(500).json({ 
+        message: "فشل في رفع الملفات", 
+        error: err.message 
+      });
+    }
+    
+    if (req.files && req.files.length > 0) {
+      console.log(`${req.files.length} files uploaded successfully`);
+      const filePaths = req.files.map((file) => file.path); // Cloudinary URLs
+      const fileTypes = req.files.map((file) =>
+        file.mimetype.startsWith("image") ? "image" : "video"
+      );
+      res.json({
+        message: "Files uploaded successfully",
+        filePaths: filePaths,
+        fileTypes: fileTypes,
+      });
+    } else {
+      res.status(400).json({ message: "لم يتم تحديد ملفات" });
+    }
+  });
 });
 
 module.exports = router;
+
