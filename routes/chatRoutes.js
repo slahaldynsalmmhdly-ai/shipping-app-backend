@@ -342,7 +342,7 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
 router.post(
   "/conversations/:conversationId/media",
   protect,
-  upload.single("file"),
+  upload.single("media"),
   async (req, res) => {
     try {
       const { conversationId } = req.params;
