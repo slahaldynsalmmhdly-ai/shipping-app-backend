@@ -6,20 +6,23 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = "uploads/chat";
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer with Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "shipping-app/chat-images",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
+    transformation: [{ width: 1000, height: 1000, crop: "limit" }],
   },
 });
 
@@ -379,7 +382,7 @@ router.post(
         conversation: conversationId,
         sender: req.user.id,
         messageType: detectedMessageType,
-        mediaUrl: `/uploads/chat/${req.file.filename}`,
+        mediaUrl: req.file.path, // Cloudinary URL
         mediaSize: req.file.size,
         mediaDuration: mediaDuration ? parseInt(mediaDuration) : null,
         readBy: [req.user.id],
