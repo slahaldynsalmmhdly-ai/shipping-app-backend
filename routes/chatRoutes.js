@@ -4,6 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const Review = require("../models/Review");
 const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
@@ -488,6 +489,220 @@ router.put("/conversations/:conversationId/read", protect, async (req, res) => {
     await conversation.save();
 
     res.json({ msg: "Conversation marked as read" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Get conversation statistics
+// @route   GET /api/v1/chat/conversations/:conversationId/stats
+// @access  Private
+router.get("/conversations/:conversationId/stats", protect, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    // Check if conversation exists and user is a participant
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    if (!conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ msg: "Access denied" });
+    }
+
+    // Count total messages
+    const messagesCount = await Message.countDocuments({
+      conversation: conversationId,
+      deletedFor: { $ne: req.user.id },
+    });
+
+    // Count images
+    const imagesCount = await Message.countDocuments({
+      conversation: conversationId,
+      messageType: "image",
+      deletedFor: { $ne: req.user.id },
+    });
+
+    // Count links in text messages
+    const textMessages = await Message.find({
+      conversation: conversationId,
+      messageType: "text",
+      deletedFor: { $ne: req.user.id },
+    }).select("content");
+
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const linksCount = textMessages.filter((msg) =>
+      urlRegex.test(msg.content)
+    ).length;
+
+    res.json({
+      messagesCount,
+      imagesCount,
+      linksCount,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Get shared media in conversation
+// @route   GET /api/v1/chat/conversations/:conversationId/media
+// @access  Private
+router.get("/conversations/:conversationId/media", protect, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+
+    // Check if conversation exists and user is a participant
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    if (!conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ msg: "Access denied" });
+    }
+
+    // Get media messages with pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const mediaMessages = await Message.find({
+      conversation: conversationId,
+      messageType: { $in: ["image", "file", "video", "audio"] },
+      deletedFor: { $ne: req.user.id },
+    })
+      .populate("sender", "name avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select("mediaUrl messageType createdAt sender");
+
+    // Count total media
+    const totalMedia = await Message.countDocuments({
+      conversation: conversationId,
+      messageType: { $in: ["image", "file", "video", "audio"] },
+      deletedFor: { $ne: req.user.id },
+    });
+
+    // Format media for frontend
+    const formattedMedia = mediaMessages.map((msg) => ({
+      _id: msg._id,
+      mediaUrl: msg.mediaUrl,
+      messageType: msg.messageType,
+      createdAt: msg.createdAt,
+      sender: {
+        _id: msg.sender._id,
+        name: msg.sender.name,
+      },
+    }));
+
+    res.json({
+      media: formattedMedia,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalMedia / parseInt(limit)),
+        totalMedia,
+        hasMore: skip + formattedMedia.length < totalMedia,
+      },
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Get user profile with conversation stats
+// @route   GET /api/v1/chat/profile/:userId
+// @access  Private
+router.get("/profile/:userId", protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { conversationId } = req.query;
+
+    // Get user basic info
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // Calculate rating and reviewCount
+    const reviews = await Review.find({ user: userId });
+    const rating =
+      reviews.length > 0
+        ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+        : 0;
+    const reviewCount = reviews.length;
+
+    const userProfile = {
+      ...user.toObject(),
+      rating,
+      reviewCount,
+    };
+
+    // If conversationId is provided, add conversation stats and shared media
+    if (conversationId) {
+      // Check if conversation exists and user is a participant
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ msg: "Conversation not found" });
+      }
+
+      if (!conversation.participants.includes(req.user.id)) {
+        return res.status(403).json({ msg: "Access denied" });
+      }
+
+      // Count total messages
+      const messagesCount = await Message.countDocuments({
+        conversation: conversationId,
+        deletedFor: { $ne: req.user.id },
+      });
+
+      // Count images
+      const imagesCount = await Message.countDocuments({
+        conversation: conversationId,
+        messageType: "image",
+        deletedFor: { $ne: req.user.id },
+      });
+
+      // Count links in text messages
+      const textMessages = await Message.find({
+        conversation: conversationId,
+        messageType: "text",
+        deletedFor: { $ne: req.user.id },
+      }).select("content");
+
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const linksCount = textMessages.filter((msg) =>
+        urlRegex.test(msg.content)
+      ).length;
+
+      // Get last 20 shared images
+      const sharedMedia = await Message.find({
+        conversation: conversationId,
+        messageType: "image",
+        deletedFor: { $ne: req.user.id },
+      })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .select("mediaUrl messageType createdAt");
+
+      userProfile.conversationStats = {
+        messagesCount,
+        imagesCount,
+        linksCount,
+      };
+
+      userProfile.sharedMedia = sharedMedia.map((msg) => ({
+        _id: msg._id,
+        mediaUrl: msg.mediaUrl,
+        messageType: msg.messageType,
+        createdAt: msg.createdAt,
+      }));
+    }
+
+    res.json(userProfile);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
