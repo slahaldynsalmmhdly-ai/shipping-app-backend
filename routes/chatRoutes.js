@@ -17,8 +17,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configure multer with Cloudinary storage
-const storage = new CloudinaryStorage({
+// Configure multer with Cloudinary storage for images
+const imageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "shipping-app/chat-images",
@@ -27,20 +27,50 @@ const storage = new CloudinaryStorage({
   },
 });
 
-const upload = multer({
-  storage: storage,
+// Configure multer with Cloudinary storage for videos
+const videoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "shipping-app/chat-videos",
+    resource_type: "video",
+    allowed_formats: ["mp4", "mov", "avi", "webm", "mkv"],
+  },
+});
+
+// Multer upload for images
+const uploadImage = multer({
+  storage: imageStorage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit for images
   },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi|mp3|wav|m4a|pdf|doc|docx/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error("Invalid file type"));
+      cb(new Error("Invalid image file type"));
+    }
+  },
+});
+
+// Multer upload for videos
+const uploadVideo = multer({
+  storage: videoStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /mp4|mov|avi|webm|mkv/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Invalid video file type"));
     }
   },
 });
@@ -343,7 +373,7 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
 router.post(
   "/conversations/:conversationId/media",
   protect,
-  upload.single("media"),
+  uploadImage.single("media"),
   async (req, res) => {
     try {
       const { conversationId } = req.params;
@@ -415,6 +445,87 @@ router.post(
           avatar: message.sender.avatar,
         },
         messageType: message.messageType,
+        mediaUrl: message.mediaUrl,
+        mediaSize: message.mediaSize,
+        mediaDuration: message.mediaDuration,
+        isRead: false,
+        isSender: true,
+        createdAt: message.createdAt,
+      };
+
+      res.status(201).json(formattedMessage);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send("Server Error");
+    }
+  }
+);
+
+// @desc    Send a video message
+// @route   POST /api/v1/chat/conversations/:conversationId/video
+// @access  Private
+router.post(
+  "/conversations/:conversationId/video",
+  protect,
+  uploadVideo.single("video"),
+  async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const { content, mediaDuration } = req.body;
+
+      if (!req.file) {
+        return res.status(400).json({ msg: "Video file is required" });
+      }
+
+      // Check if conversation exists and user is a participant
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ msg: "Conversation not found" });
+      }
+
+      if (!conversation.participants.includes(req.user.id)) {
+        return res.status(403).json({ msg: "Access denied" });
+      }
+
+      // Create video message
+      const message = await Message.create({
+        conversation: conversationId,
+        sender: req.user.id,
+        messageType: "video",
+        content: content || "",
+        mediaUrl: req.file.path, // Cloudinary URL
+        mediaSize: req.file.size,
+        mediaDuration: mediaDuration ? parseInt(mediaDuration) : null,
+        readBy: [req.user.id],
+      });
+
+      // Update conversation
+      conversation.lastMessage = message._id;
+      conversation.lastMessageTime = message.createdAt;
+
+      // Update unread count for other participants
+      conversation.participants.forEach((participantId) => {
+        if (participantId.toString() !== req.user.id) {
+          const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
+          conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+        }
+      });
+
+      await conversation.save();
+
+      // Populate sender info
+      await message.populate("sender", "name avatar");
+
+      // Format message for frontend
+      const formattedMessage = {
+        _id: message._id,
+        sender: {
+          _id: message.sender._id,
+          name: message.sender.name,
+          avatar: message.sender.avatar,
+        },
+        messageType: message.messageType,
+        content: message.content,
         mediaUrl: message.mediaUrl,
         mediaSize: message.mediaSize,
         mediaDuration: message.mediaDuration,
