@@ -293,32 +293,16 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       return res.status(404).json({ msg: "Comment not found" });
     }
 
-    // Check if the user has already liked this comment
-    if (
-      comment.likes.filter((like) => like.user.toString() === req.user.id)
-        .length > 0
-    ) {
-      // User already liked, so unlike it
-      comment.likes = comment.likes.filter(
-        (like) => like.user.toString() !== req.user.id
-      );
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
 
-      // Remove notification for the comment owner
-      if (comment.user.toString() !== req.user.id) {
-        const commentOwner = await User.findById(comment.user);
-        if (commentOwner) {
-          commentOwner.notifications = commentOwner.notifications.filter(
-            (notif) =>
-              !(notif.type === 'comment_like' &&
-                notif.sender.toString() === req.user.id &&
-                notif.post.toString() === post._id.toString() &&
-                notif.commentId.toString() === comment._id.toString())
-          );
-          await commentOwner.save();
-        }
-      }
-    } else {
-      // User has not liked, so like it
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+    }
+
+    // If user has not liked, add like
+    if (!alreadyLiked) {
       comment.likes.unshift({ user: req.user.id });
 
       // Create notification for the comment owner if not self-liking
@@ -335,6 +319,7 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
         }
       }
     }
+    // If already liked, do nothing (no toggle)
 
     post.markModified("comments");
     await post.save();
@@ -435,33 +420,16 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.status(404).json({ msg: "Reply not found" });
     }
 
-    // Check if the user has already liked this reply
-    if (
-      reply.likes.filter((like) => like.user.toString() === req.user.id)
-        .length > 0
-    ) {
-      // User already liked, so unlike it
-      reply.likes = reply.likes.filter(
-        (like) => like.user.toString() !== req.user.id
-      );
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
 
-      // Remove notification for the reply owner
-      if (reply.user.toString() !== req.user.id) {
-        const replyOwner = await User.findById(reply.user);
-        if (replyOwner) {
-          replyOwner.notifications = replyOwner.notifications.filter(
-            (notif) =>
-              !(notif.type === 'reply_like' &&
-                notif.sender.toString() === req.user.id &&
-                notif.post.toString() === post._id.toString() &&
-                notif.commentId.toString() === comment._id.toString() &&
-                notif.replyId.toString() === reply._id.toString())
-          );
-          await replyOwner.save();
-        }
-      }
-    } else {
-      // User has not liked, so like it
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+    }
+
+    // If user has not liked, add like
+    if (!alreadyLiked) {
       reply.likes.unshift({ user: req.user.id });
 
       // Create notification for the reply owner if not self-liking
@@ -479,6 +447,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
         }
       }
     }
+    // If already liked, do nothing (no toggle)
 
     post.markModified("comments");
     await post.save();
@@ -760,6 +729,112 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(404).json({ msg: "Post not found" });
     }
     res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
+// @desc    Dislike a comment
+// @route   PUT /api/v1/posts/:id/comment/:comment_id/dislike
+// @access  Private
+router.put("/:id/comment/:comment_id/dislike", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    const comment = post.comments.id(req.params.comment_id);
+    if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has liked, remove like and notification
+    if (alreadyLiked) {
+      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user.id);
+      
+      if (comment.user.toString() !== req.user.id) {
+        const commentOwner = await User.findById(comment.user);
+        if (commentOwner) {
+          commentOwner.notifications = commentOwner.notifications.filter(
+            (notif) => !(notif.type === 'comment_like' &&
+              notif.sender.toString() === req.user.id &&
+              notif.post.toString() === post._id.toString() &&
+              notif.commentId.toString() === comment._id.toString())
+          );
+          await commentOwner.save();
+        }
+      }
+    }
+
+    // If user has not disliked, add dislike
+    if (!alreadyDisliked) {
+      comment.dislikes.unshift({ user: req.user.id });
+    }
+    // If already disliked, do nothing (no toggle)
+
+    post.markModified("comments");
+    await post.save();
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({ path: "comments.user", select: "name avatar" })
+      .populate({ path: "comments.replies.user", select: "name avatar" });
+    res.json(updatedPost);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Dislike a reply
+// @route   PUT /api/v1/posts/:id/comment/:comment_id/reply/:reply_id/dislike
+// @access  Private
+router.put("/:id/comment/:comment_id/reply/:reply_id/dislike", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    const comment = post.comments.id(req.params.comment_id);
+    if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) return res.status(404).json({ msg: "Reply not found" });
+
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has liked, remove like and notification
+    if (alreadyLiked) {
+      reply.likes = reply.likes.filter(like => like.user.toString() !== req.user.id);
+      
+      if (reply.user.toString() !== req.user.id) {
+        const replyOwner = await User.findById(reply.user);
+        if (replyOwner) {
+          replyOwner.notifications = replyOwner.notifications.filter(
+            (notif) => !(notif.type === 'reply_like' &&
+              notif.sender.toString() === req.user.id &&
+              notif.post.toString() === post._id.toString() &&
+              notif.commentId.toString() === comment._id.toString() &&
+              notif.replyId.toString() === reply._id.toString())
+          );
+          await replyOwner.save();
+        }
+      }
+    }
+
+    // If user has not disliked, add dislike
+    if (!alreadyDisliked) {
+      reply.dislikes.unshift({ user: req.user.id });
+    }
+    // If already disliked, do nothing (no toggle)
+
+    post.markModified("comments");
+    await post.save();
+    const updatedPost = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({ path: "comments.user", select: "name avatar" })
+      .populate({ path: "comments.replies.user", select: "name avatar" });
+    res.json(updatedPost);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
   }
 });
 

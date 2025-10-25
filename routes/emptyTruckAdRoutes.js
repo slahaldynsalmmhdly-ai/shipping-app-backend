@@ -267,16 +267,19 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
 
-    if (
-      comment.likes.filter((like) => like.user.toString() === req.user.id)
-        .length > 0
-    ) {
-      comment.likes = comment.likes.filter(
-        (like) => like.user.toString() !== req.user.id
-      );
-    } else {
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+    }
+
+    // If user has not liked, add like
+    if (!alreadyLiked) {
       comment.likes.unshift({ user: req.user.id });
     }
+    // If already liked, do nothing (no toggle)
 
     emptyTruckAd.markModified("comments");
     await emptyTruckAd.save();
@@ -362,19 +365,19 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.status(404).json({ message: "Reply not found" });
     }
 
-    // Check if the user has already liked this reply
-    if (
-      reply.likes.filter((like) => like.user.toString() === req.user.id)
-        .length > 0
-    ) {
-      // User already liked, so unlike it
-      reply.likes = reply.likes.filter(
-        (like) => like.user.toString() !== req.user.id
-      );
-    } else {
-      // User has not liked, so like it
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+    }
+
+    // If user has not liked, add like
+    if (!alreadyLiked) {
       reply.likes.unshift({ user: req.user.id });
     }
+    // If already liked, do nothing (no toggle)
 
     emptyTruckAd.markModified("comments");
     await emptyTruckAd.save();
@@ -534,6 +537,85 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "Empty truck ad not found" });
     }
     res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Dislike a comment on an empty truck ad
+// @route   PUT /api/v1/emptytruckads/:id/comment/:comment_id/dislike
+// @access  Private
+router.put("/:id/comment/:comment_id/dislike", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    if (!emptyTruckAd) return res.status(404).json({ message: "Empty truck ad not found" });
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has liked, remove like
+    if (alreadyLiked) {
+      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user.id);
+    }
+
+    // If user has not disliked, add dislike
+    if (!alreadyDisliked) {
+      comment.dislikes.unshift({ user: req.user.id });
+    }
+    // If already disliked, do nothing (no toggle)
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({ path: "comments.user", select: "name avatar" })
+      .populate({ path: "comments.replies.user", select: "name avatar" });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// @desc    Dislike a reply on an empty truck ad
+// @route   PUT /api/v1/emptytruckads/:id/comment/:comment_id/reply/:reply_id/dislike
+// @access  Private
+router.put("/:id/comment/:comment_id/reply/:reply_id/dislike", protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    if (!emptyTruckAd) return res.status(404).json({ message: "Empty truck ad not found" });
+
+    const comment = emptyTruckAd.comments.id(req.params.comment_id);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+    const reply = comment.replies.id(req.params.reply_id);
+    if (!reply) return res.status(404).json({ message: "Reply not found" });
+
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has liked, remove like
+    if (alreadyLiked) {
+      reply.likes = reply.likes.filter(like => like.user.toString() !== req.user.id);
+    }
+
+    // If user has not disliked, add dislike
+    if (!alreadyDisliked) {
+      reply.dislikes.unshift({ user: req.user.id });
+    }
+    // If already disliked, do nothing (no toggle)
+
+    emptyTruckAd.markModified("comments");
+    await emptyTruckAd.save();
+    const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({ path: "comments.user", select: "name avatar" })
+      .populate({ path: "comments.replies.user", select: "name avatar" });
+    res.json(updatedEmptyTruckAd);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Server Error");
   }
 });
 
