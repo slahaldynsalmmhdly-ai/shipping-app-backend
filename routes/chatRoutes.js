@@ -988,9 +988,19 @@ router.get("/block-status/:userId", protect, async (req, res) => {
     const currentUserId = req.user.id;
 
     const user = await User.findById(currentUserId);
-    const isBlocked = user.blockedUsers.includes(userId);
+    const otherUser = await User.findById(userId);
 
-    res.json({ isBlocked });
+    // Check if current user blocked the other user
+    const iBlockedThem = user.blockedUsers.includes(userId);
+    
+    // Check if the other user blocked current user
+    const theyBlockedMe = otherUser ? otherUser.blockedUsers.includes(currentUserId) : false;
+
+    // Determine the block status
+    const isBlocked = iBlockedThem || theyBlockedMe;
+    const amITheBlocker = iBlockedThem;
+
+    res.json({ isBlocked, amITheBlocker });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: "خطأ في الخادم" });
