@@ -3,6 +3,38 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Review = require("../models/Review");
+
+// @desc    Get current user profile
+// @route   GET /api/v1/users/me
+// @access  Private
+router.get("/me", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // Calculate rating and reviewCount
+    const reviews = await Review.find({ user: user._id });
+    const rating = reviews.length > 0
+      ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+      : 0;
+    const reviewCount = reviews.length;
+
+    res.json({
+      user: {
+        ...user.toObject(),
+        rating,
+        reviewCount
+      }
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
 
 // @desc    Get user notifications
 // @route   GET /api/v1/users/me/notifications
