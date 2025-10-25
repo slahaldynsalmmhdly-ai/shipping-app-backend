@@ -103,6 +103,12 @@ const UserSchema = new mongoose.Schema({
   licenseImages: [
     { type: String } // Array of URLs to license images
   ],
+  blockedUsers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
   notifications: [
     {
       type: {

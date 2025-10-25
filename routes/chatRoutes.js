@@ -915,5 +915,87 @@ router.delete("/messages/:messageId/everyone", protect, async (req, res) => {
   }
 });
 
+// @desc    Block a user
+// @route   POST /api/v1/chat/block/:userId
+// @access  Private
+router.post("/block/:userId", protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user.id;
+
+    if (userId === currentUserId) {
+      return res.status(400).json({ message: "لا يمكنك حظر نفسك" });
+    }
+
+    // Add to blockedUsers if not already blocked
+    const user = await User.findById(currentUserId);
+    if (!user.blockedUsers.includes(userId)) {
+      user.blockedUsers.push(userId);
+      await user.save();
+    }
+
+    // Also add current user to the other user's blockedUsers (mutual block)
+    const otherUser = await User.findById(userId);
+    if (otherUser && !otherUser.blockedUsers.includes(currentUserId)) {
+      otherUser.blockedUsers.push(currentUserId);
+      await otherUser.save();
+    }
+
+    res.json({ message: "تم حظر المستخدم بنجاح" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
+// @desc    Unblock a user
+// @route   POST /api/v1/chat/unblock/:userId
+// @access  Private
+router.post("/unblock/:userId", protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user.id;
+
+    // Remove from blockedUsers
+    const user = await User.findById(currentUserId);
+    user.blockedUsers = user.blockedUsers.filter(
+      (id) => id.toString() !== userId
+    );
+    await user.save();
+
+    // Also remove current user from the other user's blockedUsers (mutual unblock)
+    const otherUser = await User.findById(userId);
+    if (otherUser) {
+      otherUser.blockedUsers = otherUser.blockedUsers.filter(
+        (id) => id.toString() !== currentUserId
+      );
+      await otherUser.save();
+    }
+
+    res.json({ message: "تم فك الحظر بنجاح" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
+// @desc    Check if user is blocked
+// @route   GET /api/v1/chat/block-status/:userId
+// @access  Private
+router.get("/block-status/:userId", protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user.id;
+
+    const user = await User.findById(currentUserId);
+    const isBlocked = user.blockedUsers.includes(userId);
+
+    res.json({ isBlocked });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
 module.exports = router;
 
