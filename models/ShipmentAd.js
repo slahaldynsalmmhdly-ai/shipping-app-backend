@@ -64,6 +64,14 @@ const ShipmentAdSchema = new mongoose.Schema({
           },
         },
       ],
+      dislikes: [
+        {
+          user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+        },
+      ],
       replies: [
         {
           user: {
@@ -76,6 +84,14 @@ const ShipmentAdSchema = new mongoose.Schema({
             default: Date.now,
           },
           likes: [
+            {
+              user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+              },
+            },
+          ],
+          dislikes: [
             {
               user: {
                 type: mongoose.Schema.Types.ObjectId,

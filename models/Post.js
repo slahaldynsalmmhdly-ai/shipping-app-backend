@@ -50,6 +50,14 @@ const PostSchema = new mongoose.Schema({
           },
         },
       ],
+      dislikes: [
+        {
+          user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+          },
+        },
+      ],
       replies: [
         {
           user: {
@@ -62,6 +70,14 @@ const PostSchema = new mongoose.Schema({
             default: Date.now,
           },
           likes: [
+            {
+              user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+              },
+            },
+          ],
+          dislikes: [
             {
               user: {
                 type: mongoose.Schema.Types.ObjectId,
