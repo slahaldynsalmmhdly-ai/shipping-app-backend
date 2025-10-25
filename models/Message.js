@@ -13,7 +13,7 @@ const MessageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ["text", "image", "video", "audio", "file"],
+    enum: ["text", "image", "video", "audio", "file", "document", "location", "contact"],
     default: "text",
   },
   content: {
@@ -36,6 +36,19 @@ const MessageSchema = new mongoose.Schema({
   },
   mediaDuration: {
     type: Number, // For audio/video duration in seconds
+  },
+  fileName: {
+    type: String, // For document files
+  },
+  location: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+    address: { type: String },
+  },
+  contact: {
+    name: { type: String },
+    phone: { type: String },
+    email: { type: String },
   },
   readBy: [
     {

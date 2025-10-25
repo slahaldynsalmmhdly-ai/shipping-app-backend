@@ -37,6 +37,16 @@ const videoStorage = new CloudinaryStorage({
   },
 });
 
+// Configure multer with Cloudinary storage for documents
+const documentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "shipping-app/chat-documents",
+    resource_type: "raw",
+    allowed_formats: ["pdf", "doc", "docx", "xls", "xlsx", "txt", "ppt", "pptx"],
+  },
+});
+
 // Multer upload for images
 const uploadImage = multer({
   storage: imageStorage,
@@ -75,6 +85,24 @@ const uploadVideo = multer({
   },
 });
 
+// Multer upload for documents
+const uploadDocument = multer({
+  storage: documentStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit for documents
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|txt|ppt|pptx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    
+    if (extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Invalid document file type"));
+    }
+  },
+});
+
 // @desc    Get all conversations for the logged-in user
 // @route   GET /api/v1/chat/conversations
 // @access  Private
@@ -83,7 +111,7 @@ router.get("/conversations", protect, async (req, res) => {
     const conversations = await Conversation.find({
       participants: req.user.id,
     })
-      .populate("participants", "name avatar userType")
+      .populate("participants", "name avatar userType isOnline lastSeen")
       .populate({
         path: "lastMessage",
         select: "content messageType mediaUrl createdAt sender",
@@ -103,6 +131,8 @@ router.get("/conversations", protect, async (req, res) => {
           name: otherParticipant.name,
           avatar: otherParticipant.avatar,
           userType: otherParticipant.userType,
+          isOnline: otherParticipant.isOnline || false,
+          lastSeen: otherParticipant.lastSeen || otherParticipant.updatedAt,
         },
         lastMessage: conv.lastMessage
           ? {
@@ -750,6 +780,8 @@ router.get("/profile/:userId", protect, async (req, res) => {
       ...user.toObject(),
       rating,
       reviewCount,
+      isOnline: user.isOnline || false,
+      lastSeen: user.lastSeen || user.updatedAt,
     };
 
     // If conversationId is provided, add conversation stats and shared media
@@ -1004,6 +1036,232 @@ router.get("/block-status/:userId", protect, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
+// @desc    Send a document message
+// @route   POST /api/v1/chat/conversations/:conversationId/document
+// @access  Private
+router.post(
+  "/conversations/:conversationId/document",
+  protect,
+  uploadDocument.single("document"),
+  async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ msg: "Document file is required" });
+      }
+
+      // Check if conversation exists and user is a participant
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ msg: "Conversation not found" });
+      }
+
+      if (!conversation.participants.includes(req.user.id)) {
+        return res.status(403).json({ msg: "Access denied" });
+      }
+
+      // Create message
+      const message = await Message.create({
+        conversation: conversationId,
+        sender: req.user.id,
+        messageType: "document",
+        mediaUrl: req.file.path, // Cloudinary URL
+        fileName: req.file.originalname,
+        mediaSize: req.file.size,
+        readBy: [req.user.id],
+      });
+
+      // Update conversation
+      conversation.lastMessage = message._id;
+      conversation.lastMessageTime = message.createdAt;
+
+      // Update unread count for other participants
+      conversation.participants.forEach((participantId) => {
+        if (participantId.toString() !== req.user.id) {
+          const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
+          conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+        }
+      });
+
+      await conversation.save();
+
+      // Populate sender info
+      await message.populate("sender", "name avatar");
+
+      // Format message for frontend
+      const formattedMessage = {
+        _id: message._id,
+        sender: {
+          _id: message.sender._id,
+          name: message.sender.name,
+          avatar: message.sender.avatar,
+        },
+        messageType: message.messageType,
+        mediaUrl: message.mediaUrl,
+        fileName: message.fileName,
+        mediaSize: message.mediaSize,
+        isRead: false,
+        isSender: true,
+        createdAt: message.createdAt,
+      };
+
+      res.status(201).json(formattedMessage);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send("Server Error");
+    }
+  }
+);
+
+// @desc    Send a location message
+// @route   POST /api/v1/chat/conversations/:conversationId/location
+// @access  Private
+router.post("/conversations/:conversationId/location", protect, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { latitude, longitude, address } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ msg: "Latitude and longitude are required" });
+    }
+
+    // Check if conversation exists and user is a participant
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    if (!conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ msg: "Access denied" });
+    }
+
+    // Create message
+    const message = await Message.create({
+      conversation: conversationId,
+      sender: req.user.id,
+      messageType: "location",
+      location: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        address: address || "",
+      },
+      readBy: [req.user.id],
+    });
+
+    // Update conversation
+    conversation.lastMessage = message._id;
+    conversation.lastMessageTime = message.createdAt;
+
+    // Update unread count for other participants
+    conversation.participants.forEach((participantId) => {
+      if (participantId.toString() !== req.user.id) {
+        const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
+        conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+      }
+    });
+
+    await conversation.save();
+
+    // Populate sender info
+    await message.populate("sender", "name avatar");
+
+    // Format message for frontend
+    const formattedMessage = {
+      _id: message._id,
+      sender: {
+        _id: message.sender._id,
+        name: message.sender.name,
+        avatar: message.sender.avatar,
+      },
+      messageType: message.messageType,
+      location: message.location,
+      isRead: false,
+      isSender: true,
+      createdAt: message.createdAt,
+    };
+
+    res.status(201).json(formattedMessage);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Send a contact message
+// @route   POST /api/v1/chat/conversations/:conversationId/contact
+// @access  Private
+router.post("/conversations/:conversationId/contact", protect, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { name, phone, email } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ msg: "Contact name and phone are required" });
+    }
+
+    // Check if conversation exists and user is a participant
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    if (!conversation.participants.includes(req.user.id)) {
+      return res.status(403).json({ msg: "Access denied" });
+    }
+
+    // Create message
+    const message = await Message.create({
+      conversation: conversationId,
+      sender: req.user.id,
+      messageType: "contact",
+      contact: {
+        name,
+        phone,
+        email: email || "",
+      },
+      readBy: [req.user.id],
+    });
+
+    // Update conversation
+    conversation.lastMessage = message._id;
+    conversation.lastMessageTime = message.createdAt;
+
+    // Update unread count for other participants
+    conversation.participants.forEach((participantId) => {
+      if (participantId.toString() !== req.user.id) {
+        const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
+        conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+      }
+    });
+
+    await conversation.save();
+
+    // Populate sender info
+    await message.populate("sender", "name avatar");
+
+    // Format message for frontend
+    const formattedMessage = {
+      _id: message._id,
+      sender: {
+        _id: message.sender._id,
+        name: message.sender.name,
+        avatar: message.sender.avatar,
+      },
+      messageType: message.messageType,
+      contact: message.contact,
+      isRead: false,
+      isSender: true,
+      createdAt: message.createdAt,
+    };
+
+    res.status(201).json(formattedMessage);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
   }
 });
 

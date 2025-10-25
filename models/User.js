@@ -109,11 +109,19 @@ const UserSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  isOnline: {
+    type: Boolean,
+    default: false,
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now,
+  },
   notifications: [
     {
       type: {
         type: String,
-        enum: ["like", "new_post", "comment", "reply", "comment_like", "reply_like"], // Add other notification types as needed
+        enum: ["like", "new_post", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call"], // Add other notification types as needed
         required: true,
       },
       sender: {

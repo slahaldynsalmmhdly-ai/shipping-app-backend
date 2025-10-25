@@ -69,12 +69,26 @@ router.post(
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
+      // Update online status and last seen
+      user.isOnline = true;
+      user.lastSeen = new Date();
+      await user.save();
+
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         userType: user.userType,
         token: generateToken(user._id),
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          userType: user.userType,
+          avatar: user.avatar,
+          isOnline: user.isOnline,
+          lastSeen: user.lastSeen,
+        },
       });
     } else {
       res.status(401);
@@ -157,6 +171,34 @@ router.get(
       token: generateToken(req.user._id),
     });
   }
+);
+
+// @desc    Logout user and update online status
+// @route   POST /api/v1/auth/logout
+// @access  Private
+router.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    const { protect } = require("../middleware/authMiddleware");
+    
+    // Apply protect middleware manually
+    await new Promise((resolve, reject) => {
+      protect(req, res, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    const user = await User.findById(req.user.id);
+    
+    if (user) {
+      user.isOnline = false;
+      user.lastSeen = new Date();
+      await user.save();
+    }
+
+    res.json({ message: "Logged out successfully" });
+  })
 );
 
 module.exports = router;
