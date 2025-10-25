@@ -820,5 +820,100 @@ router.get("/profile/:userId", protect, async (req, res) => {
   }
 });
 
+// @desc    Edit a message (within 30 seconds)
+// @route   PUT /api/v1/chat/messages/:messageId
+// @access  Private
+router.put("/messages/:messageId", protect, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+
+    if (!content || content.trim() === "") {
+      return res.status(400).json({ message: "المحتوى مطلوب" });
+    }
+
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      return res.status(404).json({ message: "الرسالة غير موجودة" });
+    }
+
+    if (message.sender.toString() !== req.user.id) {
+      return res.status(403).json({ message: "غير مصرح لك بتعديل هذه الرسالة" });
+    }
+
+    if (message.messageType !== "text") {
+      return res.status(400).json({ message: "لا يمكن تعديل إلا الرسائل النصية" });
+    }
+
+    if (message.deletedForEveryone) {
+      return res.status(400).json({ message: "لا يمكن تعديل رسالة محذوفة" });
+    }
+
+    const messageAge = Date.now() - new Date(message.createdAt).getTime();
+    const thirtySeconds = 30 * 1000;
+
+    if (messageAge > thirtySeconds) {
+      return res.status(400).json({ message: "انتهت مدة التعديل (30 ثانية)" });
+    }
+
+    message.content = content;
+    message.isEdited = true;
+    message.editedAt = new Date();
+    await message.save();
+
+    const updatedMessage = await Message.findById(messageId)
+      .populate("sender", "name avatar");
+
+    res.json(updatedMessage);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
+// @desc    Delete message for everyone (within 24 hours)
+// @route   DELETE /api/v1/chat/messages/:messageId/everyone
+// @access  Private
+router.delete("/messages/:messageId/everyone", protect, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      return res.status(404).json({ message: "الرسالة غير موجودة" });
+    }
+
+    if (message.sender.toString() !== req.user.id) {
+      return res.status(403).json({ message: "غير مصرح لك بحذف هذه الرسالة" });
+    }
+
+    if (message.deletedForEveryone) {
+      return res.status(400).json({ message: "الرسالة محذوفة بالفعل" });
+    }
+
+    const messageAge = Date.now() - new Date(message.createdAt).getTime();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    if (messageAge > twentyFourHours) {
+      return res.status(400).json({ message: "انتهت مدة الحذف للجميع (24 ساعة)" });
+    }
+
+    message.deletedForEveryone = true;
+    message.content = "تم حذف هذه الرسالة";
+    message.mediaUrl = null;
+    await message.save();
+
+    const updatedMessage = await Message.findById(messageId)
+      .populate("sender", "name avatar");
+
+    res.json(updatedMessage);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "خطأ في الخادم" });
+  }
+});
+
 module.exports = router;
 

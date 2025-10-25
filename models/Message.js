@@ -49,6 +49,17 @@ const MessageSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  deletedForEveryone: {
+    type: Boolean,
+    default: false,
+  },
+  isEdited: {
+    type: Boolean,
+    default: false,
+  },
+  editedAt: {
+    type: Date,
+  },
 }, { timestamps: true });
 
 // Index for faster queries
