@@ -30,6 +30,10 @@ const EmptyTruckAdSchema = mongoose.Schema(
       {
         url: { type: String, required: true },
         type: { type: String, enum: ['image', 'video'], required: true },
+        thumbnail: String, // Thumbnail URL for videos
+        width: Number, // Video/image width
+        height: Number, // Video/image height
+        duration: Number, // Video duration in seconds
       },
     ],
     reactions: [

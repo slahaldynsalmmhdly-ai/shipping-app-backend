@@ -17,6 +17,10 @@ const PostSchema = new mongoose.Schema({
     {
       url: String,
       type: { type: String, enum: ['image', 'video'] }, // 'image' or 'video'
+      thumbnail: String, // Thumbnail URL for videos
+      width: Number, // Video/image width
+      height: Number, // Video/image height
+      duration: Number, // Video duration in seconds
     },
   ],
   reactions: [
