@@ -73,6 +73,11 @@ const MessageSchema = new mongoose.Schema({
   editedAt: {
     type: Date,
   },
+  // AI Generated field
+  generatedByAI: {
+    type: Boolean,
+    default: false,
+  },
 }, { timestamps: true });
 
 // Index for faster queries

@@ -109,6 +109,25 @@ const UserSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  // AI Features Settings
+  aiFeatures: {
+    autoPosting: {
+      type: Boolean,
+      default: false,
+    },
+    autoMessaging: {
+      type: Boolean,
+      default: false,
+    },
+    fleetPromotion: {
+      type: Boolean,
+      default: false,
+    },
+    weeklyReports: {
+      type: Boolean,
+      default: false,
+    },
+  },
   isOnline: {
     type: Boolean,
     default: false,

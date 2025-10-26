@@ -113,6 +113,16 @@ const PostSchema = new mongoose.Schema({
   repostText: {
     type: String,
   },
+  // AI Generated fields
+  generatedByAI: {
+    type: Boolean,
+    default: false,
+  },
+  aiFeatureType: {
+    type: String,
+    enum: ['auto_posting', 'fleet_promotion', null],
+    default: null,
+  },
 });
 
 module.exports = mongoose.model('Post', PostSchema);
