@@ -3,6 +3,7 @@ const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { protect } = require("../middleware/authMiddleware");
+const { getOptimizedMediaUrls } = require("../utils/cloudinaryHelper");
 
 const router = express.Router();
 
@@ -98,10 +99,16 @@ router.post("/single", protect, (req, res) => {
     
     if (req.file) {
       console.log("File uploaded successfully:", req.file.path);
+      
+      const fileType = req.file.mimetype.startsWith("image") ? "image" : "video";
+      const optimizedUrls = getOptimizedMediaUrls(req.file.path, fileType);
+      
       res.json({
         message: "File uploaded successfully",
-        filePath: req.file.path, // Cloudinary URL
-        fileType: req.file.mimetype.startsWith("image") ? "image" : "video",
+        filePath: req.file.path, // الرابط الأصلي (للتوافق مع الكود القديم)
+        fileType: fileType,
+        // روابط محسّنة جديدة
+        optimized: optimizedUrls
       });
     } else {
       res.status(400).json({ message: "لم يتم تحديد ملف" });
@@ -135,14 +142,30 @@ router.post("/multiple", protect, (req, res) => {
     
     if (req.files && req.files.length > 0) {
       console.log(`${req.files.length} files uploaded successfully`);
-      const filePaths = req.files.map((file) => file.path); // Cloudinary URLs
+      
+      const filesData = req.files.map((file) => {
+        const fileType = file.mimetype.startsWith("image") ? "image" : "video";
+        const optimizedUrls = getOptimizedMediaUrls(file.path, fileType);
+        
+        return {
+          filePath: file.path, // الرابط الأصلي
+          fileType: fileType,
+          optimized: optimizedUrls
+        };
+      });
+      
+      // للتوافق مع الكود القديم
+      const filePaths = req.files.map((file) => file.path);
       const fileTypes = req.files.map((file) =>
         file.mimetype.startsWith("image") ? "image" : "video"
       );
+      
       res.json({
         message: "Files uploaded successfully",
-        filePaths: filePaths,
-        fileTypes: fileTypes,
+        filePaths: filePaths, // للتوافق مع الكود القديم
+        fileTypes: fileTypes, // للتوافق مع الكود القديم
+        // بيانات محسّنة جديدة
+        files: filesData
       });
     } else {
       res.status(400).json({ message: "لم يتم تحديد ملفات" });
