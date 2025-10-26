@@ -4,6 +4,7 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { protect } = require("../middleware/authMiddleware");
 const { getOptimizedMediaUrls } = require("../utils/cloudinaryHelper");
+const { getVideoMetadataFromCloudinary } = require("../utils/videoMetadata");
 
 const router = express.Router();
 
@@ -103,13 +104,38 @@ router.post("/single", protect, (req, res) => {
       const fileType = req.file.mimetype.startsWith("image") ? "image" : "video";
       const optimizedUrls = getOptimizedMediaUrls(req.file.path, fileType);
       
-      res.json({
-        message: "File uploaded successfully",
-        filePath: req.file.path, // الرابط الأصلي (للتوافق مع الكود القديم)
-        fileType: fileType,
-        // روابط محسّنة جديدة
-        optimized: optimizedUrls
-      });
+      // إذا كان فيديو، نستخرج الأبعاد
+      if (fileType === "video") {
+        getVideoMetadataFromCloudinary(req.file.path)
+          .then(dimensions => {
+            res.json({
+              message: "File uploaded successfully",
+              filePath: req.file.path,
+              fileType: fileType,
+              optimized: optimizedUrls,
+              // إضافة أبعاد الفيديو
+              width: dimensions.width,
+              height: dimensions.height
+            });
+          })
+          .catch(error => {
+            console.error("Error getting video dimensions:", error);
+            // نرجع البيانات بدون الأبعاد في حالة الفشل
+            res.json({
+              message: "File uploaded successfully",
+              filePath: req.file.path,
+              fileType: fileType,
+              optimized: optimizedUrls
+            });
+          });
+      } else {
+        res.json({
+          message: "File uploaded successfully",
+          filePath: req.file.path,
+          fileType: fileType,
+          optimized: optimizedUrls
+        });
+      }
     } else {
       res.status(400).json({ message: "لم يتم تحديد ملف" });
     }
@@ -143,29 +169,50 @@ router.post("/multiple", protect, (req, res) => {
     if (req.files && req.files.length > 0) {
       console.log(`${req.files.length} files uploaded successfully`);
       
-      const filesData = req.files.map((file) => {
-        const fileType = file.mimetype.startsWith("image") ? "image" : "video";
-        const optimizedUrls = getOptimizedMediaUrls(file.path, fileType);
-        
-        return {
-          filePath: file.path, // الرابط الأصلي
-          fileType: fileType,
-          optimized: optimizedUrls
-        };
-      });
-      
-      // للتوافق مع الكود القديم
-      const filePaths = req.files.map((file) => file.path);
-      const fileTypes = req.files.map((file) =>
-        file.mimetype.startsWith("image") ? "image" : "video"
-      );
-      
-      res.json({
-        message: "Files uploaded successfully",
-        filePaths: filePaths, // للتوافق مع الكود القديم
-        fileTypes: fileTypes, // للتوافق مع الكود القديم
-        // بيانات محسّنة جديدة
-        files: filesData
+      // معالجة الملفات بشكل غير متزامن للحصول على أبعاد الفيديوهات
+      Promise.all(
+        req.files.map(async (file) => {
+          const fileType = file.mimetype.startsWith("image") ? "image" : "video";
+          const optimizedUrls = getOptimizedMediaUrls(file.path, fileType);
+          
+          const fileData = {
+            filePath: file.path,
+            fileType: fileType,
+            optimized: optimizedUrls
+          };
+          
+          // إذا كان فيديو، نستخرج الأبعاد
+          if (fileType === "video") {
+            try {
+              const dimensions = await getVideoMetadataFromCloudinary(file.path);
+              fileData.width = dimensions.width;
+              fileData.height = dimensions.height;
+            } catch (error) {
+              console.error("Error getting video dimensions:", error);
+            }
+          }
+          
+          return fileData;
+        })
+      ).then(filesData => {
+             
+        // للتوافق مع الكود القديم
+        const filePaths = req.files.map((file) => file.path);
+        const fileTypes = req.files.map((file) =>
+          file.mimetype.startsWith("image") ? "image" : "video"
+        );
+        res.json({
+          message: "Files uploaded successfully",
+          filePaths: filePaths,
+          fileTypes: fileTypes,
+          files: filesData
+        });
+      }).catch(error => {
+        console.error("Error processing files:", error);
+        res.status(500).json({ 
+          message: "فشل في معالجة الملفات",
+          error: error.message 
+        });
       });
     } else {
       res.status(400).json({ message: "لم يتم تحديد ملفات" });
