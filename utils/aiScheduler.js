@@ -103,22 +103,21 @@ function checkIfShouldRun(company, currentTime) {
   // Check if current time matches scheduled time (hour and minute)
   const isScheduledTime = currentHour === scheduleHour && currentMinute === scheduleMinute;
   
-  // TEMPORARY: 24-hour check disabled for testing
   // Check if already ran today to avoid duplicates
-  // const lastRun = scheduleSettings.lastRun;
-  // if (lastRun) {
-  //   const lastRunDate = new Date(lastRun);
-  //   const lastRunInUserTZ = new Date(lastRunDate.toLocaleString('en-US', { timeZone: userTimezone }));
-  //   const currentDateInUserTZ = new Date(currentTimeInUserTZ.toDateString());
-  //   const lastRunDateInUserTZ = new Date(lastRunInUserTZ.toDateString());
-  //   
-  //   // If already ran today, don't run again
-  //   if (currentDateInUserTZ.getTime() === lastRunDateInUserTZ.getTime()) {
-  //     return false;
-  //   }
-  // }
+  const lastRun = scheduleSettings.lastRun;
+  if (lastRun) {
+    const lastRunDate = new Date(lastRun);
+    const lastRunInUserTZ = new Date(lastRunDate.toLocaleString('en-US', { timeZone: userTimezone }));
+    const currentDateInUserTZ = new Date(currentTimeInUserTZ.toDateString());
+    const lastRunDateInUserTZ = new Date(lastRunInUserTZ.toDateString());
+    
+    // If already ran today, don't run again
+    if (currentDateInUserTZ.getTime() === lastRunDateInUserTZ.getTime()) {
+      return false;
+    }
+  }
   
-  // Run only if it's the exact scheduled time (24-hour check disabled for testing)
+  // Run only if it's the exact scheduled time and hasn't run today
   return isScheduledTime;
 }
 
