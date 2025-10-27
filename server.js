@@ -31,6 +31,10 @@ require("./config/passport");
 // Connect to database
 connectDB();
 
+// Start AI Scheduler (after DB connection)
+const { startAIScheduler } = require('./utils/aiScheduler');
+startAIScheduler();
+
 
 const app = express();
 

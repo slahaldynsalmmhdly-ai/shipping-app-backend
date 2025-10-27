@@ -253,11 +253,25 @@ async function promoteFleet(userId) {
     ]);
 
     if (content) {
-      // Create promotional post
-      const mediaArray = (user.fleetImages || []).map(url => ({
-        url,
-        type: 'image'
-      }));
+      // Collect all fleet images from user profile and vehicles
+      const mediaArray = [];
+      
+      // Add fleet images from user profile
+      if (user.fleetImages && user.fleetImages.length > 0) {
+        user.fleetImages.forEach(url => {
+          mediaArray.push({ url, type: 'image' });
+        });
+      }
+      
+      // Add vehicle images from fleet (limit to 5 total images)
+      const remainingSlots = 5 - mediaArray.length;
+      if (remainingSlots > 0) {
+        for (let i = 0; i < fleet.length && mediaArray.length < 5; i++) {
+          if (fleet[i].images && fleet[i].images.length > 0) {
+            mediaArray.push({ url: fleet[i].images[0], type: 'image' });
+          }
+        }
+      }
       
       const post = await Post.create({
         user: userId,
