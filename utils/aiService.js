@@ -113,10 +113,48 @@ async function autoPostEmptyTrucks(userId) {
       ]);
 
       if (content) {
-        // Create a post
+        // Generate AI image for the truck
+        const { generateImage, saveImageToFile, uploadImageToCloud, generateTruckImagePrompt } = require('./imageGenerator');
+        const mediaArray = [];
+        
+        try {
+          console.log('🎨 Generating AI image for empty truck...');
+          
+          // Generate image prompt
+          const imagePrompt = generateTruckImagePrompt(
+            truck.vehicleType,
+            truck.currentLocation || user.city,
+            'realistic'
+          );
+          console.log('📝 Image prompt:', imagePrompt);
+          
+          // Generate image
+          const imageBuffer = await generateImage(imagePrompt);
+          
+          if (imageBuffer) {
+            // Save image
+            const filename = `truck_${userId}_${truck._id}_${Date.now()}.png`;
+            const filePath = await saveImageToFile(imageBuffer, filename);
+            
+            if (filePath) {
+              // Upload to cloud (or use local path)
+              const imageUrl = await uploadImageToCloud(filePath);
+              
+              if (imageUrl) {
+                mediaArray.push({ url: imageUrl, type: 'image' });
+                console.log('✅ AI-generated image added to truck post');
+              }
+            }
+          }
+        } catch (imageError) {
+          console.error('❌ Error in AI image generation for truck:', imageError.message);
+        }
+        
+        // Create a post with AI-generated image
         const post = await Post.create({
           user: userId,
           text: content,
+          media: mediaArray,
           generatedByAI: true,
           aiFeatureType: 'auto_posting',
         });
@@ -322,25 +360,55 @@ async function promoteFleet(userId) {
     ]);
 
     if (content) {
-      // Collect all fleet images from user profile and vehicles
       const mediaArray = [];
       
-      // Add fleet images from user profile
-      if (user.fleetImages && user.fleetImages.length > 0) {
-        user.fleetImages.forEach(url => {
-          mediaArray.push({ url, type: 'image' });
-        });
-      }
+      // Generate AI image instead of using stored images
+      const { generateImage, saveImageToFile, uploadImageToCloud, generateFleetPromoteImagePrompt } = require('./imageGenerator');
       
-      // Add vehicle images from fleet (limit to 5 total images)
-      const remainingSlots = 5 - mediaArray.length;
-      if (remainingSlots > 0) {
-        for (let i = 0; i < fleet.length && mediaArray.length < 5; i++) {
-          if (fleet[i].images && fleet[i].images.length > 0) {
-            mediaArray.push({ url: fleet[i].images[0], type: 'image' });
+      try {
+        console.log('🎨 Generating AI image for fleet promotion...');
+        
+        // Generate image prompt
+        const imagePrompt = generateFleetPromoteImagePrompt(user.companyName || user.name, fleet.length);
+        console.log('📝 Image prompt:', imagePrompt);
+        
+        // Generate image
+        const imageBuffer = await generateImage(imagePrompt);
+        
+        if (imageBuffer) {
+          // Save image
+          const filename = `fleet_${userId}_${Date.now()}.png`;
+          const filePath = await saveImageToFile(imageBuffer, filename);
+          
+          if (filePath) {
+            // Upload to cloud (or use local path)
+            const imageUrl = await uploadImageToCloud(filePath);
+            
+            if (imageUrl) {
+              mediaArray.push({ url: imageUrl, type: 'image' });
+              console.log('✅ AI-generated image added to post');
+            }
+          }
+        } else {
+          console.log('⚠️ Failed to generate AI image, falling back to stored images');
+          // Fallback: Add fleet images from user profile
+          if (user.fleetImages && user.fleetImages.length > 0) {
+            user.fleetImages.forEach(url => {
+              mediaArray.push({ url, type: 'image' });
+            });
           }
         }
+      } catch (imageError) {
+        console.error('❌ Error in AI image generation:', imageError.message);
+        // Fallback: Add fleet images from user profile
+        if (user.fleetImages && user.fleetImages.length > 0) {
+          user.fleetImages.forEach(url => {
+            mediaArray.push({ url, type: 'image' });
+          });
+        }
       }
+      
+      // Note: Using only AI-generated images, not adding stored vehicle images
       
       const post = await Post.create({
         user: userId,
