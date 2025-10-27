@@ -3,20 +3,21 @@ const User = require('../models/User');
 const { runAIFeaturesForUser } = require('./aiService');
 
 /**
- * Schedule AI features to run automatically for all companies
- * Runs every day at 9:00 AM (Saudi Arabia time - GMT+3)
+ * Dynamic AI Scheduler - Runs every hour and checks which users should run AI features
+ * Each user can set their own schedule time and timezone
  */
 function startAIScheduler() {
-  // Run every day at 9:00 AM
-  // Cron format: seconds minutes hours day month weekday
-  // 0 0 9 * * * = Every day at 9:00 AM
-  cron.schedule('0 0 9 * * *', async () => {
-    console.log('🤖 [AI Scheduler] Starting daily AI features execution at', new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' }));
+  // Run every hour to check for scheduled tasks
+  // Cron format: 0 * * * * = Every hour at minute 0
+  cron.schedule('0 * * * *', async () => {
+    const currentTime = new Date();
+    console.log('🔍 [AI Scheduler] Checking for scheduled AI tasks at', currentTime.toISOString());
     
     try {
-      // Find all company users with at least one AI feature enabled
+      // Find all companies with AI schedule enabled
       const companies = await User.find({
         userType: 'company',
+        'aiScheduleSettings.enabled': true,
         $or: [
           { 'aiFeatures.autoPosting': true },
           { 'aiFeatures.autoMessaging': true },
@@ -25,55 +26,117 @@ function startAIScheduler() {
         ]
       });
 
-      console.log(`🏢 Found ${companies.length} companies with AI features enabled`);
+      if (companies.length === 0) {
+        console.log('   ℹ️  No companies with scheduled AI features found');
+        return;
+      }
 
-      let successCount = 0;
-      let errorCount = 0;
+      console.log(`   📋 Found ${companies.length} companies with AI schedule enabled`);
 
-      // Run AI features for each company
+      let executedCount = 0;
+
       for (const company of companies) {
         try {
-          console.log(`▶️  Running AI features for: ${company.companyName || company.name} (${company._id})`);
+          const shouldRun = checkIfShouldRun(company, currentTime);
           
-          const results = await runAIFeaturesForUser(company._id);
-          
-          // Log results
-          if (results.autoPosting?.success) {
-            console.log(`   ✅ Auto Posting: ${results.autoPosting.message}`);
+          if (shouldRun) {
+            console.log(`   ▶️  Running scheduled AI for: ${company.companyName || company.name}`);
+            
+            const results = await runAIFeaturesForUser(company._id);
+            
+            // Update last run time
+            company.aiScheduleSettings.lastRun = currentTime;
+            await company.save();
+            
+            // Log results
+            if (results.autoPosting?.success) {
+              console.log(`      ✅ Auto Posting: ${results.autoPosting.message}`);
+            }
+            if (results.autoMessaging?.success) {
+              console.log(`      ✅ Auto Messaging: ${results.autoMessaging.message}`);
+            }
+            if (results.fleetPromotion?.success) {
+              console.log(`      ✅ Fleet Promotion: ${results.fleetPromotion.message}`);
+            }
+            if (results.weeklyReports?.success) {
+              console.log(`      ✅ Weekly Reports: ${results.weeklyReports.message}`);
+            }
+            
+            executedCount++;
           }
-          if (results.autoMessaging?.success) {
-            console.log(`   ✅ Auto Messaging: ${results.autoMessaging.message}`);
-          }
-          if (results.fleetPromotion?.success) {
-            console.log(`   ✅ Fleet Promotion: ${results.fleetPromotion.message}`);
-          }
-          if (results.weeklyReports?.success) {
-            console.log(`   ✅ Weekly Reports: ${results.weeklyReports.message}`);
-          }
-          
-          successCount++;
         } catch (error) {
           console.error(`   ❌ Error running AI for ${company.companyName || company.name}:`, error.message);
-          errorCount++;
         }
       }
 
-      console.log(`✅ [AI Scheduler] Completed: ${successCount} successful, ${errorCount} errors`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (executedCount > 0) {
+        console.log(`   ✅ Executed AI features for ${executedCount} companies`);
+      }
     } catch (error) {
       console.error('❌ [AI Scheduler] Fatal error:', error);
     }
-  }, {
-    timezone: "Asia/Riyadh" // Saudi Arabia timezone (GMT+3)
   });
 
-  console.log('⏰ AI Scheduler initialized - Will run daily at 9:00 AM (Saudi Arabia time)');
+  console.log('⏰ Dynamic AI Scheduler initialized - Checking every hour for scheduled tasks');
 }
 
 /**
- * Optional: Run AI features immediately for testing
+ * Check if AI features should run for a company based on their schedule
  */
-async function runAIFeaturesNow() {
+function checkIfShouldRun(company, currentTime) {
+  const scheduleSettings = company.aiScheduleSettings;
+  
+  if (!scheduleSettings || !scheduleSettings.enabled) {
+    return false;
+  }
+
+  // Get user's scheduled time (format: "HH:mm")
+  const [scheduleHour, scheduleMinute] = scheduleSettings.scheduleTime.split(':').map(Number);
+  
+  // Get current time in user's timezone
+  const userTimezone = scheduleSettings.timezone || 'Asia/Riyadh';
+  const currentTimeInUserTZ = new Date(currentTime.toLocaleString('en-US', { timeZone: userTimezone }));
+  
+  const currentHour = currentTimeInUserTZ.getHours();
+  const currentMinute = currentTimeInUserTZ.getMinutes();
+  
+  // Check if current time matches scheduled time (within the current hour)
+  const isScheduledHour = currentHour === scheduleHour;
+  const isFirstRunOfHour = currentMinute < 60; // Run once per hour
+  
+  // Check if already ran in the last hour to avoid duplicates
+  const lastRun = scheduleSettings.lastRun;
+  const oneHourAgo = new Date(currentTime.getTime() - 60 * 60 * 1000);
+  const alreadyRanRecently = lastRun && lastRun > oneHourAgo;
+  
+  return isScheduledHour && !alreadyRanRecently;
+}
+
+/**
+ * Run AI features immediately for a specific user (manual trigger)
+ */
+async function runAIFeaturesNow(userId) {
+  console.log(`🚀 Running AI features immediately for user ${userId}...`);
+  
+  try {
+    const results = await runAIFeaturesForUser(userId);
+    
+    // Update last run time
+    await User.findByIdAndUpdate(userId, {
+      'aiScheduleSettings.lastRun': new Date()
+    });
+    
+    return results;
+  } catch (error) {
+    console.error('Error running AI features:', error);
+    throw error;
+  }
+}
+
+/**
+ * Run AI features for all companies immediately (for testing)
+ */
+async function runAIFeaturesForAll() {
   console.log('🚀 Running AI features immediately for all companies...');
   
   try {
@@ -87,17 +150,26 @@ async function runAIFeaturesNow() {
       ]
     });
 
+    const results = [];
     for (const company of companies) {
-      const results = await runAIFeaturesForUser(company._id);
-      console.log(`Completed for ${company.companyName || company.name}:`, results);
+      const result = await runAIFeaturesNow(company._id);
+      results.push({
+        companyId: company._id,
+        companyName: company.companyName || company.name,
+        results: result
+      });
     }
+    
+    return results;
   } catch (error) {
-    console.error('Error running AI features:', error);
+    console.error('Error running AI features for all:', error);
+    throw error;
   }
 }
 
 module.exports = {
   startAIScheduler,
-  runAIFeaturesNow
+  runAIFeaturesNow,
+  runAIFeaturesForAll
 };
 

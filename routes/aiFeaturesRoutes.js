@@ -8,7 +8,7 @@ const { runAIFeaturesForUser } = require("../utils/aiService");
 // Get AI features settings
 router.get("/settings", protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("aiFeatures");
+    const user = await User.findById(req.user._id).select("aiFeatures aiScheduleSettings");
     
     if (!user) {
       return res.status(404).json({ message: "المستخدم غير موجود" });
@@ -21,11 +21,22 @@ router.get("/settings", protect, async (req, res) => {
       weeklyReports: false,
     };
 
+    const scheduleSettings = user.aiScheduleSettings || {
+      enabled: false,
+      scheduleTime: '09:00',
+      timezone: 'Asia/Riyadh',
+      lastRun: null,
+    };
+
     res.json({
       autoPosting: aiFeatures.autoPosting,
       autoMessaging: aiFeatures.autoMessaging,
       fleetPromotion: aiFeatures.fleetPromotion,
       weeklyReports: aiFeatures.weeklyReports,
+      scheduleEnabled: scheduleSettings.enabled,
+      scheduleTime: scheduleSettings.scheduleTime,
+      timezone: scheduleSettings.timezone,
+      lastRun: scheduleSettings.lastRun,
     });
   } catch (error) {
     console.error("Error fetching AI features settings:", error);
@@ -120,6 +131,55 @@ router.post("/run", protect, async (req, res) => {
       message: "خطأ في تشغيل ميزات الذكاء الاصطناعي", 
       error: error.message 
     });
+  }
+});
+
+// Update schedule settings
+router.put("/schedule", protect, async (req, res) => {
+  try {
+    const { enabled, scheduleTime, timezone } = req.body;
+
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "المستخدم غير موجود" });
+    }
+
+    // Only allow company users
+    if (user.userType !== "company") {
+      return res.status(403).json({ message: "ميزات الذكاء الاصطناعي متاحة للشركات فقط" });
+    }
+
+    // Update schedule settings
+    if (!user.aiScheduleSettings) {
+      user.aiScheduleSettings = {};
+    }
+
+    if (enabled !== undefined) {
+      user.aiScheduleSettings.enabled = enabled;
+    }
+    if (scheduleTime !== undefined) {
+      // Validate time format (HH:mm)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(scheduleTime)) {
+        return res.status(400).json({ message: "صيغة الوقت غير صحيحة. استخدم HH:mm" });
+      }
+      user.aiScheduleSettings.scheduleTime = scheduleTime;
+    }
+    if (timezone !== undefined) {
+      user.aiScheduleSettings.timezone = timezone;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "تم تحديث إعدادات الجدولة بنجاح",
+      scheduleSettings: user.aiScheduleSettings,
+    });
+  } catch (error) {
+    console.error("Error updating schedule settings:", error);
+    res.status(500).json({ message: "خطأ في الخادم", error: error.message });
   }
 });
 

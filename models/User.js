@@ -128,6 +128,24 @@ const UserSchema = new mongoose.Schema({
       default: false,
     },
   },
+  aiScheduleSettings: {
+    enabled: {
+      type: Boolean,
+      default: false, // الجدولة معطلة افتراضياً
+    },
+    scheduleTime: {
+      type: String,
+      default: '09:00', // الوقت بصيغة HH:mm (24 ساعة)
+    },
+    timezone: {
+      type: String,
+      default: 'Asia/Riyadh', // المنطقة الزمنية
+    },
+    lastRun: {
+      type: Date,
+      default: null, // آخر مرة تم التشغيل
+    },
+  },
   isOnline: {
     type: Boolean,
     default: false,
