@@ -109,17 +109,19 @@ router.post("/run", protect, async (req, res) => {
       });
     }
 
-    // Run AI features
-    const results = await runAIFeaturesForUser(req.user._id);
+    // Run ONLY manual AI features (messaging and reports)
+    // Auto posting and fleet promotion run ONLY via schedule
+    const { runManualAIFeaturesForUser } = require('../utils/aiServiceManual');
+    const results = await runManualAIFeaturesForUser(req.user._id);
 
     // Format response
     const response = {
       success: true,
-      message: "تم تشغيل ميزات الذكاء الاصطناعي بنجاح",
+      message: "تم تشغيل الميزات اليدوية بنجاح",
       results: {
-        autoPosting: results.autoPosting || { success: false, message: "غير مفعل" },
+        autoPosting: { success: false, message: "يعمل فقط عبر الجدولة التلقائية" },
         autoMessaging: results.autoMessaging || { success: false, message: "غير مفعل" },
-        fleetPromotion: results.fleetPromotion || { success: false, message: "غير مفعل" },
+        fleetPromotion: { success: false, message: "يعمل فقط عبر الجدولة التلقائية" },
         weeklyReports: results.weeklyReports || { success: false, message: "غير مفعل" },
       }
     };

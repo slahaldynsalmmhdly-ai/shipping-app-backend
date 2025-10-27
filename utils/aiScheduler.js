@@ -100,16 +100,25 @@ function checkIfShouldRun(company, currentTime) {
   const currentHour = currentTimeInUserTZ.getHours();
   const currentMinute = currentTimeInUserTZ.getMinutes();
   
-  // Check if current time matches scheduled time (within the current hour)
+  // Check if current time matches scheduled time
   const isScheduledHour = currentHour === scheduleHour;
-  const isFirstRunOfHour = currentMinute < 60; // Run once per hour
   
-  // Check if already ran in the last hour to avoid duplicates
+  // Check if already ran today to avoid duplicates
   const lastRun = scheduleSettings.lastRun;
-  const oneHourAgo = new Date(currentTime.getTime() - 60 * 60 * 1000);
-  const alreadyRanRecently = lastRun && lastRun > oneHourAgo;
+  if (lastRun) {
+    const lastRunDate = new Date(lastRun);
+    const lastRunInUserTZ = new Date(lastRunDate.toLocaleString('en-US', { timeZone: userTimezone }));
+    const currentDateInUserTZ = new Date(currentTimeInUserTZ.toDateString());
+    const lastRunDateInUserTZ = new Date(lastRunInUserTZ.toDateString());
+    
+    // If already ran today, don't run again
+    if (currentDateInUserTZ.getTime() === lastRunDateInUserTZ.getTime()) {
+      return false;
+    }
+  }
   
-  return isScheduledHour && !alreadyRanRecently;
+  // Run only if it's the scheduled hour and hasn't run today
+  return isScheduledHour;
 }
 
 /**
