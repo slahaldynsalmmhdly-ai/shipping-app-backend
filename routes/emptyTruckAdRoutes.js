@@ -9,7 +9,7 @@ const User = require("../models/User");
 // @access  Private
 router.post("/", protect, async (req, res) => {
   try {
-    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media } = req.body;
+    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media, scheduledTime } = req.body;
 
     if (!currentLocation || !preferredDestination || !availabilityDate || !truckType) {
       return res.status(400).json({ message: "Please fill all required fields" });
@@ -23,6 +23,8 @@ router.post("/", protect, async (req, res) => {
       truckType,
       additionalNotes,
       media,
+      scheduledTime: scheduledTime || null,
+      isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
 
     res.status(201).json(emptyTruckAd);
@@ -36,7 +38,7 @@ router.post("/", protect, async (req, res) => {
 // @access  Private
 router.get("/user/:userId", protect, async (req, res) => {
   try {
-    const emptyTruckAds = await EmptyTruckAd.find({ user: req.params.userId })
+    const emptyTruckAds = await EmptyTruckAd.find({ user: req.params.userId, isPublished: true })
       .sort({ createdAt: -1 })
       .populate("user", "name avatar");
     res.status(200).json(emptyTruckAds);
@@ -50,7 +52,7 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const emptyTruckAds = await EmptyTruckAd.find().populate("user", "name avatar");
+    const emptyTruckAds = await EmptyTruckAd.find({ isPublished: true }).populate("user", "name avatar");
     res.status(200).json(emptyTruckAds);
   } catch (error) {
     res.status(500).json({ message: error.message });

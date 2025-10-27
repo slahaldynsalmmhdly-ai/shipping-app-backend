@@ -16,6 +16,7 @@ router.post("/", protect, async (req, res) => {
       truckType,
       description,
       media,
+      scheduledTime,
     } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
@@ -32,6 +33,8 @@ router.post("/", protect, async (req, res) => {
       truckType,
       description,
       media: media || [], // media should be an array of { url, type: \'image\' | \'video\' }
+      scheduledTime: scheduledTime || null,
+      isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
 
     const shipmentAd = await newShipmentAd.save();
@@ -47,7 +50,7 @@ router.post("/", protect, async (req, res) => {
 // @access  Private
 router.get("/user/:userId", protect, async (req, res) => {
   try {
-    const shipmentAds = await ShipmentAd.find({ user: req.params.userId })
+    const shipmentAds = await ShipmentAd.find({ user: req.params.userId, isPublished: true })
       .sort({ createdAt: -1 })
       .populate("user", ["name", "avatar"]);
     res.json(shipmentAds);
@@ -62,7 +65,7 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const shipmentAds = await ShipmentAd.find()
+    const shipmentAds = await ShipmentAd.find({ isPublished: true })
       .sort({ createdAt: -1 })
       .populate("user", ["name", "avatar"]);
     res.json(shipmentAds);

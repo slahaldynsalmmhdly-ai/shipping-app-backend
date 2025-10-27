@@ -10,7 +10,7 @@ const User = require('../models/User'); // Assuming User model is needed for pop
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media } = req.body;
+    const { text, media, scheduledTime } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -22,6 +22,8 @@ router.post('/', protect, async (req, res) => {
       user: req.user.id,
       text,
       media: media || [], // media should be an array of { url, type: 'image' | 'video' }
+      scheduledTime: scheduledTime || null,
+      isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
 
     const post = await newPost.save();
@@ -37,7 +39,7 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.get('/user/:userId', protect, async (req, res) => {
   try {
-    const posts = await Post.find({ user: req.params.userId })
+    const posts = await Post.find({ user: req.params.userId, isPublished: true })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({
@@ -59,7 +61,7 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const posts = await Post.find()
+    const posts = await Post.find({ isPublished: true })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({

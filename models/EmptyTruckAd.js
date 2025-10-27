@@ -107,6 +107,15 @@ const EmptyTruckAdSchema = mongoose.Schema(
         ],
       },
     ],
+    // Scheduling fields
+    scheduledTime: {
+      type: Date,
+      default: null, // null = publish immediately, Date = scheduled publish
+    },
+    isPublished: {
+      type: Boolean,
+      default: true, // true = published, false = scheduled (not published yet)
+    },
   },
   {
     timestamps: true,

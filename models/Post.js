@@ -123,6 +123,15 @@ const PostSchema = new mongoose.Schema({
     enum: ['auto_posting', 'fleet_promotion', null],
     default: null,
   },
+  // Scheduling fields
+  scheduledTime: {
+    type: Date,
+    default: null, // null = publish immediately, Date = scheduled publish
+  },
+  isPublished: {
+    type: Boolean,
+    default: true, // true = published, false = scheduled (not published yet)
+  },
 });
 
 module.exports = mongoose.model('Post', PostSchema);

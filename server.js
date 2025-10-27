@@ -35,6 +35,10 @@ connectDB();
 const { startAIScheduler } = require('./utils/aiScheduler');
 startAIScheduler();
 
+// Start Content Scheduler for scheduled posts and ads
+const { startContentScheduler } = require('./utils/contentScheduler');
+startContentScheduler();
+
 
 const app = express();
 
