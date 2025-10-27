@@ -113,12 +113,12 @@ async function autoPostEmptyTrucks(userId) {
       ]);
 
       if (content) {
-        // Generate AI image for the truck
-        const { generateImage, saveImageToFile, uploadImageToCloud, generateTruckImagePrompt } = require('./imageGenerator');
+        // Generate AI image using Pollinations.ai (free, no API key!)
+        const { generateImageUrl, generateTruckImagePrompt } = require('./imageGenerator');
         const mediaArray = [];
         
         try {
-          console.log('🎨 Generating AI image for empty truck...');
+          console.log('🎨 Generating AI image for empty truck with Pollinations.ai...');
           
           // Generate image prompt
           const imagePrompt = generateTruckImagePrompt(
@@ -128,23 +128,12 @@ async function autoPostEmptyTrucks(userId) {
           );
           console.log('📝 Image prompt:', imagePrompt);
           
-          // Generate image
-          const imageBuffer = await generateImage(imagePrompt);
+          // Generate image URL (instant!)
+          const imageUrl = generateImageUrl(imagePrompt);
           
-          if (imageBuffer) {
-            // Save image
-            const filename = `truck_${userId}_${truck._id}_${Date.now()}.png`;
-            const filePath = await saveImageToFile(imageBuffer, filename);
-            
-            if (filePath) {
-              // Upload to cloud (or use local path)
-              const imageUrl = await uploadImageToCloud(filePath);
-              
-              if (imageUrl) {
-                mediaArray.push({ url: imageUrl, type: 'image' });
-                console.log('✅ AI-generated image added to truck post');
-              }
-            }
+          if (imageUrl) {
+            mediaArray.push({ url: imageUrl, type: 'image' });
+            console.log('✅ AI-generated image URL added to truck post:', imageUrl);
           }
         } catch (imageError) {
           console.error('❌ Error in AI image generation for truck:', imageError.message);
@@ -362,35 +351,24 @@ async function promoteFleet(userId) {
     if (content) {
       const mediaArray = [];
       
-      // Generate AI image instead of using stored images
-      const { generateImage, saveImageToFile, uploadImageToCloud, generateFleetPromoteImagePrompt } = require('./imageGenerator');
+      // Generate AI image using Pollinations.ai (free, no API key!)
+      const { generateImageUrl, generateFleetPromoteImagePrompt } = require('./imageGenerator');
       
       try {
-        console.log('🎨 Generating AI image for fleet promotion...');
+        console.log('🎨 Generating AI image for fleet promotion with Pollinations.ai...');
         
         // Generate image prompt
         const imagePrompt = generateFleetPromoteImagePrompt(user.companyName || user.name, fleet.length);
         console.log('📝 Image prompt:', imagePrompt);
         
-        // Generate image
-        const imageBuffer = await generateImage(imagePrompt);
+        // Generate image URL (instant, no waiting!)
+        const imageUrl = generateImageUrl(imagePrompt);
         
-        if (imageBuffer) {
-          // Save image
-          const filename = `fleet_${userId}_${Date.now()}.png`;
-          const filePath = await saveImageToFile(imageBuffer, filename);
-          
-          if (filePath) {
-            // Upload to cloud (or use local path)
-            const imageUrl = await uploadImageToCloud(filePath);
-            
-            if (imageUrl) {
-              mediaArray.push({ url: imageUrl, type: 'image' });
-              console.log('✅ AI-generated image added to post');
-            }
-          }
+        if (imageUrl) {
+          mediaArray.push({ url: imageUrl, type: 'image' });
+          console.log('✅ AI-generated image URL added to post:', imageUrl);
         } else {
-          console.log('⚠️ Failed to generate AI image, falling back to stored images');
+          console.log('⚠️ Failed to generate AI image URL, falling back to stored images');
           // Fallback: Add fleet images from user profile
           if (user.fleetImages && user.fleetImages.length > 0) {
             user.fleetImages.forEach(url => {

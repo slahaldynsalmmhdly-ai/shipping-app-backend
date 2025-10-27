@@ -1,98 +1,28 @@
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path');
+/**
+ * AI Image Generation using Pollinations.ai
+ * Free, unlimited, no API key required!
+ */
 
 /**
- * Generate image using Hugging Face Stable Diffusion API
+ * Generate image URL using Pollinations.ai
  * @param {string} prompt - The text prompt for image generation
- * @returns {Promise<Buffer>} - Image buffer
+ * @returns {string} - Image URL
  */
-async function generateImage(prompt) {
+function generateImageUrl(prompt) {
   try {
-    // Hugging Face API endpoint for Stable Diffusion
-    const API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large";
+    // Clean and encode the prompt
+    const cleanPrompt = prompt.trim();
+    const encodedPrompt = encodeURIComponent(cleanPrompt);
     
-    // Get API token from environment variable
-    const HF_API_TOKEN = process.env.HUGGINGFACE_API_TOKEN;
+    // Generate Pollinations.ai URL
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=768&nologo=true&enhance=true`;
     
-    if (!HF_API_TOKEN) {
-      console.error('❌ HUGGINGFACE_API_TOKEN not found in environment variables');
-      return null;
-    }
-
-    console.log('🎨 Generating image with prompt:', prompt.substring(0, 100) + '...');
-
-    const response = await axios.post(
-      API_URL,
-      {
-        inputs: prompt,
-        parameters: {
-          negative_prompt: "people, humans, faces, person, man, woman, child, body, hands, fingers, text, watermark, blurry, low quality",
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
-          width: 1024,
-          height: 768,
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${HF_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        responseType: 'arraybuffer',
-        timeout: 60000, // 60 seconds timeout
-      }
-    );
-
-    console.log('✅ Image generated successfully');
-    return Buffer.from(response.data);
+    console.log('🎨 Generated image URL with Pollinations.ai');
+    console.log('📝 Prompt:', cleanPrompt.substring(0, 100) + '...');
+    
+    return imageUrl;
   } catch (error) {
-    console.error('❌ Error generating image:', error.response?.data || error.message);
-    return null;
-  }
-}
-
-/**
- * Save image buffer to file
- * @param {Buffer} imageBuffer - Image buffer
- * @param {string} filename - Filename to save
- * @returns {Promise<string>} - File path
- */
-async function saveImageToFile(imageBuffer, filename) {
-  try {
-    const uploadsDir = path.join(__dirname, '../uploads/ai-generated');
-    
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadsDir, filename);
-    fs.writeFileSync(filePath, imageBuffer);
-    
-    console.log('💾 Image saved to:', filePath);
-    return filePath;
-  } catch (error) {
-    console.error('❌ Error saving image:', error.message);
-    return null;
-  }
-}
-
-/**
- * Upload image to cloud storage (placeholder - implement based on your storage solution)
- * For now, returns a local URL
- * @param {string} filePath - Local file path
- * @returns {Promise<string>} - Public URL
- */
-async function uploadImageToCloud(filePath) {
-  try {
-    // TODO: Implement actual cloud upload (S3, Cloudinary, etc.)
-    // For now, return a placeholder URL
-    const filename = path.basename(filePath);
-    return `/uploads/ai-generated/${filename}`;
-  } catch (error) {
-    console.error('❌ Error uploading image:', error.message);
+    console.error('❌ Error generating image URL:', error.message);
     return null;
   }
 }
@@ -135,10 +65,10 @@ function generateTruckImagePrompt(truckType, location, style = 'realistic') {
   const qualities = [
     'ultra realistic',
     'professional photography',
-    'high detail 8K resolution',
+    'high detail',
     'cinematic composition',
     'commercial photography style',
-    'photorealistic rendering',
+    'photorealistic',
   ];
 
   // Select random elements
@@ -187,15 +117,13 @@ function generateFleetPromoteImagePrompt(companyName, fleetSize) {
   const style = styles[Math.floor(Math.random() * styles.length)];
   const atmosphere = atmospheres[Math.floor(Math.random() * atmospheres.length)];
 
-  const prompt = `ultra realistic, ${composition}, ${style}, ${atmosphere}, high detail 8K, professional commercial photography, sharp focus, no people, no humans, clean trucks, automotive photography, logistics industry`;
+  const prompt = `ultra realistic, ${composition}, ${style}, ${atmosphere}, high detail, professional commercial photography, sharp focus, no people, no humans, clean trucks, automotive photography, logistics industry`;
 
   return prompt;
 }
 
 module.exports = {
-  generateImage,
-  saveImageToFile,
-  uploadImageToCloud,
+  generateImageUrl,
   generateTruckImagePrompt,
   generateFleetPromoteImagePrompt,
 };
