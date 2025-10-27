@@ -66,16 +66,40 @@ async function autoPostEmptyTrucks(userId) {
 
     const postsCreated = [];
 
+    // Define variety of approaches for empty truck posts
+    const approaches = [
+      'أسلوب مباشر وواضح مع ذكر التفاصيل',
+      'أسلوب تسويقي جذاب مع عرض مميز',
+      'أسلوب مهني رسمي',
+      'أسلوب ودي وقريب',
+      'أسلوب عملي مع تحديد المسارات المقترحة',
+    ];
+    
     for (const truck of emptyTrucks) {
-      // Generate post content using AI
-      const prompt = `أنت مساعد ذكي لشركة نقل. قم بإنشاء منشور جذاب وقصير (لا يزيد عن 100 كلمة) للإعلان عن شاحنة فارغة متاحة للنقل.
+      // Select random approach
+      const selectedApproach = approaches[Math.floor(Math.random() * approaches.length)];
+      
+      // Get current day
+      const now = new Date();
+      const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const currentDay = days[now.getDay()];
+      
+      // Generate post content using AI with variety
+      const prompt = `أنت مساعد ذكي متخصص في كتابة إعلانات متنوعة. قم بإنشاء منشور جديد ومختلف (لا يزيد عن 100 كلمة) للإعلان عن شاحنة فارغة متاحة للنقل.
       
 معلومات الشاحنة:
 - النوع: ${truck.vehicleType || "غير محدد"}
 - رقم اللوحة: ${truck.licensePlate || "غير محدد"}
 - الموقع الحالي: ${truck.currentLocation || user.city || "غير محدد"}
+- اليوم: ${currentDay}
 
-يجب أن يكون المنشور باللغة العربية ومهني وجذاب.`;
+متطلبات المنشور:
+- استخدم ${selectedApproach}
+- يجب أن يكون مختلفاً تماماً عن المنشورات السابقة
+- استخدم عبارات جديدة ومبتكرة
+- لا تكرر نفس الأفكار
+
+يجب أن يكون المنشور باللغة العربية، مبتكر، وجذاب.`;
 
       const content = await callDeepSeek([
         {
@@ -229,8 +253,44 @@ async function promoteFleet(userId) {
       return { success: false, message: "No fleet found" };
     }
 
-    // Generate promotional content using AI
-    const prompt = `أنت مساعد ذكي لشركة نقل. قم بإنشاء منشور ترويجي جذاب (لا يزيد عن 150 كلمة) للترويج لأسطول الشركة.
+    // Generate promotional content using AI with variety
+    const styles = [
+      {
+        name: 'احترافي',
+        focus: 'الخبرة والجودة',
+        tone: 'رسمي ومهني',
+      },
+      {
+        name: 'ودي',
+        focus: 'الثقة والعلاقة مع العملاء',
+        tone: 'قريب ومريح',
+      },
+      {
+        name: 'تسويقي',
+        focus: 'المميزات التنافسية',
+        tone: 'جذاب ومقنع',
+      },
+      {
+        name: 'قصصي',
+        focus: 'قصة نجاح الشركة',
+        tone: 'ملهم وجذاب',
+      },
+      {
+        name: 'تقني',
+        focus: 'الأرقام والحقائق',
+        tone: 'مباشر وواضح',
+      },
+    ];
+    
+    // Select random style
+    const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
+    
+    // Get current date and day
+    const now = new Date();
+    const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const currentDay = days[now.getDay()];
+    
+    const prompt = `أنت مساعد ذكي متخصص في كتابة محتوى ترويجي متنوع. قم بإنشاء منشور ترويجي جديد ومختلف (لا يزيد عن 150 كلمة) للترويج لأسطول الشركة.
 
 معلومات الشركة:
 - اسم الشركة: ${user.companyName || user.name}
@@ -238,8 +298,17 @@ async function promoteFleet(userId) {
 - أنواع الشاحنات: ${user.truckTypes || "متنوعة"}
 - المدينة: ${user.city || "غير محدد"}
 - الوصف: ${user.description || ""}
+- اليوم: ${currentDay}
 
-يجب أن يكون المنشور باللغة العربية، جذاب، مهني، ويبرز مميزات الشركة.`;
+متطلبات المنشور:
+- الأسلوب: ${selectedStyle.name}
+- التركيز: ${selectedStyle.focus}
+- النبرة: ${selectedStyle.tone}
+- يجب أن يكون مختلفاً تماماً عن المنشورات السابقة
+- استخدم عبارات وأمثلة جديدة
+- لا تكرر نفس الأفكار أو العبارات
+
+يجب أن يكون المنشور باللغة العربية، جذاب، مبتكر، ويبرز مميزات الشركة بطريقة فريدة.`;
 
     const content = await callDeepSeek([
       {
