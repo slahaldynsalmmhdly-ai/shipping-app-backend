@@ -13,14 +13,18 @@ router.get("/settings", protect, async (req, res) => {
       return res.status(404).json({ message: "المستخدم غير موجود" });
     }
 
+    const aiFeatures = user.aiFeatures || {
+      autoPosting: false,
+      autoMessaging: false,
+      fleetPromotion: false,
+      weeklyReports: false,
+    };
+
     res.json({
-      success: true,
-      aiFeatures: user.aiFeatures || {
-        autoPosting: false,
-        autoMessaging: false,
-        fleetPromotion: false,
-        weeklyReports: false,
-      },
+      autoPosting: aiFeatures.autoPosting,
+      autoMessaging: aiFeatures.autoMessaging,
+      fleetPromotion: aiFeatures.fleetPromotion,
+      weeklyReports: aiFeatures.weeklyReports,
     });
   } catch (error) {
     console.error("Error fetching AI features settings:", error);
