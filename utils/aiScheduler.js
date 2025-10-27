@@ -3,13 +3,13 @@ const User = require('../models/User');
 const { runAIFeaturesForUser } = require('./aiService');
 
 /**
- * Dynamic AI Scheduler - Runs every hour and checks which users should run AI features
+ * Dynamic AI Scheduler - Runs every minute and checks which users should run AI features
  * Each user can set their own schedule time and timezone
  */
 function startAIScheduler() {
-  // Run every hour to check for scheduled tasks
-  // Cron format: 0 * * * * = Every hour at minute 0
-  cron.schedule('0 * * * *', async () => {
+  // Run every minute to check for scheduled tasks
+  // Cron format: * * * * * = Every minute
+  cron.schedule('* * * * *', async () => {
     const currentTime = new Date();
     console.log('🔍 [AI Scheduler] Checking for scheduled AI tasks at', currentTime.toISOString());
     
@@ -77,7 +77,7 @@ function startAIScheduler() {
     }
   });
 
-  console.log('⏰ Dynamic AI Scheduler initialized - Checking every hour for scheduled tasks');
+  console.log('⏰ Dynamic AI Scheduler initialized - Checking every minute for scheduled tasks');
 }
 
 /**
@@ -100,8 +100,8 @@ function checkIfShouldRun(company, currentTime) {
   const currentHour = currentTimeInUserTZ.getHours();
   const currentMinute = currentTimeInUserTZ.getMinutes();
   
-  // Check if current time matches scheduled time
-  const isScheduledHour = currentHour === scheduleHour;
+  // Check if current time matches scheduled time (hour and minute)
+  const isScheduledTime = currentHour === scheduleHour && currentMinute === scheduleMinute;
   
   // Check if already ran today to avoid duplicates
   const lastRun = scheduleSettings.lastRun;
@@ -117,8 +117,8 @@ function checkIfShouldRun(company, currentTime) {
     }
   }
   
-  // Run only if it's the scheduled hour and hasn't run today
-  return isScheduledHour;
+  // Run only if it's the exact scheduled time and hasn't run today
+  return isScheduledTime;
 }
 
 /**
