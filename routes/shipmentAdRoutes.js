@@ -50,7 +50,10 @@ router.post("/", protect, async (req, res) => {
 // @access  Private
 router.get("/user/:userId", protect, async (req, res) => {
   try {
-    const shipmentAds = await ShipmentAd.find({ user: req.params.userId, isPublished: true })
+    const shipmentAds = await ShipmentAd.find({ 
+      user: req.params.userId, 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }] 
+    })
       .sort({ createdAt: -1 })
       .populate("user", ["name", "avatar"]);
     res.json(shipmentAds);
@@ -65,7 +68,7 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const shipmentAds = await ShipmentAd.find({ isPublished: true })
+    const shipmentAds = await ShipmentAd.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
       .sort({ createdAt: -1 })
       .populate("user", ["name", "avatar"]);
     res.json(shipmentAds);

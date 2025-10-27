@@ -39,7 +39,10 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.get('/user/:userId', protect, async (req, res) => {
   try {
-    const posts = await Post.find({ user: req.params.userId, isPublished: true })
+    const posts = await Post.find({ 
+      user: req.params.userId, 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }] 
+    })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({
@@ -61,7 +64,8 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const posts = await Post.find({ isPublished: true })
+    // Find posts that are published OR don't have isPublished field (old posts)
+    const posts = await Post.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({

@@ -31,6 +31,12 @@ require("./config/passport");
 // Connect to database
 connectDB();
 
+// Fix old content without isPublished field (run once)
+const { fixOldContent } = require('./utils/fixOldContent');
+setTimeout(() => {
+  fixOldContent();
+}, 3000); // Wait 3 seconds for DB connection to be ready
+
 // Start AI Scheduler (after DB connection)
 const { startAIScheduler } = require('./utils/aiScheduler');
 startAIScheduler();
