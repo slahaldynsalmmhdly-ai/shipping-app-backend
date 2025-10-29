@@ -120,7 +120,13 @@ const PostSchema = new mongoose.Schema({
   },
   aiFeatureType: {
     type: String,
-    enum: ['auto_posting', 'fleet_promotion', null],
+    enum: ['auto_posting', 'fleet_promotion', 'auto_posting_instant', null],
+    default: null,
+  },
+  // Related vehicle for auto posting
+  relatedVehicle: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Vehicle',
     default: null,
   },
   // Scheduling fields

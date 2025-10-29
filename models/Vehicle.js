@@ -44,7 +44,56 @@ const VehicleSchema = new mongoose.Schema({
     enum: ["متاح", "في العمل"],
     default: "متاح",
   },
+  // حقول تتبع النشر التلقائي
+  lastAutoPostedAt: {
+    type: Date,
+    default: null,
+  },
+  autoPostCount: {
+    type: Number,
+    default: 0,
+  },
 }, { timestamps: true });
 
-module.exports = mongoose.model("Vehicle", VehicleSchema);
+// Hook للنشر التلقائي عند تغيير حالة المركبة إلى "متاح"
+VehicleSchema.post('save', async function(doc) {
+  try {
+    // التحقق من أن الحالة "متاح"
+    if (doc.status === "متاح") {
+      // استدعاء دالة النشر التلقائي بشكل غير متزامن (لا ننتظر النتيجة)
+      const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
+      
+      // تشغيل النشر في الخلفية دون انتظار
+      setImmediate(async () => {
+        try {
+          await autoPostSingleEmptyTruck(doc._id);
+        } catch (error) {
+          console.error('Error in post-save auto posting:', error);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error in Vehicle post-save hook:', error);
+  }
+});
 
+// Hook للنشر التلقائي عند تحديث حالة المركبة
+VehicleSchema.post('findOneAndUpdate', async function(doc) {
+  try {
+    if (doc && doc.status === "متاح") {
+      const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
+      
+      setImmediate(async () => {
+        try {
+          await autoPostSingleEmptyTruck(doc._id);
+        } catch (error) {
+          console.error('Error in post-update auto posting:', error);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error in Vehicle post-findOneAndUpdate hook:', error);
+  }
+});
+
+module.exports = mongoose.model("Vehicle", VehicleSchema);

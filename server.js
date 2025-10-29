@@ -45,6 +45,10 @@ startAIScheduler();
 const { startContentScheduler } = require('./utils/contentScheduler');
 startContentScheduler();
 
+// Start Repost Empty Trucks Scheduler (for automatic reposting after 1-2 days)
+const { startRepostEmptyTrucksScheduler } = require('./utils/repostEmptyTrucksScheduler');
+startRepostEmptyTrucksScheduler();
+
 
 const app = express();
 

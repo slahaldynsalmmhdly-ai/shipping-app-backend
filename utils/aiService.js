@@ -535,16 +535,27 @@ async function runAIFeaturesForUser(userId) {
       return results;
     }
 
+    // ملاحظة: autoPosting (نشر الشاحنات الفارغة) أصبح تلقائياً فورياً
+    // ولا يعمل من خلال المجدول بعد الآن
+    // يتم النشر تلقائياً عند تغيير حالة الشاحنة إلى "متاح"
     if (user.aiFeatures.autoPosting) {
-      results.autoPosting = await autoPostEmptyTrucks(userId);
+      results.autoPosting = {
+        success: true,
+        message: "النشر التلقائي للشاحنات الفارغة يعمل تلقائياً عند توفرها"
+      };
     }
 
     if (user.aiFeatures.autoMessaging) {
       results.autoMessaging = await autoMessageCargoAds(userId);
     }
 
+    // ملاحظة: fleetPromotion (الترويج للأسطول) تم دمجه مع autoPosting
+    // الآن نشر الشاحنات الفارغة هو الترويج الأساسي
     if (user.aiFeatures.fleetPromotion) {
-      results.fleetPromotion = await promoteFleet(userId);
+      results.fleetPromotion = {
+        success: true,
+        message: "الترويج يتم تلقائياً من خلال نشر إعلانات الشاحنات الفارغة"
+      };
     }
 
     if (user.aiFeatures.weeklyReports) {
