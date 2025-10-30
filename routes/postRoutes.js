@@ -90,13 +90,16 @@ router.get('/user/:userId', protect, async (req, res) => {
   }
 });
 
-// @desc    Get all posts
+// @desc    Get all posts (with Facebook-style algorithm)
 // @route   GET /api/v1/posts
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    // Find posts that are published OR don't have isPublished field (old posts)
-    const posts = await Post.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
+    const currentUser = await User.findById(req.user.id).select('following');
+    const following = currentUser?.following || [];
+
+    // Find all published posts
+    const allPosts = await Post.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({
@@ -105,8 +108,42 @@ router.get('/', protect, async (req, res) => {
           path: 'user',
           select: 'name avatar'
         }
-      });
-    res.json(posts);
+      })
+      .lean();
+
+    // Separate posts into two categories
+    const followingPosts = [];
+    const nonFollowingPosts = [];
+
+    allPosts.forEach(post => {
+      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
+      if (isFollowing) {
+        followingPosts.push(post);
+      } else {
+        nonFollowingPosts.push(post);
+      }
+    });
+
+    // Apply Facebook-style algorithm:
+    // 10-15% from following, 85-90% from non-following
+    const followingPercentage = 0.15; // 15% من المتابعين
+    const totalPosts = Math.min(allPosts.length, 50); // حد أقصى 50 منشور
+    const followingCount = Math.floor(totalPosts * followingPercentage);
+    const nonFollowingCount = totalPosts - followingCount;
+
+    // Randomly select posts from following (to make it seem "rare")
+    const selectedFollowingPosts = followingPosts
+      .sort(() => Math.random() - 0.5) // خلط عشوائي
+      .slice(0, followingCount);
+
+    // Select posts from non-following
+    const selectedNonFollowingPosts = nonFollowingPosts.slice(0, nonFollowingCount);
+
+    // Merge and shuffle
+    const finalPosts = [...selectedFollowingPosts, ...selectedNonFollowingPosts]
+      .sort(() => Math.random() - 0.5); // خلط نهائي
+
+    res.json(finalPosts);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
