@@ -45,6 +45,12 @@ async function autoPostSingleEmptyTruck(vehicleId) {
 
     console.log(`🚀 Auto posting for empty truck: ${vehicle.vehicleName} (${vehicle.licensePlate})`);
 
+    // التحقق من وجود معلومات أساسية
+    if (!vehicle.vehicleName || !vehicle.licensePlate) {
+      console.log('⚠️ Missing basic vehicle information, skipping auto post');
+      return { success: false, message: "Missing basic vehicle information" };
+    }
+
     // توليد محتوى متنوع
     const approaches = [
       'أسلوب مباشر وواضح مع ذكر التفاصيل',
@@ -77,20 +83,27 @@ async function autoPostSingleEmptyTruck(vehicleId) {
 
 يجب أن يكون المنشور باللغة العربية، مبتكر، وجذاب.`;
 
-    const content = await callDeepSeek([
-      {
-        role: "system",
-        content: "أنت مساعد ذكي متخصص في كتابة إعلانات النقل والشحن باللغة العربية.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ]);
+    let content;
+    try {
+      content = await callDeepSeek([
+        {
+          role: "system",
+          content: "أنت مساعد ذكي متخصص في كتابة إعلانات النقل والشحن باللغة العربية.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ]);
+    } catch (aiError) {
+      console.error('❌ Error calling DeepSeek AI:', aiError.message);
+      // استخدام محتوى افتراضي إذا فشل الذكاء الاصطناعي
+      content = `🚚 شاحنة فارغة متاحة للنقل\n\nالنوع: ${vehicle.vehicleType || "غير محدد"}\nرقم اللوحة: ${vehicle.licensePlate}\nالموقع الحالي: ${vehicle.currentLocation || user.city || "غير محدد"}\n\nللتواصل: ${user.companyName || user.name}`;
+    }
 
-    if (!content) {
-      console.log('❌ Failed to generate content');
-      return { success: false, message: "Failed to generate content" };
+    if (!content || content.trim() === '') {
+      console.log('❌ Failed to generate content, using default');
+      content = `🚚 شاحنة فارغة متاحة للنقل\n\nالنوع: ${vehicle.vehicleType || "غير محدد"}\nرقم اللوحة: ${vehicle.licensePlate}\nالموقع الحالي: ${vehicle.currentLocation || user.city || "غير محدد"}\n\nللتواصل: ${user.companyName || user.name}`;
     }
 
     // توليد صورة بالذكاء الاصطناعي

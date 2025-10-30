@@ -60,9 +60,10 @@ router.post(
     const createdVehicle = await vehicle.save();
 
     // إرجاع البيانات مع كلمة السر (مرة واحدة فقط)
+    // نرسل الاستجابة فوراً قبل أن يتم تشغيل Hook النشر التلقائي
     res.status(201).json({
       success: true,
-      vehicle: createdVehicle,
+      data: createdVehicle,
       fleetAccount: {
         fleetId: fleetId,
         password: plainPassword, // كلمة السر غير المشفرة (تُعرض مرة واحدة فقط)
@@ -122,7 +123,7 @@ router.put(
       vehicle.status = status || vehicle.status;
 
       const updatedVehicle = await vehicle.save();
-      res.json(updatedVehicle);
+      res.json({ success: true, data: updatedVehicle });
     } else {
       res.status(404);
       throw new Error("Vehicle not found");
