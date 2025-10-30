@@ -53,6 +53,26 @@ const VehicleSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // حقول الحساب الفرعي للأسطول (Fleet Sub-Account)
+  fleetAccountId: {
+    type: String,
+    unique: true,
+    sparse: true, // يسمح بـ null للأساطيل القديمة
+  },
+  fleetPassword: {
+    type: String,
+    select: false, // لا تُرجع مع الاستعلامات العادية
+  },
+  accountCreatedAt: {
+    type: Date,
+  },
+  isAccountActive: {
+    type: Boolean,
+    default: true,
+  },
+  lastLogin: {
+    type: Date,
+  },
 }, { timestamps: true });
 
 // Hook للنشر التلقائي عند تغيير حالة المركبة إلى "متاح"

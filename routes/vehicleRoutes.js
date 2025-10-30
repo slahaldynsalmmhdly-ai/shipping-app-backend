@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const asyncHandler = require("express-async-handler");
+const bcrypt = require("bcryptjs");
 const Vehicle = require("../models/Vehicle");
 const User = require("../models/User"); // Import User model
 const { protect } = require("../middleware/authMiddleware");
+const { generateFleetAccount } = require("../utils/generateFleetAccount");
 
 // @desc    Add new vehicle to user's fleet (for company users)
 // @route   POST /api/vehicles
@@ -33,6 +35,10 @@ router.post(
       throw new Error("Vehicle with this license plate already exists");
     }
 
+    // توليد حساب الأسطول (رقم تسلسلي + كلمة سر)
+    const { fleetId, password: plainPassword } = await generateFleetAccount();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
     const vehicle = new Vehicle({
       user: req.user._id, // Link vehicle to user directly
       driverName,
@@ -44,11 +50,25 @@ router.post(
       vehicleColor,
       vehicleModel,
       status: status || "متاح",
+      // بيانات الحساب الفرعي
+      fleetAccountId: fleetId,
+      fleetPassword: hashedPassword,
+      accountCreatedAt: new Date(),
+      isAccountActive: true,
     });
 
     const createdVehicle = await vehicle.save();
 
-    res.status(201).json(createdVehicle);
+    // إرجاع البيانات مع كلمة السر (مرة واحدة فقط)
+    res.status(201).json({
+      success: true,
+      vehicle: createdVehicle,
+      fleetAccount: {
+        fleetId: fleetId,
+        password: plainPassword, // كلمة السر غير المشفرة (تُعرض مرة واحدة فقط)
+        message: "احفظ هذه البيانات! لن تتمكن من رؤية كلمة السر مرة أخرى"
+      }
+    });
   })
 );
 
