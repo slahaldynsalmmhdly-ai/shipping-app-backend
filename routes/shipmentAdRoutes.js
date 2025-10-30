@@ -80,7 +80,7 @@ router.get("/", protect, async (req, res) => {
       .lean();
 
     // Apply Facebook-style algorithm with 15% following ratio
-    const finalAds = applyFeedAlgorithm(shipmentAds, following, req.user.id, 0.15);
+    const finalAds = applyFeedAlgorithm(shipmentAds, following, req.user.id, 0.05);
 
     res.json(finalAds);
   } catch (err) {
