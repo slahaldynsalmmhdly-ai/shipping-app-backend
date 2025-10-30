@@ -65,7 +65,7 @@ router.get(
     }
 
     const vehicles = await Vehicle.find({ user: req.user._id });
-    res.json(vehicles);
+    res.json({ success: true, data: vehicles });
   })
 );
 
