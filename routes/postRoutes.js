@@ -112,12 +112,12 @@ router.get('/', protect, async (req, res) => {
       .lean();
 
     // إخفاء منشوراتك القديمة من خلاصتك (مثل Facebook)
-    const ONE_MINUTE = 60 * 1000; // 60 ثانية
+    const TWENTY_SECONDS = 20 * 1000; // 20 ثانية
     const filteredPosts = allPosts.filter(post => {
       // إذا كان المنشور لك
       if (post.user._id.toString() === req.user.id) {
         const postAge = Date.now() - new Date(post.createdAt).getTime();
-        return postAge < ONE_MINUTE; // يظهر فقط أول دقيقة
+        return postAge < TWENTY_SECONDS; // يظهر فقط أول 20 ثانية
       }
       return true; // منشورات الآخرين تظهر دائماً
     });
