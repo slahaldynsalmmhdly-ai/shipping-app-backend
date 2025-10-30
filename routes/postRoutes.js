@@ -135,17 +135,15 @@ router.get('/', protect, async (req, res) => {
     const followingCount = Math.floor(totalPosts * followingPercentage);
     const nonFollowingCount = totalPosts - followingCount;
 
-    // Randomly select posts from following (to make it seem "rare")
-    const selectedFollowingPosts = followingPosts
-      .sort(() => Math.random() - 0.5) // خلط عشوائي
-      .slice(0, followingCount);
+    // Select posts from following
+    const selectedFollowingPosts = followingPosts.slice(0, followingCount);
 
     // Select posts from non-following
     const selectedNonFollowingPosts = nonFollowingPosts.slice(0, nonFollowingCount);
 
-    // Merge and shuffle
+    // Merge posts (already sorted by createdAt from query)
     const finalPosts = [...selectedFollowingPosts, ...selectedNonFollowingPosts]
-      .sort(() => Math.random() - 0.5); // خلط نهائي
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json(finalPosts);
   } catch (err) {
