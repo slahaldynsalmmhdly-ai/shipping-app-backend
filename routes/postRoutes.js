@@ -28,13 +28,6 @@ router.post('/', protect, async (req, res) => {
 
     const post = await newPost.save();
     
-    // إخفاء المنشور من الصفحة الرئيسية للناشر (نظام فيسبوك)
-    // سيتم إظهاره مؤقتاً من الواجهة الأمامية عبر endpoint منفصل
-    if (!scheduledTime) {
-      post.hiddenFromHomeFeedFor = [req.user.id];
-      await post.save();
-    }
-    
     // إرسال إشعارات للمتابعين عند نشر منشور جديد
     if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
       try {

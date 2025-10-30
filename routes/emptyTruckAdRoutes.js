@@ -26,12 +26,6 @@ router.post("/", protect, async (req, res) => {
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
-    
-    // إخفاء الإعلان من الصفحة الرئيسية للناشر (نظام فيسبوك)
-    if (!scheduledTime) {
-      emptyTruckAd.hiddenFromHomeFeedFor = [req.user.id];
-      await emptyTruckAd.save();
-    }
 
     res.status(201).json(emptyTruckAd);
   } catch (error) {

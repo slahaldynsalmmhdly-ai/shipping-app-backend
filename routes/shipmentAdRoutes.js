@@ -38,13 +38,6 @@ router.post("/", protect, async (req, res) => {
     });
 
     const shipmentAd = await newShipmentAd.save();
-    
-    // إخفاء الإعلان من الصفحة الرئيسية للناشر (نظام فيسبوك)
-    if (!scheduledTime) {
-      shipmentAd.hiddenFromHomeFeedFor = [req.user.id];
-      await shipmentAd.save();
-    }
-    
     res.status(201).json(shipmentAd);
   } catch (err) {
     console.error(err.message);
