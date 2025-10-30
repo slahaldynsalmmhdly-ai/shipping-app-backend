@@ -146,7 +146,7 @@ router.get(
   "/user/:userId",
   asyncHandler(async (req, res) => {
     const vehicles = await Vehicle.find({ user: req.params.userId });
-    res.json(vehicles);
+    res.json({ success: true, data: vehicles });
   })
 );
 
