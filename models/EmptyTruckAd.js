@@ -116,6 +116,11 @@ const EmptyTruckAdSchema = mongoose.Schema(
       type: Boolean,
       default: true, // true = published, false = scheduled (not published yet)
     },
+    // Hidden from home feed for specific users (like Facebook behavior)
+    hiddenFromHomeFeedFor: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
   },
   {
     timestamps: true,

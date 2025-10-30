@@ -26,6 +26,12 @@ router.post("/", protect, async (req, res) => {
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
+    
+    // إخفاء الإعلان من الصفحة الرئيسية للناشر (نظام فيسبوك)
+    if (!scheduledTime) {
+      emptyTruckAd.hiddenFromHomeFeedFor = [req.user.id];
+      await emptyTruckAd.save();
+    }
 
     res.status(201).json(emptyTruckAd);
   } catch (error) {
@@ -55,7 +61,10 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const emptyTruckAds = await EmptyTruckAd.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] }).populate("user", "name avatar");
+    const emptyTruckAds = await EmptyTruckAd.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    }).populate("user", "name avatar");
     res.status(200).json(emptyTruckAds);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -621,6 +630,52 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/dislike", protect, async (r
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Show empty truck ad in home feed temporarily
+// @route   POST /api/v1/emptytruckads/:id/show-in-feed
+// @access  Private
+router.post('/:id/show-in-feed', protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    
+    if (!emptyTruckAd) {
+      return res.status(404).json({ msg: 'Empty truck ad not found' });
+    }
+
+    emptyTruckAd.hiddenFromHomeFeedFor = emptyTruckAd.hiddenFromHomeFeedFor.filter(
+      userId => userId.toString() !== req.user.id
+    );
+    
+    await emptyTruckAd.save();
+    res.json({ msg: 'Empty truck ad will now appear in your home feed', emptyTruckAd });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Hide empty truck ad from home feed
+// @route   POST /api/v1/emptytruckads/:id/hide-from-feed
+// @access  Private
+router.post('/:id/hide-from-feed', protect, async (req, res) => {
+  try {
+    const emptyTruckAd = await EmptyTruckAd.findById(req.params.id);
+    
+    if (!emptyTruckAd) {
+      return res.status(404).json({ msg: 'Empty truck ad not found' });
+    }
+
+    if (!emptyTruckAd.hiddenFromHomeFeedFor.includes(req.user.id)) {
+      emptyTruckAd.hiddenFromHomeFeedFor.push(req.user.id);
+      await emptyTruckAd.save();
+    }
+    
+    res.json({ msg: 'Empty truck ad hidden from your home feed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 

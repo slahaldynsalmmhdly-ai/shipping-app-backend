@@ -38,6 +38,13 @@ router.post("/", protect, async (req, res) => {
     });
 
     const shipmentAd = await newShipmentAd.save();
+    
+    // إخفاء الإعلان من الصفحة الرئيسية للناشر (نظام فيسبوك)
+    if (!scheduledTime) {
+      shipmentAd.hiddenFromHomeFeedFor = [req.user.id];
+      await shipmentAd.save();
+    }
+    
     res.status(201).json(shipmentAd);
   } catch (err) {
     console.error(err.message);
@@ -68,7 +75,10 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const shipmentAds = await ShipmentAd.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
+    const shipmentAds = await ShipmentAd.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    })
       .sort({ createdAt: -1 })
       .populate("user", ["name", "avatar"]);
     res.json(shipmentAds);
@@ -646,6 +656,52 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/dislike", protect, async (r
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Show shipment ad in home feed temporarily
+// @route   POST /api/v1/shipmentads/:id/show-in-feed
+// @access  Private
+router.post('/:id/show-in-feed', protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: 'Shipment ad not found' });
+    }
+
+    shipmentAd.hiddenFromHomeFeedFor = shipmentAd.hiddenFromHomeFeedFor.filter(
+      userId => userId.toString() !== req.user.id
+    );
+    
+    await shipmentAd.save();
+    res.json({ msg: 'Shipment ad will now appear in your home feed', shipmentAd });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Hide shipment ad from home feed
+// @route   POST /api/v1/shipmentads/:id/hide-from-feed
+// @access  Private
+router.post('/:id/hide-from-feed', protect, async (req, res) => {
+  try {
+    const shipmentAd = await ShipmentAd.findById(req.params.id);
+    
+    if (!shipmentAd) {
+      return res.status(404).json({ msg: 'Shipment ad not found' });
+    }
+
+    if (!shipmentAd.hiddenFromHomeFeedFor.includes(req.user.id)) {
+      shipmentAd.hiddenFromHomeFeedFor.push(req.user.id);
+      await shipmentAd.save();
+    }
+    
+    res.json({ msg: 'Shipment ad hidden from your home feed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 

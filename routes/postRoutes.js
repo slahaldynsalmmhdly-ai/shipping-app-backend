@@ -28,6 +28,13 @@ router.post('/', protect, async (req, res) => {
 
     const post = await newPost.save();
     
+    // إخفاء المنشور من الصفحة الرئيسية للناشر (نظام فيسبوك)
+    // سيتم إظهاره مؤقتاً من الواجهة الأمامية عبر endpoint منفصل
+    if (!scheduledTime) {
+      post.hiddenFromHomeFeedFor = [req.user.id];
+      await post.save();
+    }
+    
     // إرسال إشعارات للمتابعين عند نشر منشور جديد
     if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
       try {
@@ -98,8 +105,12 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following');
     const following = currentUser?.following || [];
 
-    // Find all published posts
-    const allPosts = await Post.find({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] })
+    // Find all published posts, excluding those hidden from current user's home feed
+    const allPosts = await Post.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      // إخفاء المنشورات التي يجب إخفاؤها من الصفحة الرئيسية للمستخدم الحالي
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    })
       .sort({ createdAt: -1 })
       .populate('user', ['name', 'avatar'])
       .populate({
@@ -1074,6 +1085,55 @@ router.get('/shorts/following', protect, async (req, res) => {
     });
   } catch (err) {
     console.error('Error in shorts/following:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Show post in home feed temporarily (for current session)
+// @route   POST /api/v1/posts/:id/show-in-feed
+// @access  Private
+router.post('/:id/show-in-feed', protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    
+    if (!post) {
+      return res.status(404).json({ msg: 'Post not found' });
+    }
+
+    // Remove current user from hiddenFromHomeFeedFor array
+    post.hiddenFromHomeFeedFor = post.hiddenFromHomeFeedFor.filter(
+      userId => userId.toString() !== req.user.id
+    );
+    
+    await post.save();
+    
+    res.json({ msg: 'Post will now appear in your home feed', post });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Hide post from home feed (re-hide after session)
+// @route   POST /api/v1/posts/:id/hide-from-feed
+// @access  Private
+router.post('/:id/hide-from-feed', protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    
+    if (!post) {
+      return res.status(404).json({ msg: 'Post not found' });
+    }
+
+    // Add current user to hiddenFromHomeFeedFor array if not already there
+    if (!post.hiddenFromHomeFeedFor.includes(req.user.id)) {
+      post.hiddenFromHomeFeedFor.push(req.user.id);
+      await post.save();
+    }
+    
+    res.json({ msg: 'Post hidden from your home feed' });
+  } catch (err) {
+    console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
