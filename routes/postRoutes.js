@@ -27,6 +27,37 @@ router.post('/', protect, async (req, res) => {
     });
 
     const post = await newPost.save();
+    
+    // إرسال إشعارات للمتابعين عند نشر منشور جديد
+    if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
+      try {
+        // الحصول على قائمة المتابعين
+        const followers = user.followers || [];
+        
+        // إنشاء إشعار لكل متابع
+        if (followers.length > 0) {
+          await User.updateMany(
+            { _id: { $in: followers } },
+            {
+              $push: {
+                notifications: {
+                  type: 'new_post',
+                  sender: req.user.id,
+                  post: post._id,
+                  read: false,
+                  createdAt: new Date()
+                }
+              }
+            }
+          );
+          console.log(`تم إرسال إشعارات لـ ${followers.length} متابع`);
+        }
+      } catch (notifError) {
+        console.error('خطأ في إرسال الإشعارات:', notifError);
+        // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+    }
+    
     res.status(201).json(post);
   } catch (err) {
     console.error(err.message);
