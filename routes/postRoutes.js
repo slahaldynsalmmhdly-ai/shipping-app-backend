@@ -912,5 +912,171 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/dislike", protect, async (r
   }
 });
 
+// ==========================================
+// Shorts/Videos Feed Endpoints (TikTok-style)
+// ==========================================
+
+// @desc    Get shorts feed - "For You" tab (mixed content with algorithm)
+// @route   GET /api/v1/posts/shorts/for-you
+// @access  Private
+router.get('/shorts/for-you', protect, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const currentUser = await User.findById(req.user.id).select('following');
+    const following = currentUser?.following || [];
+
+    // Find all published posts that contain videos
+    const allVideoPosts = await Post.find({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' } // Only posts with videos
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .populate('user', ['name', 'avatar', 'isVerified'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar isVerified'
+        }
+      })
+      .lean();
+
+    // Separate posts into following and non-following
+    const followingPosts = [];
+    const nonFollowingPosts = [];
+
+    allVideoPosts.forEach(post => {
+      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
+      if (isFollowing) {
+        followingPosts.push(post);
+      } else {
+        nonFollowingPosts.push(post);
+      }
+    });
+
+    // TikTok-style algorithm:
+    // 10-15% from following (rare), 85-90% from non-following (discovery)
+    const followingPercentage = 0.12; // 12% من المتابعين (نادر)
+    const totalPosts = Math.min(allVideoPosts.length, parseInt(limit));
+    const followingCount = Math.floor(totalPosts * followingPercentage);
+    const nonFollowingCount = totalPosts - followingCount;
+
+    // Randomly select posts from following (to make it "rare")
+    const selectedFollowingPosts = followingPosts
+      .sort(() => Math.random() - 0.5) // Random shuffle
+      .slice(0, followingCount);
+
+    // Select posts from non-following with engagement-based scoring
+    const scoredNonFollowingPosts = nonFollowingPosts.map(post => {
+      // Simple engagement score: likes + comments + shares
+      const engagementScore = 
+        (post.likes?.length || 0) * 1 +
+        (post.comments?.length || 0) * 2 +
+        (post.shares?.length || 0) * 3;
+      
+      // Add randomness to prevent always showing the same posts
+      const randomFactor = Math.random() * 100;
+      
+      return {
+        ...post,
+        score: engagementScore + randomFactor
+      };
+    });
+
+    // Sort by score and select top posts
+    const selectedNonFollowingPosts = scoredNonFollowingPosts
+      .sort((a, b) => b.score - a.score)
+      .slice(0, nonFollowingCount)
+      .map(({ score, ...post }) => post); // Remove score from final result
+
+    // Merge and shuffle for natural feel
+    let finalPosts = [...selectedFollowingPosts, ...selectedNonFollowingPosts]
+      .sort(() => Math.random() - 0.5); // Final shuffle
+
+    // Apply pagination
+    finalPosts = finalPosts.slice(skip, skip + parseInt(limit));
+
+    res.json({
+      posts: finalPosts,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: allVideoPosts.length,
+      hasMore: skip + finalPosts.length < allVideoPosts.length
+    });
+  } catch (err) {
+    console.error('Error in shorts/for-you:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Get shorts feed - "Following" tab (only from followed users)
+// @route   GET /api/v1/posts/shorts/following
+// @access  Private
+router.get('/shorts/following', protect, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const currentUser = await User.findById(req.user.id).select('following');
+    const following = currentUser?.following || [];
+
+    if (following.length === 0) {
+      return res.json({
+        posts: [],
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: 0,
+        hasMore: false,
+        message: 'You are not following anyone yet'
+      });
+    }
+
+    // Find all published video posts from followed users only
+    const followingVideoPosts = await Post.find({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' }, // Only posts with videos
+        { user: { $in: following } } // Only from followed users
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', ['name', 'avatar', 'isVerified'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar isVerified'
+        }
+      })
+      .lean();
+
+    // Get total count for pagination
+    const totalCount = await Post.countDocuments({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' },
+        { user: { $in: following } }
+      ]
+    });
+
+    res.json({
+      posts: followingVideoPosts,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalCount,
+      hasMore: skip + followingVideoPosts.length < totalCount
+    });
+  } catch (err) {
+    console.error('Error in shorts/following:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
 
