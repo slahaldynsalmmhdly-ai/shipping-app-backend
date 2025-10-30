@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const ShipmentAd = require("../models/ShipmentAd");
 const User = require("../models/User"); // Assuming User model is needed for populating user info
+const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
 
 // @desc    Create a new shipment ad
 // @route   POST /api/v1/shipmentads
@@ -63,18 +64,25 @@ router.get("/user/:userId", protect, async (req, res) => {
   }
 });
 
-// @desc    Get all shipment ads
+// @desc    Get all shipment ads (with Facebook-style algorithm)
 // @route   GET /api/v1/shipmentads
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
+    const currentUser = await User.findById(req.user.id).select('following');
+    const following = currentUser?.following || [];
+
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     })
-      .sort({ createdAt: -1 })
-      .populate("user", ["name", "avatar"]);
-    res.json(shipmentAds);
+      .populate("user", ["name", "avatar", "userType", "companyName"])
+      .lean();
+
+    // Apply Facebook-style algorithm with 15% following ratio
+    const finalAds = applyFeedAlgorithm(shipmentAds, following, req.user.id, 0.15);
+
+    res.json(finalAds);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: "Server Error", error: err.message });

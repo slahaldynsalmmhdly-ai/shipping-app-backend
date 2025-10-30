@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
+const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
 
 // @desc    Create a new post
 // @route   POST /api/v1/posts
@@ -101,11 +102,9 @@ router.get('/', protect, async (req, res) => {
     // Find all published posts, excluding those hidden from current user's home feed
     const allPosts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      // إخفاء المنشورات التي يجب إخفاؤها من الصفحة الرئيسية للمستخدم الحالي
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     })
-      .sort({ createdAt: -1 })
-      .populate('user', ['name', 'avatar'])
+      .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({
         path: 'originalPost',
         populate: {
@@ -115,35 +114,8 @@ router.get('/', protect, async (req, res) => {
       })
       .lean();
 
-    // Separate posts into two categories
-    const followingPosts = [];
-    const nonFollowingPosts = [];
-
-    allPosts.forEach(post => {
-      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
-      if (isFollowing) {
-        followingPosts.push(post);
-      } else {
-        nonFollowingPosts.push(post);
-      }
-    });
-
-    // Apply Facebook-style algorithm:
-    // 10-15% from following, 85-90% from non-following
-    const followingPercentage = 0.15; // 15% من المتابعين
-    const totalPosts = Math.min(allPosts.length, 50); // حد أقصى 50 منشور
-    const followingCount = Math.floor(totalPosts * followingPercentage);
-    const nonFollowingCount = totalPosts - followingCount;
-
-    // Select posts from following
-    const selectedFollowingPosts = followingPosts.slice(0, followingCount);
-
-    // Select posts from non-following
-    const selectedNonFollowingPosts = nonFollowingPosts.slice(0, nonFollowingCount);
-
-    // Merge posts (already sorted by createdAt from query)
-    const finalPosts = [...selectedFollowingPosts, ...selectedNonFollowingPosts]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Apply Facebook-style algorithm with 15% following ratio
+    const finalPosts = applyFeedAlgorithm(allPosts, following, req.user.id, 0.15);
 
     res.json(finalPosts);
   } catch (err) {

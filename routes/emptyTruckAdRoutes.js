@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
+const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
 
 // @desc    Create a new empty truck ad
 // @route   POST /api/v1/emptytruckads
@@ -50,16 +51,25 @@ router.get("/user/:userId", protect, async (req, res) => {
   }
 });
 
-// @desc    Get all empty truck ads
+// @desc    Get all empty truck ads (with Facebook-style algorithm)
 // @route   GET /api/v1/emptytruckads
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
+    const currentUser = await User.findById(req.user.id).select('following');
+    const following = currentUser?.following || [];
+
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
-    }).populate("user", "name avatar");
-    res.status(200).json(emptyTruckAds);
+    })
+      .populate("user", "name avatar userType companyName")
+      .lean();
+
+    // Apply Facebook-style algorithm with 15% following ratio
+    const finalAds = applyFeedAlgorithm(emptyTruckAds, following, req.user.id, 0.15);
+
+    res.status(200).json(finalAds);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
