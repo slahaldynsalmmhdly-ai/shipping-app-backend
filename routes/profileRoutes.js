@@ -3,6 +3,7 @@ const router = express.Router();
 const asyncHandler = require("express-async-handler");
 const User = require("../models/User");
 const Review = require("../models/Review");
+const Post = require("../models/Post");
 const { protect } = require("../middleware/authMiddleware");
 
 // @desc    Get all companies
@@ -22,10 +23,19 @@ router.get(
           : 0;
         const reviewCount = reviews.length;
         
+        // Calculate likes count from all posts
+        const posts = await Post.find({ user: company._id });
+        const likesCount = posts.reduce((total, post) => {
+          return total + (post.reactions?.filter(r => r.type === 'like').length || 0);
+        }, 0);
+
         return {
           ...company.toObject(),
           rating,
-          reviewCount
+          reviewCount,
+          likesCount,
+          followersCount: company.followers?.length || 0,
+          followingCount: company.following?.length || 0
         };
       })
     );
@@ -51,10 +61,19 @@ router.get(
         : 0;
       const reviewCount = reviews.length;
       
+      // Calculate likes count from all posts
+      const posts = await Post.find({ user: user._id });
+      const likesCount = posts.reduce((total, post) => {
+        return total + (post.reactions?.filter(r => r.type === 'like').length || 0);
+      }, 0);
+
       res.json({
         ...user.toObject(),
         rating,
-        reviewCount
+        reviewCount,
+        likesCount,
+        followersCount: user.followers?.length || 0,
+        followingCount: user.following?.length || 0
       });
     } else {
       res.status(404);
@@ -146,10 +165,19 @@ router.get(
         : 0;
       const reviewCount = reviews.length;
       
+      // Calculate likes count from all posts
+      const posts = await Post.find({ user: user._id });
+      const likesCount = posts.reduce((total, post) => {
+        return total + (post.reactions?.filter(r => r.type === 'like').length || 0);
+      }, 0);
+
       res.json({
         ...user.toObject(),
         rating,
-        reviewCount
+        reviewCount,
+        likesCount,
+        followersCount: user.followers?.length || 0,
+        followingCount: user.following?.length || 0
       });
     } else {
       res.status(404);
@@ -159,4 +187,3 @@ router.get(
 );
 
 module.exports = router;
-

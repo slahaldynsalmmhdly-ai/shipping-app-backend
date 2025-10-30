@@ -109,6 +109,18 @@ const UserSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  followers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+  following: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
   // AI Features Settings
   aiFeatures: {
     autoPosting: {

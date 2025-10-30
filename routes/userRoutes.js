@@ -23,11 +23,20 @@ router.get("/me", protect, async (req, res) => {
       : 0;
     const reviewCount = reviews.length;
 
+    // Calculate likes count from all posts
+    const posts = await Post.find({ user: user._id });
+    const likesCount = posts.reduce((total, post) => {
+      return total + (post.reactions?.filter(r => r.type === 'like').length || 0);
+    }, 0);
+
     res.json({
       user: {
         ...user.toObject(),
         rating,
-        reviewCount
+        reviewCount,
+        likesCount,
+        followersCount: user.followers?.length || 0,
+        followingCount: user.following?.length || 0
       }
     });
   } catch (err) {
