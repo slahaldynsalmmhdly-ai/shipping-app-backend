@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const ShipmentAd = require("../models/ShipmentAd");
+const EmptyTruckAd = require("../models/EmptyTruckAd");
 const Review = require("../models/Review");
 
 // @desc    Get current user profile
@@ -194,6 +196,109 @@ router.get("/me/notifications/unread-count", protect, async (req, res) => {
     }
 
     const unreadCount = user.notifications.filter(notif => !notif.read).length;
+    res.json({ unreadCount });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Get following posts notifications (posts from followed users that didn't appear in feed)
+// @route   GET /api/v1/users/me/notifications/following-posts
+// @access  Private
+router.get("/me/notifications/following-posts", protect, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    const user = await User.findById(req.user.id).select('notifications');
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // فلترة الإشعارات من نوع new_following_post
+    const followingPostNotifications = user.notifications
+      .filter(notif => notif.type === 'new_following_post')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(skip, skip + limit);
+    
+    // جلب بيانات المنشورات/الإعلانات مع معلومات المستخدم
+    const populatedNotifications = await Promise.all(
+      followingPostNotifications.map(async (notif) => {
+        let itemData = null;
+        let senderData = null;
+        
+        // جلب بيانات المرسل
+        if (notif.sender) {
+          senderData = await User.findById(notif.sender).select('name avatar userType companyName');
+        }
+        
+        // جلب بيانات المحتوى حسب النوع
+        if (notif.itemType === 'post' && notif.post) {
+          itemData = await Post.findById(notif.post)
+            .populate('user', 'name avatar userType companyName')
+            .populate({
+              path: 'originalPost',
+              populate: { path: 'user', select: 'name avatar' }
+            });
+        } else if (notif.itemType === 'shipmentAd' && notif.shipmentAd) {
+          itemData = await ShipmentAd.findById(notif.shipmentAd)
+            .populate('user', 'name avatar userType companyName');
+        } else if (notif.itemType === 'emptyTruckAd' && notif.emptyTruckAd) {
+          itemData = await EmptyTruckAd.findById(notif.emptyTruckAd)
+            .populate('user', 'name avatar userType companyName');
+        }
+        
+        return {
+          _id: notif._id,
+          type: notif.type,
+          itemType: notif.itemType,
+          sender: senderData,
+          item: itemData,
+          read: notif.read,
+          createdAt: notif.createdAt
+        };
+      })
+    );
+    
+    // حساب إجمالي الإشعارات
+    const totalFollowingPostNotifications = user.notifications.filter(
+      notif => notif.type === 'new_following_post'
+    ).length;
+    
+    res.json({
+      notifications: populatedNotifications,
+      pagination: {
+        currentPage: page,
+        totalItems: totalFollowingPostNotifications,
+        totalPages: Math.ceil(totalFollowingPostNotifications / limit),
+        itemsPerPage: limit,
+        hasMore: skip + populatedNotifications.length < totalFollowingPostNotifications
+      }
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @desc    Get unread following posts count
+// @route   GET /api/v1/users/me/notifications/following-posts/unread-count
+// @access  Private
+router.get("/me/notifications/following-posts/unread-count", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('notifications');
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    const unreadCount = user.notifications.filter(
+      notif => notif.type === 'new_following_post' && !notif.read
+    ).length;
+    
     res.json({ unreadCount });
   } catch (err) {
     console.error(err.message);

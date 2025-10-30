@@ -4,6 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const ShipmentAd = require("../models/ShipmentAd");
 const User = require("../models/User"); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
+const { createFollowingPostNotifications } = require('../utils/notificationHelper');
 
 // @desc    Create a new shipment ad
 // @route   POST /api/v1/shipmentads
@@ -39,6 +40,18 @@ router.post("/", protect, async (req, res) => {
     });
 
     const shipmentAd = await newShipmentAd.save();
+    
+    // إرسال إشعارات للمتابعين عند نشر إعلان شحن جديد
+    if (!scheduledTime) { // فقط إذا كان الإعلان منشور فوراً وليس مجدول
+      try {
+        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
+        await createFollowingPostNotifications(req.user.id, shipmentAd._id, 'shipmentAd', 0.15);
+      } catch (notifError) {
+        console.error('خطأ في إرسال الإشعارات:', notifError);
+        // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+    }
+    
     res.status(201).json(shipmentAd);
   } catch (err) {
     console.error(err.message);

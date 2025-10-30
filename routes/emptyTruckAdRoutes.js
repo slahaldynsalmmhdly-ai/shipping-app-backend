@@ -4,6 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
+const { createFollowingPostNotifications } = require('../utils/notificationHelper');
 
 // @desc    Create a new empty truck ad
 // @route   POST /api/v1/emptytruckads
@@ -27,6 +28,17 @@ router.post("/", protect, async (req, res) => {
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
     });
+    
+    // إرسال إشعارات للمتابعين عند نشر إعلان شاحنة فارغة جديد
+    if (!scheduledTime) { // فقط إذا كان الإعلان منشور فوراً وليس مجدول
+      try {
+        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
+        await createFollowingPostNotifications(req.user.id, emptyTruckAd._id, 'emptyTruckAd', 0.15);
+      } catch (notifError) {
+        console.error('خطأ في إرسال الإشعارات:', notifError);
+        // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+    }
 
     res.status(201).json(emptyTruckAd);
   } catch (error) {

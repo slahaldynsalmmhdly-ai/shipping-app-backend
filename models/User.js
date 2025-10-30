@@ -170,7 +170,7 @@ const UserSchema = new mongoose.Schema({
     {
       type: {
         type: String,
-        enum: ["like", "new_post", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call"], // Add other notification types as needed
+        enum: ["like", "new_post", "new_following_post", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call"], // Add other notification types as needed
         required: true,
       },
       sender: {
@@ -181,6 +181,18 @@ const UserSchema = new mongoose.Schema({
       post: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Post",
+      },
+      shipmentAd: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ShipmentAd",
+      },
+      emptyTruckAd: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "EmptyTruckAd",
+      },
+      itemType: {
+        type: String,
+        enum: ["post", "shipmentAd", "emptyTruckAd"],
       },
       commentId: {
         type: mongoose.Schema.Types.ObjectId,

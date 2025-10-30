@@ -5,6 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
+const { createFollowingPostNotifications } = require('../utils/notificationHelper');
 
 // @desc    Create a new post
 // @route   POST /api/v1/posts
@@ -32,27 +33,8 @@ router.post('/', protect, async (req, res) => {
     // إرسال إشعارات للمتابعين عند نشر منشور جديد
     if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
       try {
-        // الحصول على قائمة المتابعين
-        const followers = user.followers || [];
-        
-        // إنشاء إشعار لكل متابع
-        if (followers.length > 0) {
-          await User.updateMany(
-            { _id: { $in: followers } },
-            {
-              $push: {
-                notifications: {
-                  type: 'new_post',
-                  sender: req.user.id,
-                  post: post._id,
-                  read: false,
-                  createdAt: new Date()
-                }
-              }
-            }
-          );
-          console.log(`تم إرسال إشعارات لـ ${followers.length} متابع`);
-        }
+        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
+        await createFollowingPostNotifications(req.user.id, post._id, 'post', 0.15);
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
