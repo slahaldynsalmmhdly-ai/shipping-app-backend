@@ -4,6 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
+const { diversifyContent } = require('../utils/contentDiversity');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new empty truck ad
@@ -116,7 +117,10 @@ router.get("/", protect, async (req, res) => {
     }
 
     // Apply Facebook-style algorithm with 10% following ratio for sorting
-    const finalAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
+    const sortedAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
+
+    // Apply content diversity to prevent consecutive ads from same user
+    const finalAds = diversifyContent(sortedAds, 3);
 
     res.status(200).json(finalAds);
   } catch (error) {

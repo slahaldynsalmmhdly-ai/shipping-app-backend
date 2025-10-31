@@ -5,6 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
+const { diversifyContent } = require('../utils/contentDiversity');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new post
@@ -136,7 +137,10 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Apply Facebook-style algorithm with 10% following ratio for sorting
-    const finalPosts = applyFeedAlgorithm(filteredPosts, following, req.user.id, 0.10);
+    const sortedPosts = applyFeedAlgorithm(filteredPosts, following, req.user.id, 0.10);
+
+    // Apply content diversity to prevent consecutive posts from same user
+    const finalPosts = diversifyContent(sortedPosts, 3);
 
     res.json(finalPosts);
   } catch (err) {
