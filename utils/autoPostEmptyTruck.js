@@ -2,7 +2,7 @@ const User = require("../models/User");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const Vehicle = require("../models/Vehicle");
 const { callDeepSeek } = require("./aiService");
-const { createFollowingNotifications } = require("./notificationHelper");
+const { createFollowingPostNotifications } = require("./notificationHelper");
 
 /**
  * نشر إعلان شاحنة فارغة تلقائي فوري
@@ -155,12 +155,11 @@ async function autoPostSingleEmptyTruck(vehicleId) {
 
     // إنشاء إشعارات للمتابعين (نظام 15%)
     try {
-      await createFollowingNotifications(
+      await createFollowingPostNotifications(
         user._id,
-        'new_following_empty_truck_ad',
-        null, // post
-        null, // shipmentAd
-        emptyTruckAd._id // emptyTruckAd
+        emptyTruckAd._id,
+        'emptyTruckAd',
+        0.15
       );
       console.log('✅ Following notifications created for empty truck ad');
     } catch (notifError) {
