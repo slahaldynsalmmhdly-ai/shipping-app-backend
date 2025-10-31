@@ -170,7 +170,7 @@ const UserSchema = new mongoose.Schema({
     {
       type: {
         type: String,
-        enum: ["like", "new_post", "new_following_post", "new_following_shipment_ad", "new_following_empty_truck_ad", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call"], // Add other notification types as needed
+        enum: ["like", "new_post", "new_following_post", "new_following_shipment_ad", "new_following_empty_truck_ad", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call", "ai_generated_post"], // Add other notification types as needed
         required: true,
       },
       sender: {

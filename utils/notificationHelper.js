@@ -17,7 +17,8 @@ function generateNotificationMessage(notificationType, senderName) {
     'comment_like': `قام ${senderName} بالإعجاب بتعليقك`,
     'reply_like': `قام ${senderName} بالإعجاب بردك`,
     'new_message': `أرسل ${senderName} رسالة جديدة`,
-    'new_call': `اتصل ${senderName} بك`
+    'new_call': `اتصل ${senderName} بك`,
+    'ai_generated_post': 'AI قام بنشر إعلان للأسطول الفارغ'
   };
   
   return messages[notificationType] || 'إشعار جديد';

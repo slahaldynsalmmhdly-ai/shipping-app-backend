@@ -149,6 +149,24 @@ async function autoPostEmptyTrucks(userId) {
         });
 
         postsCreated.push(post);
+        
+        // إضافة إشعار للمستخدم (الشركة) بأن الذكاء الاصطناعي قام بنشر منشور
+        try {
+          const owner = await User.findById(userId);
+          if (owner) {
+            owner.notifications.unshift({
+              type: 'ai_generated_post',
+              sender: userId, // نفس المستخدم
+              post: post._id,
+              itemType: 'post',
+              message: 'AI قام بنشر إعلان للأسطول الفارغ',
+              read: false
+            });
+            await owner.save();
+          }
+        } catch (notifError) {
+          console.error('خطأ في إضافة إشعار الذكاء الاصطناعي:', notifError);
+        }
       }
     }
 
@@ -395,6 +413,24 @@ async function promoteFleet(userId) {
         generatedByAI: true,
         aiFeatureType: 'fleet_promotion',
       });
+      
+      // إضافة إشعار للمستخدم (الشركة) بأن الذكاء الاصطناعي قام بنشر منشور ترويجي
+      try {
+        const owner = await User.findById(userId);
+        if (owner) {
+          owner.notifications.unshift({
+            type: 'ai_generated_post',
+            sender: userId, // نفس المستخدم
+            post: post._id,
+            itemType: 'post',
+            message: 'AI قام بنشر إعلان للأسطول الفارغ',
+            read: false
+          });
+          await owner.save();
+        }
+      } catch (notifError) {
+        console.error('خطأ في إضافة إشعار الذكاء الاصطناعي:', notifError);
+      }
 
       return {
         success: true,
