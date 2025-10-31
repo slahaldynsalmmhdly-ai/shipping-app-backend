@@ -132,12 +132,8 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       console.error('❌ Error in AI image generation:', imageError.message);
     }
     
-    // تحديد الوجهة المفضلة (يمكن أن تكون ذكية بناءً على البيانات)
-    const preferredDestination = vehicle.currentLocation ? 
-      (vehicle.currentLocation.includes('الرياض') ? 'جدة' : 
-       vehicle.currentLocation.includes('جدة') ? 'الرياض' : 
-       vehicle.currentLocation.includes('الدمام') ? 'الرياض' : 
-       'أي وجهة') : 'أي وجهة';
+    // تحديد الوجهة المفضلة (مفتوحة دائماً)
+    const preferredDestination = 'مفتوح';
     
     // تحديد تاريخ التوفر (الآن)
     const availabilityDate = new Date();
