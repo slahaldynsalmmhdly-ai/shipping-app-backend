@@ -84,11 +84,11 @@ router.get('/', protect, async (req, res) => {
     const following = currentUser?.following || [];
     const notifications = currentUser?.notifications || [];
 
-    // Find all published posts, excluding those hidden from current user's home feed and AI-generated posts
+    // Find all published posts, excluding those hidden from current user's home feed
     const allPosts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      generatedByAI: { $ne: true } // إخفاء المنشورات المولدة بالذكاء الاصطناعي من الصفحة الرئيسية
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      // تم إزالة فلتر generatedByAI لعرض المنشورات المولدة بالذكاء الاصطناعي
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({

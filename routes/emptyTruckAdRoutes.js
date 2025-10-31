@@ -75,8 +75,8 @@ router.get("/", protect, async (req, res) => {
     const notifications = currentUser?.notifications || [];
 
     const emptyTruckAds = await EmptyTruckAd.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      generatedByAI: { $ne: true } // إخفاء الإعلانات المولدة بالذكاء الاصطناعي من الصفحة الرئيسية
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
+      // تم إزالة فلتر generatedByAI لعرض الإعلانات المولدة بالذكاء الاصطناعي
     })
       .populate("user", "name avatar userType companyName")
       .lean();

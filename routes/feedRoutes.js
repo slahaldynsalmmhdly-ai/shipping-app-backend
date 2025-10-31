@@ -144,11 +144,11 @@ router.get('/', protect, async (req, res) => {
     const following = currentUser?.following || [];
     const notifications = currentUser?.notifications || [];
     
-    // جلب جميع المنشورات (مع إخفاء المنشورات المولدة بالذكاء الاصطناعي)
+    // جلب جميع المنشورات
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      generatedByAI: { $ne: true } // إخفاء المنشورات المولدة بالذكاء الاصطناعي من الصفحة الرئيسية
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      // تم إزالة فلتر generatedByAI لعرض المنشورات المولدة بالذكاء الاصطناعي
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({
@@ -163,8 +163,8 @@ router.get('/', protect, async (req, res) => {
     // جلب جميع إعلانات الشحن
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      generatedByAI: { $ne: true }
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      // تم إزالة فلتر generatedByAI
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .lean();
@@ -172,8 +172,8 @@ router.get('/', protect, async (req, res) => {
     // جلب جميع إعلانات الشاحنات الفارغة
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      generatedByAI: { $ne: true } // إخفاء الإعلانات المولدة بالذكاء الاصطناعي
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      // تم إزالة فلتر generatedByAI
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .lean();
