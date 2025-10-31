@@ -101,6 +101,11 @@ router.get('/', protect, async (req, res) => {
     const filteredPosts = [];
     
     for (const post of allPosts) {
+      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية
+      if (post.user._id.toString() === req.user.id) {
+        continue; // لا تعرض منشوراتي في صفحتي
+      }
+      
       const isFollowing = following.some(id => id.toString() === post.user._id.toString());
       
       // إذا كان من غير المتابعين، نعرضه دائماً

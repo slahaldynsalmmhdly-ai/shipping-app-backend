@@ -83,6 +83,11 @@ router.get("/", protect, async (req, res) => {
     const filteredAds = [];
     
     for (const ad of emptyTruckAds) {
+      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية
+      if (ad.user._id.toString() === req.user.id) {
+        continue; // لا تعرض إعلاناتي في صفحتي
+      }
+      
       const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
       
       // إذا كان من غير المتابعين، نعرضه دائماً
