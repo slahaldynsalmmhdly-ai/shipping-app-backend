@@ -5,6 +5,7 @@ const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
 const { diversifyContent } = require('../utils/contentDiversity');
+const { advancedDiversityAlgorithm } = require('../utils/advancedDiversity');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new empty truck ad
@@ -119,9 +120,13 @@ router.get("/", protect, async (req, res) => {
     // Apply Facebook-style algorithm with 10% following ratio for sorting
     const sortedAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
 
-    // Apply content diversity to prevent consecutive ads from same user
-    // استخدام فجوة 5 إعلانات بين إعلانات نفس المستخدم/الشركة (مثل فيسبوك)
-    const finalAds = diversifyContent(sortedAds, 5);
+    // Apply advanced diversity algorithm
+    // تطبيق خوارزمية التنويع المتقدمة
+    const finalAds = advancedDiversityAlgorithm(sortedAds, {
+      maxPerUser: 3,
+      companyRatio: 0.4,
+      minGap: 5,
+    });
 
     res.status(200).json(finalAds);
   } catch (error) {

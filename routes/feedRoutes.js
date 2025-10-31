@@ -6,6 +6,7 @@ const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
 const { diversifyContent } = require('../utils/contentDiversity');
+const { advancedDiversityAlgorithm } = require('../utils/advancedDiversity');
 
 /**
  * حساب نقاط التفاعل للمنشور/الإعلان
@@ -246,17 +247,13 @@ router.get('/', protect, async (req, res) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     
-    // تطبيق خوارزمية التنويع لمنع تكرار منشورات نفس الشركة/المستخدم
-    // استخدام فجوة 5 منشورات بين منشورات نفس المستخدم (مثل فيسبوك)
-    const diversifiedItems = diversifyContent(finalItems, 5);
-    
-    // خلط خفيف للعناصر المتقاربة في النقاط (في مجموعات من 5)
-    const shuffledItems = [];
-    for (let i = 0; i < diversifiedItems.length; i += 5) {
-      const chunk = diversifiedItems.slice(i, i + 5);
-      const shuffledChunk = seededShuffle(chunk, req.user.id.toString().charCodeAt(0) + i);
-      shuffledItems.push(...shuffledChunk);
-    }
+    // تطبيق خوارزمية التنويع المتقدمة (مثل فيسبوك)
+    // هذه الخوارزمية تمنع ظهور 50 منشور من نفس الشركة مباشرة!
+    const shuffledItems = advancedDiversityAlgorithm(finalItems, {
+      maxPerUser: 3,      // حد أقصى 3 منشورات لكل مستخدم/شركة
+      companyRatio: 0.4,  // 40% شركات، 60% أفراد (تنويع متوازن)
+      minGap: 5,          // فجوة 5 منشورات بين منشورات نفس المستخدم
+    });
     
     // تطبيق pagination
     const paginatedItems = shuffledItems.slice(skip, skip + limit);

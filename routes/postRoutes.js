@@ -6,6 +6,7 @@ const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
 const { diversifyContent } = require('../utils/contentDiversity');
+const { advancedDiversityAlgorithm } = require('../utils/advancedDiversity');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new post
@@ -140,9 +141,13 @@ router.get('/', protect, async (req, res) => {
     // Apply Facebook-style algorithm with 10% following ratio for sorting
     const sortedPosts = applyFeedAlgorithm(filteredPosts, following, req.user.id, 0.10);
 
-    // Apply content diversity to prevent consecutive posts from same user
-    // استخدام فجوة 5 منشورات بين منشورات نفس المستخدم/الشركة (مثل فيسبوك)
-    const finalPosts = diversifyContent(sortedPosts, 5);
+    // Apply advanced diversity algorithm to prevent showing 50 posts from same company!
+    // تطبيق خوارزمية التنويع المتقدمة لمنع ظهور 50 منشور من نفس الشركة!
+    const finalPosts = advancedDiversityAlgorithm(sortedPosts, {
+      maxPerUser: 3,      // حد أقصى 3 منشورات لكل مستخدم/شركة
+      companyRatio: 0.4,  // 40% شركات، 60% أفراد
+      minGap: 5,          // فجوة 5 منشورات
+    });
 
     res.json(finalPosts);
   } catch (err) {
