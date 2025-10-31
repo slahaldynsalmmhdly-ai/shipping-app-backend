@@ -87,6 +87,46 @@ function seededShuffle(array, seed) {
 }
 
 /**
+ * التحقق من أن المنشور يجب أن يظهر في الخلاصة للمستخدم الحالي
+ * بناءً على نظام الإشعارات (15% من منشورات المتابعين تظهر في الخلاصة)
+ */
+async function shouldShowInFeed(item, currentUserId) {
+  try {
+    // جلب المستخدم الحالي مع إشعاراته
+    const user = await User.findById(currentUserId).select('notifications').lean();
+    
+    if (!user || !user.notifications) {
+      return true; // إذا لم توجد إشعارات، نعرض المنشور
+    }
+    
+    // البحث عن إشعار مرتبط بهذا المنشور/الإعلان
+    const notification = user.notifications.find(notif => {
+      if (item.itemType === 'post' && notif.post) {
+        return notif.post.toString() === item._id.toString();
+      } else if (item.itemType === 'shipmentAd' && notif.shipmentAd) {
+        return notif.shipmentAd.toString() === item._id.toString();
+      } else if (item.itemType === 'emptyTruckAd' && notif.emptyTruckAd) {
+        return notif.emptyTruckAd.toString() === item._id.toString();
+      }
+      return false;
+    });
+    
+    // إذا لم يوجد إشعار، نعرض المنشور (منشورات غير المتابعين)
+    if (!notification) {
+      return true;
+    }
+    
+    // إذا وجد إشعار، نتحقق من showInFeed
+    // إذا لم يوجد showInFeed في الإشعار، نفترض أنه يجب عرضه (للتوافق مع البيانات القديمة)
+    return notification.showInFeed !== false;
+    
+  } catch (error) {
+    console.error('خطأ في التحقق من showInFeed:', error);
+    return true; // في حالة الخطأ، نعرض المنشور
+  }
+}
+
+/**
  * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds) with Facebook-style algorithm
  * @route   GET /api/v1/feed
  * @access  Private
@@ -97,9 +137,10 @@ router.get('/', protect, async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
     
-    // جلب معلومات المستخدم الحالي
-    const currentUser = await User.findById(req.user.id).select('following');
+    // جلب معلومات المستخدم الحالي مع الإشعارات
+    const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
+    const notifications = currentUser?.notifications || [];
     
     // جلب جميع المنشورات
     const posts = await Post.find({ 
@@ -139,11 +180,41 @@ router.get('/', protect, async (req, res) => {
       ...emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }))
     ];
     
+    // فلترة العناصر بناءً على نظام الإشعارات (15% من المتابعين)
+    const feedItems = [];
+    
+    for (const item of allItems) {
+      const isFollowing = following.some(id => id.toString() === item.user._id.toString());
+      
+      // إذا كان من غير المتابعين، نعرضه دائماً
+      if (!isFollowing) {
+        feedItems.push(item);
+        continue;
+      }
+      
+      // إذا كان من المتابعين، نتحقق من الإشعار
+      const notification = notifications.find(notif => {
+        if (item.itemType === 'post' && notif.post) {
+          return notif.post.toString() === item._id.toString();
+        } else if (item.itemType === 'shipmentAd' && notif.shipmentAd) {
+          return notif.shipmentAd.toString() === item._id.toString();
+        } else if (item.itemType === 'emptyTruckAd' && notif.emptyTruckAd) {
+          return notif.emptyTruckAd.toString() === item._id.toString();
+        }
+        return false;
+      });
+      
+      // إذا لم يوجد إشعار أو showInFeed = true، نعرض المنشور
+      if (!notification || notification.showInFeed !== false) {
+        feedItems.push(item);
+      }
+    }
+    
     // فصل العناصر إلى متابَعين وغير متابَعين مع حساب النقاط
     const followingItems = [];
     const nonFollowingItems = [];
     
-    allItems.forEach(item => {
+    feedItems.forEach(item => {
       const isFollowing = following.some(id => id.toString() === item.user._id.toString());
       const score = calculateFeedScore(item, isFollowing, req.user.id);
       
@@ -160,19 +231,8 @@ router.get('/', protect, async (req, res) => {
     followingItems.sort((a, b) => b.feedScore - a.feedScore);
     nonFollowingItems.sort((a, b) => b.feedScore - a.feedScore);
     
-    // تطبيق نسبة 15% للمتابَعين و85% لغير المتابَعين
-    const followingPercentage = 0.15;
-    const totalItemsToShow = Math.min(allItems.length, 100); // حد أقصى 100 عنصر في الذاكرة
-    
-    const followingCount = Math.floor(totalItemsToShow * followingPercentage);
-    const nonFollowingCount = totalItemsToShow - followingCount;
-    
-    // اختيار العناصر
-    const selectedFollowingItems = followingItems.slice(0, followingCount);
-    const selectedNonFollowingItems = nonFollowingItems.slice(0, nonFollowingCount);
-    
-    // دمج العناصر
-    let finalItems = [...selectedFollowingItems, ...selectedNonFollowingItems];
+    // دمج العناصر مع إعطاء الأولوية للمتابعين
+    let finalItems = [...followingItems, ...nonFollowingItems];
     
     // ترتيب نهائي حسب النقاط مع خلط خفيف
     finalItems.sort((a, b) => {

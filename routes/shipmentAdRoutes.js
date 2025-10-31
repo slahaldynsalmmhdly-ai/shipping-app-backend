@@ -4,7 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const ShipmentAd = require("../models/ShipmentAd");
 const User = require("../models/User"); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
-const { createFollowingPostNotifications } = require('../utils/notificationHelper');
+const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new shipment ad
 // @route   POST /api/v1/shipmentads
@@ -200,6 +200,22 @@ router.put("/:id/react", protect, async (req, res) => {
     } else {
       // User has not reacted, add new reaction
       shipmentAd.reactions.unshift({ user: req.user.id, type: reactionType });
+      
+      // Create notification for the ad owner if not self-liking
+      if (shipmentAd.user.toString() !== req.user.id) {
+        const sender = await User.findById(req.user.id).select('name');
+        const adOwner = await User.findById(shipmentAd.user);
+        if (adOwner && sender) {
+          adOwner.notifications.unshift({
+            type: 'like',
+            sender: req.user.id,
+            shipmentAd: shipmentAd._id,
+            itemType: 'shipmentAd',
+            message: generateNotificationMessage('like', sender.name)
+          });
+          await adOwner.save();
+        }
+      }
     }
 
     shipmentAd.markModified("reactions");
@@ -239,6 +255,24 @@ router.post("/:id/comment", protect, async (req, res) => {
     shipmentAd.comments.unshift(newComment);
     shipmentAd.markModified("comments");
     await shipmentAd.save();
+    
+    // Create notification for the ad owner if not self-commenting
+    if (shipmentAd.user.toString() !== req.user.id) {
+      const sender = await User.findById(req.user.id).select('name');
+      const adOwner = await User.findById(shipmentAd.user);
+      if (adOwner && sender) {
+        adOwner.notifications.unshift({
+          type: 'comment',
+          sender: req.user.id,
+          shipmentAd: shipmentAd._id,
+          itemType: 'shipmentAd',
+          commentId: shipmentAd.comments[0]._id,
+          message: generateNotificationMessage('comment', sender.name)
+        });
+        await adOwner.save();
+      }
+    }
+    
     const updatedShipmentAd = await ShipmentAd.findById(req.params.id)
       .populate("user", "name avatar")
       .populate({

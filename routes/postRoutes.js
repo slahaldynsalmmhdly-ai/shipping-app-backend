@@ -5,7 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
-const { createFollowingPostNotifications } = require('../utils/notificationHelper');
+const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new post
 // @route   POST /api/v1/posts
@@ -155,12 +155,14 @@ router.put("/:id/react", protect, async (req, res) => {
 
         // Create notification for the post owner if not self-liking
         if (post.user.toString() !== req.user.id) {
+          const sender = await User.findById(req.user.id).select('name');
           const postOwner = await User.findById(post.user);
-          if (postOwner) {
+          if (postOwner && sender) {
             postOwner.notifications.unshift({
               type: 'like',
               sender: req.user.id,
               post: post._id,
+              message: generateNotificationMessage('like', sender.name)
             });
             await postOwner.save();
           }
@@ -213,13 +215,15 @@ router.post("/:id/comment", protect, async (req, res) => {
 
     // Create notification for the post owner if not self-commenting
     if (post.user.toString() !== req.user.id) {
+      const sender = await User.findById(req.user.id).select('name');
       const postOwner = await User.findById(post.user);
-      if (postOwner) {
+      if (postOwner && sender) {
         postOwner.notifications.unshift({
           type: 'comment',
           sender: req.user.id,
           post: post._id,
           commentId: post.comments[0]._id,
+          message: generateNotificationMessage('comment', sender.name)
         });
         await postOwner.save();
       }
@@ -337,13 +341,15 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
 
       // Create notification for the comment owner if not self-liking
       if (comment.user.toString() !== req.user.id) {
+        const sender = await User.findById(req.user.id).select('name');
         const commentOwner = await User.findById(comment.user);
-        if (commentOwner) {
+        if (commentOwner && sender) {
           commentOwner.notifications.unshift({
             type: 'comment_like',
             sender: req.user.id,
             post: post._id,
             commentId: comment._id,
+            message: generateNotificationMessage('comment_like', sender.name)
           });
           await commentOwner.save();
         }
@@ -401,14 +407,16 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
 
     // Create notification for the comment owner if not self-replying
     if (comment.user.toString() !== req.user.id) {
+      const sender = await User.findById(req.user.id).select('name');
       const commentOwner = await User.findById(comment.user);
-      if (commentOwner) {
+      if (commentOwner && sender) {
         commentOwner.notifications.unshift({
           type: 'reply',
           sender: req.user.id,
           post: post._id,
           commentId: comment._id,
           replyId: comment.replies[0]._id,
+          message: generateNotificationMessage('reply', sender.name)
         });
         await commentOwner.save();
       }
@@ -464,14 +472,16 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
 
       // Create notification for the reply owner if not self-liking
       if (reply.user.toString() !== req.user.id) {
+        const sender = await User.findById(req.user.id).select('name');
         const replyOwner = await User.findById(reply.user);
-        if (replyOwner) {
+        if (replyOwner && sender) {
           replyOwner.notifications.unshift({
             type: 'reply_like',
             sender: req.user.id,
             post: post._id,
             commentId: comment._id,
             replyId: reply._id,
+            message: generateNotificationMessage('reply_like', sender.name)
           });
           await replyOwner.save();
         }

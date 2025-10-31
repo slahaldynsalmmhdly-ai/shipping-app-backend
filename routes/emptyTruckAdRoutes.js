@@ -4,7 +4,7 @@ const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
 const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
-const { createFollowingPostNotifications } = require('../utils/notificationHelper');
+const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new empty truck ad
 // @route   POST /api/v1/emptytruckads
@@ -119,6 +119,22 @@ router.put("/:id/react", protect, async (req, res) => {
     } else {
       // User has not reacted, add new reaction
       emptyTruckAd.reactions.unshift({ user: req.user.id, type: reactionType });
+      
+      // Create notification for the ad owner if not self-liking
+      if (emptyTruckAd.user.toString() !== req.user.id) {
+        const sender = await User.findById(req.user.id).select('name');
+        const adOwner = await User.findById(emptyTruckAd.user);
+        if (adOwner && sender) {
+          adOwner.notifications.unshift({
+            type: 'like',
+            sender: req.user.id,
+            emptyTruckAd: emptyTruckAd._id,
+            itemType: 'emptyTruckAd',
+            message: generateNotificationMessage('like', sender.name)
+          });
+          await adOwner.save();
+        }
+      }
     }
 
     emptyTruckAd.markModified("reactions");
@@ -217,6 +233,24 @@ router.post("/:id/comment", protect, async (req, res) => {
     emptyTruckAd.comments.unshift(newComment);
     emptyTruckAd.markModified("comments");
     await emptyTruckAd.save();
+    
+    // Create notification for the ad owner if not self-commenting
+    if (emptyTruckAd.user.toString() !== req.user.id) {
+      const sender = await User.findById(req.user.id).select('name');
+      const adOwner = await User.findById(emptyTruckAd.user);
+      if (adOwner && sender) {
+        adOwner.notifications.unshift({
+          type: 'comment',
+          sender: req.user.id,
+          emptyTruckAd: emptyTruckAd._id,
+          itemType: 'emptyTruckAd',
+          commentId: emptyTruckAd.comments[0]._id,
+          message: generateNotificationMessage('comment', sender.name)
+        });
+        await adOwner.save();
+      }
+    }
+    
     const updatedEmptyTruckAd = await EmptyTruckAd.findById(req.params.id)
       .populate("user", "name avatar")
       .populate({
