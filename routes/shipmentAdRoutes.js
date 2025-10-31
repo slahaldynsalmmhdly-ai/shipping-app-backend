@@ -87,8 +87,7 @@ router.get("/", protect, async (req, res) => {
     const notifications = currentUser?.notifications || [];
 
     const shipmentAds = await ShipmentAd.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
     })
       .populate("user", ["name", "avatar", "userType", "companyName"])
       .lean();

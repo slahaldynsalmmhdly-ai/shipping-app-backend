@@ -73,8 +73,7 @@ router.get("/", protect, async (req, res) => {
     const notifications = currentUser?.notifications || [];
 
     const emptyTruckAds = await EmptyTruckAd.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
     })
       .populate("user", "name avatar userType companyName")
       .lean();
