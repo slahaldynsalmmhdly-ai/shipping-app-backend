@@ -83,9 +83,15 @@ router.get("/", protect, async (req, res) => {
     const filteredAds = [];
     
     for (const ad of emptyTruckAds) {
-      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية
+      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية (إلا إذا كان حديث جداً)
       if (ad.user._id.toString() === req.user.id) {
-        continue; // لا تعرض إعلاناتي في صفحتي
+        // الإعلانات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
+        const adAge = Date.now() - new Date(ad.createdAt).getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (adAge > fiveMinutes) {
+          continue; // لا تعرض إذا مر أكثر من 5 دقائق
+        }
       }
       
       const isFollowing = following.some(id => id.toString() === ad.user._id.toString());

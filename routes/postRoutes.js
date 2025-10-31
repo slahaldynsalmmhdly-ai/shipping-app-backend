@@ -101,9 +101,16 @@ router.get('/', protect, async (req, res) => {
     const filteredPosts = [];
     
     for (const post of allPosts) {
-      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية
+      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية (إلا إذا كان حديث جداً)
       if (post.user._id.toString() === req.user.id) {
-        continue; // لا تعرض منشوراتي في صفحتي
+        // المنشورات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
+        const postAge = Date.now() - new Date(post.createdAt).getTime();
+        const fiveMinutes = 5 * 60 * 1000; // 5 دقائق بالملي ثانية
+        
+        if (postAge > fiveMinutes) {
+          continue; // لا تعرض إذا مر أكثر من 5 دقائق
+        }
+        // إذا كان أحدث من 5 دقائق، يعرض ويكمل للفلترة
       }
       
       const isFollowing = following.some(id => id.toString() === post.user._id.toString());
