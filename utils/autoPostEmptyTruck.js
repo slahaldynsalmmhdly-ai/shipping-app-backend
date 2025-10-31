@@ -35,14 +35,8 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       return { success: false, message: "Auto posting is not enabled" };
     }
 
-    // التحقق من عدم النشر مؤخراً (تجنب التكرار خلال ساعة واحدة)
-    if (vehicle.lastAutoPostedAt) {
-      const hoursSinceLastPost = (Date.now() - vehicle.lastAutoPostedAt.getTime()) / (1000 * 60 * 60);
-      if (hoursSinceLastPost < 1) {
-        console.log('ℹ️ Already posted within the last hour, skipping');
-        return { success: false, message: "Already posted recently" };
-      }
-    }
+    // لا يوجد قيد زمني - الشركة تتحكم بالنشر بشكل كامل
+    // كل مرة تحول الأسطول إلى "متاح" ينشر إعلان جديد
 
     console.log(`🚀 Auto posting empty truck ad for: ${vehicle.vehicleName} (${vehicle.licensePlate})`);
 
