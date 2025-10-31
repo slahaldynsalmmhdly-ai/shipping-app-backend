@@ -45,143 +45,6 @@ async function callDeepSeek(messages, temperature = 0.7) {
 }
 
 /**
- * Auto Posting: Create posts for empty trucks
- */
-async function autoPostEmptyTrucks(userId) {
-  try {
-    const user = await User.findById(userId);
-    if (!user || !user.aiFeatures?.autoPosting) {
-      return { success: false, message: "Auto posting is not enabled" };
-    }
-
-    // Find user's empty trucks
-    const emptyTrucks = await Vehicle.find({
-      user: userId,
-      status: "متاح", // Available status in Arabic
-    });
-
-    if (emptyTrucks.length === 0) {
-      return { success: false, message: "No empty trucks found" };
-    }
-
-    const postsCreated = [];
-
-    // Define variety of approaches for empty truck posts
-    const approaches = [
-      'أسلوب مباشر وواضح مع ذكر التفاصيل',
-      'أسلوب تسويقي جذاب مع عرض مميز',
-      'أسلوب مهني رسمي',
-      'أسلوب ودي وقريب',
-      'أسلوب عملي مع تحديد المسارات المقترحة',
-    ];
-    
-    for (const truck of emptyTrucks) {
-      // Select random approach
-      const selectedApproach = approaches[Math.floor(Math.random() * approaches.length)];
-      
-      // Get current day
-      const now = new Date();
-      const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-      const currentDay = days[now.getDay()];
-      
-      // Generate post content using AI with variety
-      const prompt = `أنت مساعد ذكي متخصص في كتابة إعلانات متنوعة. قم بإنشاء منشور جديد ومختلف (لا يزيد عن 100 كلمة) للإعلان عن شاحنة فارغة متاحة للنقل.
-      
-معلومات الشاحنة:
-- النوع: ${truck.vehicleType || "غير محدد"}
-- رقم اللوحة: ${truck.licensePlate || "غير محدد"}
-- الموقع الحالي: ${truck.currentLocation || user.city || "غير محدد"}
-- اليوم: ${currentDay}
-
-متطلبات المنشور:
-- استخدم ${selectedApproach}
-- يجب أن يكون مختلفاً تماماً عن المنشورات السابقة
-- استخدم عبارات جديدة ومبتكرة
-- لا تكرر نفس الأفكار
-
-يجب أن يكون المنشور باللغة العربية، مبتكر، وجذاب.`;
-
-      const content = await callDeepSeek([
-        {
-          role: "system",
-          content: "أنت مساعد ذكي متخصص في كتابة إعلانات النقل والشحن باللغة العربية.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ]);
-
-      if (content) {
-        // Generate AI image using Pollinations.ai (free, no API key!)
-        const { generateImageUrl, generateTruckImagePrompt } = require('./imageGenerator');
-        const mediaArray = [];
-        
-        try {
-          console.log('🎨 Generating AI image for empty truck with Pollinations.ai...');
-          
-          // Generate image prompt
-          const imagePrompt = generateTruckImagePrompt(
-            truck.vehicleType,
-            truck.currentLocation || user.city,
-            'realistic'
-          );
-          console.log('📝 Image prompt:', imagePrompt);
-          
-          // Generate image URL (instant!)
-          const imageUrl = generateImageUrl(imagePrompt);
-          
-          if (imageUrl) {
-            mediaArray.push({ url: imageUrl, type: 'image' });
-            console.log('✅ AI-generated image URL added to truck post:', imageUrl);
-          }
-        } catch (imageError) {
-          console.error('❌ Error in AI image generation for truck:', imageError.message);
-        }
-        
-        // Create a post with AI-generated image
-        const post = await Post.create({
-          user: userId,
-          text: content,
-          media: mediaArray,
-          generatedByAI: true,
-          aiFeatureType: 'auto_posting',
-        });
-
-        postsCreated.push(post);
-        
-        // إضافة إشعار للمستخدم (الشركة) بأن الذكاء الاصطناعي قام بنشر منشور
-        try {
-          const owner = await User.findById(userId);
-          if (owner) {
-            owner.notifications.unshift({
-              type: 'ai_generated_post',
-              sender: userId, // نفس المستخدم
-              post: post._id,
-              itemType: 'post',
-              message: 'AI قام بنشر إعلان للأسطول الفارغ',
-              read: false
-            });
-            await owner.save();
-          }
-        } catch (notifError) {
-          console.error('خطأ في إضافة إشعار الذكاء الاصطناعي:', notifError);
-        }
-      }
-    }
-
-    return {
-      success: true,
-      message: `تم إنشاء ${postsCreated.length} منشور بنجاح`,
-      posts: postsCreated,
-    };
-  } catch (error) {
-    console.error("Error in autoPostEmptyTrucks:", error);
-    return { success: false, message: error.message };
-  }
-}
-
-/**
  * Auto Messaging: Send messages to cargo ad owners
  */
 async function autoMessageCargoAds(userId) {
@@ -571,28 +434,13 @@ async function runAIFeaturesForUser(userId) {
       return results;
     }
 
-    // ملاحظة: autoPosting (نشر الشاحنات الفارغة) أصبح تلقائياً فورياً
-    // ولا يعمل من خلال المجدول بعد الآن
-    // يتم النشر تلقائياً عند تغيير حالة الشاحنة إلى "متاح"
-    if (user.aiFeatures.autoPosting) {
-      results.autoPosting = {
-        success: true,
-        message: "النشر التلقائي للشاحنات الفارغة يعمل تلقائياً عند توفرها"
-      };
-    }
+    // تم حذف autoPosting
 
     if (user.aiFeatures.autoMessaging) {
       results.autoMessaging = await autoMessageCargoAds(userId);
     }
 
-    // ملاحظة: fleetPromotion (الترويج للأسطول) تم دمجه مع autoPosting
-    // الآن نشر الشاحنات الفارغة هو الترويج الأساسي
-    if (user.aiFeatures.fleetPromotion) {
-      results.fleetPromotion = {
-        success: true,
-        message: "الترويج يتم تلقائياً من خلال نشر إعلانات الشاحنات الفارغة"
-      };
-    }
+    // تم حذف fleetPromotion
 
     if (user.aiFeatures.weeklyReports) {
       results.weeklyReports = await generateWeeklyReport(userId);
@@ -607,7 +455,6 @@ async function runAIFeaturesForUser(userId) {
 
 module.exports = {
   callDeepSeek,
-  autoPostEmptyTrucks,
   autoMessageCargoAds,
   promoteFleet,
   generateWeeklyReport,

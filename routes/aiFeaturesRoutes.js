@@ -15,9 +15,7 @@ router.get("/settings", protect, async (req, res) => {
     }
 
     const aiFeatures = user.aiFeatures || {
-      autoPosting: false,
       autoMessaging: false,
-      fleetPromotion: false,
       weeklyReports: false,
     };
 
@@ -29,9 +27,7 @@ router.get("/settings", protect, async (req, res) => {
     };
 
     res.json({
-      autoPosting: aiFeatures.autoPosting,
       autoMessaging: aiFeatures.autoMessaging,
-      fleetPromotion: aiFeatures.fleetPromotion,
       weeklyReports: aiFeatures.weeklyReports,
       scheduleEnabled: scheduleSettings.enabled,
       scheduleTime: scheduleSettings.scheduleTime,
@@ -47,7 +43,7 @@ router.get("/settings", protect, async (req, res) => {
 // Update AI features settings
 router.put("/settings", protect, async (req, res) => {
   try {
-    const { autoPosting, autoMessaging, fleetPromotion, weeklyReports } = req.body;
+    const { autoMessaging, weeklyReports } = req.body;
 
     const user = await User.findById(req.user._id);
     
@@ -62,9 +58,7 @@ router.put("/settings", protect, async (req, res) => {
 
     // Update AI features settings
     user.aiFeatures = {
-      autoPosting: autoPosting !== undefined ? autoPosting : user.aiFeatures?.autoPosting || false,
       autoMessaging: autoMessaging !== undefined ? autoMessaging : user.aiFeatures?.autoMessaging || false,
-      fleetPromotion: fleetPromotion !== undefined ? fleetPromotion : user.aiFeatures?.fleetPromotion || false,
       weeklyReports: weeklyReports !== undefined ? weeklyReports : user.aiFeatures?.weeklyReports || false,
     };
 
@@ -97,9 +91,7 @@ router.post("/run", protect, async (req, res) => {
 
     // Check if at least one feature is enabled
     const hasEnabledFeature = user.aiFeatures && (
-      user.aiFeatures.autoPosting ||
       user.aiFeatures.autoMessaging ||
-      user.aiFeatures.fleetPromotion ||
       user.aiFeatures.weeklyReports
     );
 
@@ -117,11 +109,9 @@ router.post("/run", protect, async (req, res) => {
     // Format response
     const response = {
       success: true,
-      message: "تم تشغيل الميزات اليدوية بنجاح",
+      message: "تم تشغيل الميزات بنجاح",
       results: {
-        autoPosting: { success: false, message: "يعمل فقط عبر الجدولة التلقائية" },
         autoMessaging: results.autoMessaging || { success: false, message: "غير مفعل" },
-        fleetPromotion: { success: false, message: "يعمل فقط عبر الجدولة التلقائية" },
         weeklyReports: results.weeklyReports || { success: false, message: "غير مفعل" },
       }
     };

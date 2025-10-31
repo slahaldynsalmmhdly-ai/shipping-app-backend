@@ -123,15 +123,7 @@ const UserSchema = new mongoose.Schema({
   ],
   // AI Features Settings
   aiFeatures: {
-    autoPosting: {
-      type: Boolean,
-      default: false,
-    },
     autoMessaging: {
-      type: Boolean,
-      default: false,
-    },
-    fleetPromotion: {
       type: Boolean,
       default: false,
     },

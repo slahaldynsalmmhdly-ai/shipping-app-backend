@@ -19,9 +19,7 @@ function startAIScheduler() {
         userType: 'company',
         'aiScheduleSettings.enabled': true,
         $or: [
-          { 'aiFeatures.autoPosting': true },
           { 'aiFeatures.autoMessaging': true },
-          { 'aiFeatures.fleetPromotion': true },
           { 'aiFeatures.weeklyReports': true }
         ]
       });
@@ -49,14 +47,8 @@ function startAIScheduler() {
             await company.save();
             
             // Log results
-            if (results.autoPosting?.success) {
-              console.log(`      ✅ Auto Posting: ${results.autoPosting.message}`);
-            }
             if (results.autoMessaging?.success) {
               console.log(`      ✅ Auto Messaging: ${results.autoMessaging.message}`);
-            }
-            if (results.fleetPromotion?.success) {
-              console.log(`      ✅ Fleet Promotion: ${results.fleetPromotion.message}`);
             }
             if (results.weeklyReports?.success) {
               console.log(`      ✅ Weekly Reports: ${results.weeklyReports.message}`);
