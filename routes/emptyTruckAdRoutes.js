@@ -68,8 +68,9 @@ router.get("/user/:userId", protect, async (req, res) => {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id).select('following');
+    const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
+    const notifications = currentUser?.notifications || [];
 
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
@@ -78,8 +79,34 @@ router.get("/", protect, async (req, res) => {
       .populate("user", "name avatar userType companyName")
       .lean();
 
-    // Apply Facebook-style algorithm with 5% following ratio
-    const finalAds = applyFeedAlgorithm(emptyTruckAds, following, req.user.id, 0.05);
+    // فلترة الإعلانات بناءً على نظام الإشعارات (15% من المتابعين)
+    const filteredAds = [];
+    
+    for (const ad of emptyTruckAds) {
+      const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
+      
+      // إذا كان من غير المتابعين، نعرضه دائماً
+      if (!isFollowing) {
+        filteredAds.push(ad);
+        continue;
+      }
+      
+      // إذا كان من المتابعين، نتحقق من الإشعار
+      const notification = notifications.find(notif => {
+        if (notif.emptyTruckAd) {
+          return notif.emptyTruckAd.toString() === ad._id.toString();
+        }
+        return false;
+      });
+      
+      // إذا لم يوجد إشعار أو showInFeed = true، نعرض الإعلان
+      if (!notification || notification.showInFeed !== false) {
+        filteredAds.push(ad);
+      }
+    }
+
+    // Apply Facebook-style algorithm with 10% following ratio for sorting
+    const finalAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
 
     res.status(200).json(finalAds);
   } catch (error) {

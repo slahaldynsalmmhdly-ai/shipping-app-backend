@@ -78,8 +78,9 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id).select('following');
+    const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
+    const notifications = currentUser?.notifications || [];
 
     // Find all published posts, excluding those hidden from current user's home feed
     const allPosts = await Post.find({ 
@@ -96,8 +97,34 @@ router.get('/', protect, async (req, res) => {
       })
       .lean();
 
-    // Apply Facebook-style algorithm with 5% following ratio
-    const finalPosts = applyFeedAlgorithm(allPosts, following, req.user.id, 0.05);
+    // فلترة المنشورات بناءً على نظام الإشعارات (15% من المتابعين)
+    const filteredPosts = [];
+    
+    for (const post of allPosts) {
+      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
+      
+      // إذا كان من غير المتابعين، نعرضه دائماً
+      if (!isFollowing) {
+        filteredPosts.push(post);
+        continue;
+      }
+      
+      // إذا كان من المتابعين، نتحقق من الإشعار
+      const notification = notifications.find(notif => {
+        if (notif.post) {
+          return notif.post.toString() === post._id.toString();
+        }
+        return false;
+      });
+      
+      // إذا لم يوجد إشعار أو showInFeed = true، نعرض المنشور
+      if (!notification || notification.showInFeed !== false) {
+        filteredPosts.push(post);
+      }
+    }
+
+    // Apply Facebook-style algorithm with 10% following ratio for sorting
+    const finalPosts = applyFeedAlgorithm(filteredPosts, following, req.user.id, 0.10);
 
     res.json(finalPosts);
   } catch (err) {
