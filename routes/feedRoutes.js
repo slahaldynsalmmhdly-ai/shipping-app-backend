@@ -189,6 +189,12 @@ router.get('/', protect, async (req, res) => {
     const feedItems = [];
     
     for (const item of allItems) {
+      // إذا كان المستخدم هو صاحب المنشور/الإعلان، نعرضه دائماً
+      if (item.user._id.toString() === req.user.id) {
+        feedItems.push(item);
+        continue;
+      }
+      
       const isFollowing = following.some(id => id.toString() === item.user._id.toString());
       
       // إذا كان من غير المتابعين، نعرضه دائماً
