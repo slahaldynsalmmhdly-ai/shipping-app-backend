@@ -57,7 +57,13 @@ router.get("/me/notifications", protect, async (req, res) => {
       select: "name avatar",
     }).populate({
       path: "notifications.post",
-      select: "text originalPost originalPostType",
+      select: "text originalPost originalPostType media",
+    }).populate({
+      path: "notifications.shipmentAd",
+      select: "pickupLocation deliveryLocation description media",
+    }).populate({
+      path: "notifications.emptyTruckAd",
+      select: "currentLocation preferredDestination additionalNotes media",
     }).sort({"notifications.createdAt": -1});
 
     if (!user) {
