@@ -143,6 +143,8 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       media: mediaArray,
       isPublished: true,
       scheduledTime: null, // نشر فوري
+      generatedByAI: true, // مولد بالذكاء الاصطناعي
+      aiFeatureType: 'auto_posting',
     });
 
     // إنشاء إشعارات للمتابعين (نظام 15%)
@@ -157,6 +159,22 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       console.log('✅ Following notifications created for empty truck ad');
     } catch (notifError) {
       console.error('❌ Error creating following notifications:', notifError.message);
+    }
+
+    // إضافة إشعار للشركة بأن الذكاء الاصطناعي قام بنشر إعلان
+    try {
+      user.notifications.unshift({
+        type: 'ai_generated_post',
+        sender: user._id,
+        emptyTruckAd: emptyTruckAd._id,
+        itemType: 'emptyTruckAd',
+        message: 'AI قام بنشر إعلان للأسطول الفارغ',
+        read: false
+      });
+      await user.save();
+      console.log('✅ AI notification added to company');
+    } catch (notifError) {
+      console.error('❌ Error adding AI notification:', notifError.message);
     }
 
     // تحديث معلومات النشر في المركبة

@@ -44,6 +44,11 @@ const VehicleSchema = new mongoose.Schema({
     enum: ["متاح", "في العمل"],
     default: "متاح",
   },
+  previousStatus: {
+    type: String,
+    enum: ["متاح", "في العمل", null],
+    default: null,
+  },
   // حقول تتبع النشر التلقائي
   lastAutoPostedAt: {
     type: Date,
@@ -75,19 +80,33 @@ const VehicleSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// Hook للنشر التلقائي عند تغيير حالة المركبة إلى "متاح"
+// Hook لحفظ الحالة السابقة قبل الحفظ
+VehicleSchema.pre('save', function(next) {
+  if (this.isModified('status') && !this.isNew) {
+    // حفظ الحالة السابقة فقط إذا تغيرت الحالة
+    this._previousStatus = this.previousStatus;
+  }
+  next();
+});
+
+// Hook للنشر التلقائي عند تغيير حالة المركبة من "في العمل" إلى "متاح"
 VehicleSchema.post('save', async function(doc) {
   try {
-    console.log(`🔍 [Vehicle Hook - save] Vehicle ${doc._id} status: ${doc.status}`);
+    console.log(`🔍 [Vehicle Hook - save] Vehicle ${doc._id} status: ${doc.status}, previousStatus: ${doc.previousStatus}`);
     
-    // التحقق من أن الحالة "متاح"
-    if (doc.status === "متاح") {
-      console.log(`✅ [Vehicle Hook - save] Vehicle ${doc._id} is available, triggering auto post...`);
+    // النشر فقط عند التغيير من "في العمل" إلى "متاح"
+    const changedToAvailable = doc.status === "متاح" && doc.previousStatus === "في العمل";
+    
+    if (changedToAvailable) {
+      console.log(`✅ [Vehicle Hook - save] Vehicle ${doc._id} changed from "في العمل" to "متاح", triggering auto post...`);
       
-      // استدعاء دالة النشر التلقائي بشكل غير متزامن (لا ننتظر النتيجة)
+      // تحديث previousStatus للحالة الحالية
+      doc.previousStatus = doc.status;
+      await doc.save({ validateBeforeSave: false });
+      
+      // استدعاء دالة النشر التلقائي
       const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
       
-      // تشغيل النشر في الخلفية دون انتظار
       setImmediate(async () => {
         try {
           await autoPostSingleEmptyTruck(doc._id);
@@ -96,20 +115,47 @@ VehicleSchema.post('save', async function(doc) {
         }
       });
     } else {
-      console.log(`ℹ️ [Vehicle Hook - save] Vehicle ${doc._id} status is not "متاح", skipping auto post`);
+      console.log(`ℹ️ [Vehicle Hook - save] No status change from "في العمل" to "متاح", skipping auto post`);
+      
+      // تحديث previousStatus إذا تغيرت الحالة
+      if (doc.isModified('status')) {
+        doc.previousStatus = doc.status;
+        await doc.save({ validateBeforeSave: false });
+      }
     }
   } catch (error) {
     console.error('❌ Error in Vehicle post-save hook:', error);
   }
 });
 
-// Hook للنشر التلقائي عند تحديث حالة المركبة
+// Hook لحفظ الحالة السابقة قبل التحديث
+VehicleSchema.pre('findOneAndUpdate', async function(next) {
+  try {
+    const update = this.getUpdate();
+    if (update.$set && update.$set.status) {
+      // جلب المستند الحالي لحفظ الحالة السابقة
+      const docToUpdate = await this.model.findOne(this.getQuery());
+      if (docToUpdate && docToUpdate.status !== update.$set.status) {
+        // حفظ الحالة السابقة في التحديث
+        update.$set.previousStatus = docToUpdate.status;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error in pre findOneAndUpdate hook:', error);
+  }
+  next();
+});
+
+// Hook للنشر التلقائي عند تحديث حالة المركبة من "في العمل" إلى "متاح"
 VehicleSchema.post('findOneAndUpdate', async function(doc) {
   try {
-    console.log(`🔍 [Vehicle Hook - findOneAndUpdate] Document:`, doc ? `ID: ${doc._id}, status: ${doc.status}` : 'null');
+    console.log(`🔍 [Vehicle Hook - findOneAndUpdate] Document:`, doc ? `ID: ${doc._id}, status: ${doc.status}, previousStatus: ${doc.previousStatus}` : 'null');
     
-    if (doc && doc.status === "متاح") {
-      console.log(`✅ [Vehicle Hook - findOneAndUpdate] Vehicle ${doc._id} is available, triggering auto post...`);
+    // النشر فقط عند التغيير من "في العمل" إلى "متاح"
+    const changedToAvailable = doc && doc.status === "متاح" && doc.previousStatus === "في العمل";
+    
+    if (changedToAvailable) {
+      console.log(`✅ [Vehicle Hook - findOneAndUpdate] Vehicle ${doc._id} changed from "في العمل" to "متاح", triggering auto post...`);
       
       const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
       
@@ -121,7 +167,7 @@ VehicleSchema.post('findOneAndUpdate', async function(doc) {
         }
       });
     } else {
-      console.log(`ℹ️ [Vehicle Hook - findOneAndUpdate] Vehicle status is not "متاح" or doc is null, skipping auto post`);
+      console.log(`ℹ️ [Vehicle Hook - findOneAndUpdate] No status change from "في العمل" to "متاح", skipping auto post`);
     }
   } catch (error) {
     console.error('❌ Error in Vehicle post-findOneAndUpdate hook:', error);
