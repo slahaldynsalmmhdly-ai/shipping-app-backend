@@ -113,22 +113,7 @@ const PostSchema = new mongoose.Schema({
   repostText: {
     type: String,
   },
-  // AI Generated fields
-  generatedByAI: {
-    type: Boolean,
-    default: false,
-  },
-  aiFeatureType: {
-    type: String,
-    enum: ['auto_posting', 'fleet_promotion', 'auto_posting_instant', null],
-    default: null,
-  },
-  // Related vehicle for auto posting
-  relatedVehicle: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vehicle',
-    default: null,
-  },
+
   // Scheduling fields
   scheduledTime: {
     type: Date,

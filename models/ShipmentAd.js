@@ -125,16 +125,7 @@ const ShipmentAdSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   }],
-  // AI-generated flag
-  generatedByAI: {
-    type: Boolean,
-    default: false,
-  },
-  aiFeatureType: {
-    type: String,
-    enum: ['auto_posting', 'fleet_promotion', null],
-    default: null,
-  },
+
 });
 
 module.exports = mongoose.model("ShipmentAd", ShipmentAdSchema);

@@ -16,7 +16,7 @@ const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
 const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
 const callLogRoutes = require("./routes/callLogRoutes"); // Added callLogRoutes
 const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
-const aiFeaturesRoutes = require("./routes/aiFeaturesRoutes"); // Added aiFeaturesRoutes
+// AI features routes removed
 const followRoutes = require("./routes/followRoutes"); // Added followRoutes
 const fleetAuthRoutes = require("./routes/fleetAuthRoutes"); // Added fleetAuthRoutes
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
@@ -40,17 +40,13 @@ setTimeout(() => {
   fixOldContent();
 }, 3000); // Wait 3 seconds for DB connection to be ready
 
-// Start AI Scheduler (after DB connection)
-const { startAIScheduler } = require('./utils/aiScheduler');
-startAIScheduler();
+// AI Scheduler removed
 
 // Start Content Scheduler for scheduled posts and ads
 const { startContentScheduler } = require('./utils/contentScheduler');
 startContentScheduler();
 
-// Start Repost Empty Trucks Scheduler (for automatic reposting after 1-2 days)
-const { startRepostEmptyTrucksScheduler } = require('./utils/repostEmptyTrucksScheduler');
-startRepostEmptyTrucksScheduler();
+// Repost Empty Trucks Scheduler removed
 
 
 const app = express();
@@ -92,7 +88,7 @@ app.use("/api/v1/chat", chatRoutes); // Mount chat routes
 app.use("/api/v1/search", searchRoutes); // Mount search routes
 app.use("/api/v1/call-logs", callLogRoutes); // Mount call log routes
 app.use("/api/v1/reports", reportRoutes); // Mount report routes
-app.use("/api/v1/ai-features", aiFeaturesRoutes); // Mount AI features routes
+// AI features routes removed
 app.use("/api/v1/follow", followRoutes); // Mount follow routes
 app.use("/api/fleet", fleetAuthRoutes); // Mount fleet auth routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes

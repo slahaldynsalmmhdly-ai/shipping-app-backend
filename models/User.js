@@ -121,35 +121,8 @@ const UserSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
-  // AI Features Settings
-  aiFeatures: {
-    autoMessaging: {
-      type: Boolean,
-      default: false,
-    },
-    weeklyReports: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  aiScheduleSettings: {
-    enabled: {
-      type: Boolean,
-      default: false, // الجدولة معطلة افتراضياً
-    },
-    scheduleTime: {
-      type: String,
-      default: '09:00', // الوقت بصيغة HH:mm (24 ساعة)
-    },
-    timezone: {
-      type: String,
-      default: 'Asia/Riyadh', // المنطقة الزمنية
-    },
-    lastRun: {
-      type: Date,
-      default: null, // آخر مرة تم التشغيل
-    },
-  },
+
+
   isOnline: {
     type: Boolean,
     default: false,
@@ -162,7 +135,7 @@ const UserSchema = new mongoose.Schema({
     {
       type: {
         type: String,
-        enum: ["like", "new_post", "new_following_post", "new_following_shipment_ad", "new_following_empty_truck_ad", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call", "ai_generated_post"], // Add other notification types as needed
+        enum: ["like", "new_post", "new_following_post", "new_following_shipment_ad", "new_following_empty_truck_ad", "comment", "reply", "comment_like", "reply_like", "new_message", "new_call"], // Add other notification types as needed
         required: true,
       },
       sender: {
