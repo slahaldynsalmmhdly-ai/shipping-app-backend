@@ -121,6 +121,16 @@ const EmptyTruckAdSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     }],
+    // AI-generated flag
+    generatedByAI: {
+      type: Boolean,
+      default: false,
+    },
+    aiFeatureType: {
+      type: String,
+      enum: ['auto_posting', 'fleet_promotion', null],
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -163,7 +163,8 @@ router.get('/', protect, async (req, res) => {
     // جلب جميع إعلانات الشحن
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      generatedByAI: { $ne: true }
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .lean();
@@ -171,7 +172,8 @@ router.get('/', protect, async (req, res) => {
     // جلب جميع إعلانات الشاحنات الفارغة
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      generatedByAI: { $ne: true } // إخفاء الإعلانات المولدة بالذكاء الاصطناعي
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .lean();
