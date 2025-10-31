@@ -117,8 +117,8 @@ router.get('/', protect, async (req, res) => {
         return false;
       });
       
-      // إذا لم يوجد إشعار أو showInFeed = true، نعرض المنشور
-      if (!notification || notification.showInFeed !== false) {
+      // نعرض المنشور فقط إذا وُجد إشعار وكان showInFeed = true
+      if (notification && notification.showInFeed === true) {
         filteredPosts.push(post);
       }
     }
