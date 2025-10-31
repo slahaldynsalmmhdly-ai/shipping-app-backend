@@ -110,26 +110,8 @@ router.get("/", protect, async (req, res) => {
         }
       }
       
-      const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
-      
-      // إذا كان من غير المتابعين، نعرضه دائماً
-      if (!isFollowing) {
-        filteredAds.push(ad);
-        continue;
-      }
-      
-      // إذا كان من المتابعين، نتحقق من الإشعار
-      const notification = notifications.find(notif => {
-        if (notif.shipmentAd) {
-          return notif.shipmentAd.toString() === ad._id.toString();
-        }
-        return false;
-      });
-      
-      // نعرض الإعلان فقط إذا وُجد إشعار وكان showInFeed = true
-      if (notification && notification.showInFeed === true) {
-        filteredAds.push(ad);
-      }
+      // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
+      filteredAds.push(ad);
     }
 
     // Apply Facebook-style algorithm with 10% following ratio for sorting

@@ -116,26 +116,8 @@ router.get('/', protect, async (req, res) => {
         // إذا كان أحدث من 5 دقائق، يعرض ويكمل للفلترة
       }
       
-      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
-      
-      // إذا كان من غير المتابعين، نعرضه دائماً
-      if (!isFollowing) {
-        filteredPosts.push(post);
-        continue;
-      }
-      
-      // إذا كان من المتابعين، نتحقق من الإشعار
-      const notification = notifications.find(notif => {
-        if (notif.post) {
-          return notif.post.toString() === post._id.toString();
-        }
-        return false;
-      });
-      
-      // نعرض المنشور فقط إذا وُجد إشعار وكان showInFeed = true
-      if (notification && notification.showInFeed === true) {
-        filteredPosts.push(post);
-      }
+      // عرض جميع المنشورات بدون فلترة (تم حذف فلتر showInFeed)
+      filteredPosts.push(post);
     }
 
     // Apply Facebook-style algorithm with 10% following ratio for sorting

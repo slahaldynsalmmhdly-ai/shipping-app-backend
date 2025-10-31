@@ -81,34 +81,8 @@ router.get("/", protect, async (req, res) => {
       .populate("user", "name avatar userType companyName")
       .lean();
 
-    // فلترة الإعلانات بناءً على نظام الإشعارات (15% من المتابعين)
-    const filteredAds = [];
-    
-    for (const ad of emptyTruckAds) {
-      // تم إزالة فلتر إخفاء إعلانات المستخدم الخاصة لعرض جميع الإعلانات
-      // الإعلانات المنشورة تلقائياً يجب أن تظهر في الصفحة الرئيسية
-      
-      const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
-      
-      // إذا كان من غير المتابعين، نعرضه دائماً
-      if (!isFollowing) {
-        filteredAds.push(ad);
-        continue;
-      }
-      
-      // إذا كان من المتابعين، نتحقق من الإشعار
-      const notification = notifications.find(notif => {
-        if (notif.emptyTruckAd) {
-          return notif.emptyTruckAd.toString() === ad._id.toString();
-        }
-        return false;
-      });
-      
-      // نعرض الإعلان إذا لم يوجد إشعار (إعلانات غير المتابعين) أو showInFeed = true
-      if (!notification || notification.showInFeed === true) {
-        filteredAds.push(ad);
-      }
-    }
+    // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
+    const filteredAds = emptyTruckAds;
 
     // Apply Facebook-style algorithm with 10% following ratio for sorting
     const sortedAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);

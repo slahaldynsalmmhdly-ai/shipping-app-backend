@@ -197,28 +197,8 @@ router.get('/', protect, async (req, res) => {
       
       const isFollowing = following.some(id => id.toString() === item.user._id.toString());
       
-      // إذا كان من غير المتابعين، نعرضه دائماً
-      if (!isFollowing) {
-        feedItems.push(item);
-        continue;
-      }
-      
-      // إذا كان من المتابعين، نتحقق من الإشعار
-      const notification = notifications.find(notif => {
-        if (item.itemType === 'post' && notif.post) {
-          return notif.post.toString() === item._id.toString();
-        } else if (item.itemType === 'shipmentAd' && notif.shipmentAd) {
-          return notif.shipmentAd.toString() === item._id.toString();
-        } else if (item.itemType === 'emptyTruckAd' && notif.emptyTruckAd) {
-          return notif.emptyTruckAd.toString() === item._id.toString();
-        }
-        return false;
-      });
-      
-      // إذا لم يوجد إشعار أو showInFeed = true، نعرض المنشور
-      if (!notification || notification.showInFeed !== false) {
-        feedItems.push(item);
-      }
+      // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
+      feedItems.push(item);
     }
     
     // فصل العناصر إلى متابَعين وغير متابَعين مع حساب النقاط
