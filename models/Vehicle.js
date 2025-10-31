@@ -100,9 +100,11 @@ VehicleSchema.post('save', async function(doc) {
     if (changedToAvailable) {
       console.log(`✅ [Vehicle Hook - save] Vehicle ${doc._id} changed from "في العمل" to "متاح", triggering auto post...`);
       
-      // تحديث previousStatus للحالة الحالية
-      doc.previousStatus = doc.status;
-      await doc.save({ validateBeforeSave: false });
+      // تحديث previousStatus بدون حفظ (لتجنب infinite loop)
+      await Vehicle.updateOne(
+        { _id: doc._id },
+        { $set: { previousStatus: doc.status } }
+      );
       
       // استدعاء دالة النشر التلقائي
       const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
@@ -116,12 +118,6 @@ VehicleSchema.post('save', async function(doc) {
       });
     } else {
       console.log(`ℹ️ [Vehicle Hook - save] No status change from "في العمل" to "متاح", skipping auto post`);
-      
-      // تحديث previousStatus إذا تغيرت الحالة
-      if (doc.isModified('status')) {
-        doc.previousStatus = doc.status;
-        await doc.save({ validateBeforeSave: false });
-      }
     }
   } catch (error) {
     console.error('❌ Error in Vehicle post-save hook:', error);
