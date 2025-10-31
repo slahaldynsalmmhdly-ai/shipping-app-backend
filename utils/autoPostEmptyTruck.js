@@ -35,8 +35,14 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       return { success: false, message: "Auto posting is not enabled" };
     }
 
-    // لا يوجد قيد زمني - الشركة تتحكم بالنشر بشكل كامل
-    // كل مرة تحول الأسطول إلى "متاح" ينشر إعلان جديد
+    // التحقق من عدم النشر خلال الدقيقة الأخيرة (لتجنب race conditions)
+    if (vehicle.lastAutoPostedAt) {
+      const minutesSinceLastPost = (Date.now() - vehicle.lastAutoPostedAt) / 60000;
+      if (minutesSinceLastPost < 1) {
+        console.log(`ℹ️ Already posted within the last minute (${minutesSinceLastPost.toFixed(2)} minutes ago), skipping to avoid duplicates`);
+        return { success: false, message: "Already posted recently" };
+      }
+    }
 
     console.log(`🚀 Auto posting empty truck ad for: ${vehicle.vehicleName} (${vehicle.licensePlate})`);
 
@@ -178,9 +184,18 @@ async function autoPostSingleEmptyTruck(vehicleId) {
     }
 
     // تحديث معلومات النشر في المركبة
-    vehicle.lastAutoPostedAt = new Date();
-    vehicle.autoPostCount = (vehicle.autoPostCount || 0) + 1;
-    await vehicle.save();
+    // استخدام updateOne بدلاً من save لتجنب إعادة تشغيل الـ Hook
+    await Vehicle.updateOne(
+      { _id: vehicle._id },
+      { 
+        $set: { 
+          lastAutoPostedAt: new Date(),
+        },
+        $inc: {
+          autoPostCount: 1
+        }
+      }
+    );
 
     console.log(`✅ Successfully posted empty truck ad for: ${vehicle.vehicleName}`);
 
