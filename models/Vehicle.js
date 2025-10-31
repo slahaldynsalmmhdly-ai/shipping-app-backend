@@ -78,8 +78,12 @@ const VehicleSchema = new mongoose.Schema({
 // Hook للنشر التلقائي عند تغيير حالة المركبة إلى "متاح"
 VehicleSchema.post('save', async function(doc) {
   try {
+    console.log(`🔍 [Vehicle Hook - save] Vehicle ${doc._id} status: ${doc.status}`);
+    
     // التحقق من أن الحالة "متاح"
     if (doc.status === "متاح") {
+      console.log(`✅ [Vehicle Hook - save] Vehicle ${doc._id} is available, triggering auto post...`);
+      
       // استدعاء دالة النشر التلقائي بشكل غير متزامن (لا ننتظر النتيجة)
       const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
       
@@ -88,31 +92,39 @@ VehicleSchema.post('save', async function(doc) {
         try {
           await autoPostSingleEmptyTruck(doc._id);
         } catch (error) {
-          console.error('Error in post-save auto posting:', error);
+          console.error('❌ Error in post-save auto posting:', error);
         }
       });
+    } else {
+      console.log(`ℹ️ [Vehicle Hook - save] Vehicle ${doc._id} status is not "متاح", skipping auto post`);
     }
   } catch (error) {
-    console.error('Error in Vehicle post-save hook:', error);
+    console.error('❌ Error in Vehicle post-save hook:', error);
   }
 });
 
 // Hook للنشر التلقائي عند تحديث حالة المركبة
 VehicleSchema.post('findOneAndUpdate', async function(doc) {
   try {
+    console.log(`🔍 [Vehicle Hook - findOneAndUpdate] Document:`, doc ? `ID: ${doc._id}, status: ${doc.status}` : 'null');
+    
     if (doc && doc.status === "متاح") {
+      console.log(`✅ [Vehicle Hook - findOneAndUpdate] Vehicle ${doc._id} is available, triggering auto post...`);
+      
       const { autoPostSingleEmptyTruck } = require('../utils/autoPostEmptyTruck');
       
       setImmediate(async () => {
         try {
           await autoPostSingleEmptyTruck(doc._id);
         } catch (error) {
-          console.error('Error in post-update auto posting:', error);
+          console.error('❌ Error in post-update auto posting:', error);
         }
       });
+    } else {
+      console.log(`ℹ️ [Vehicle Hook - findOneAndUpdate] Vehicle status is not "متاح" or doc is null, skipping auto post`);
     }
   } catch (error) {
-    console.error('Error in Vehicle post-findOneAndUpdate hook:', error);
+    console.error('❌ Error in Vehicle post-findOneAndUpdate hook:', error);
   }
 });
 
