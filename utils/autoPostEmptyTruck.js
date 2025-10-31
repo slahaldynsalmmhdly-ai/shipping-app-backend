@@ -1,10 +1,11 @@
 const User = require("../models/User");
-const Post = require("../models/Post");
+const EmptyTruckAd = require("../models/EmptyTruckAd");
 const Vehicle = require("../models/Vehicle");
 const { callDeepSeek } = require("./aiService");
+const { createFollowingNotifications } = require("./notificationHelper");
 
 /**
- * نشر إعلان تلقائي فوري لشاحنة فارغة واحدة
+ * نشر إعلان شاحنة فارغة تلقائي فوري
  * يتم استدعاؤها عند تغيير حالة الشاحنة إلى "متاح"
  */
 async function autoPostSingleEmptyTruck(vehicleId) {
@@ -43,7 +44,7 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       }
     }
 
-    console.log(`🚀 Auto posting for empty truck: ${vehicle.vehicleName} (${vehicle.licensePlate})`);
+    console.log(`🚀 Auto posting empty truck ad for: ${vehicle.vehicleName} (${vehicle.licensePlate})`);
 
     // التحقق من وجود معلومات أساسية
     if (!vehicle.vehicleName || !vehicle.licensePlate) {
@@ -51,7 +52,7 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       return { success: false, message: "Missing basic vehicle information" };
     }
 
-    // توليد محتوى متنوع
+    // توليد محتوى متنوع للملاحظات الإضافية
     const approaches = [
       'أسلوب مباشر وواضح مع ذكر التفاصيل',
       'أسلوب تسويقي جذاب مع عرض مميز',
@@ -66,7 +67,7 @@ async function autoPostSingleEmptyTruck(vehicleId) {
     const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     const currentDay = days[now.getDay()];
     
-    const prompt = `أنت مساعد ذكي متخصص في كتابة إعلانات متنوعة. قم بإنشاء منشور جديد ومختلف (لا يزيد عن 100 كلمة) للإعلان عن شاحنة فارغة متاحة للنقل.
+    const prompt = `أنت مساعد ذكي متخصص في كتابة إعلانات متنوعة. قم بإنشاء ملاحظات إضافية جديدة ومختلفة (لا تزيد عن 80 كلمة) للإعلان عن شاحنة فارغة متاحة للنقل.
     
 معلومات الشاحنة:
 - النوع: ${vehicle.vehicleType || "غير محدد"}
@@ -75,17 +76,18 @@ async function autoPostSingleEmptyTruck(vehicleId) {
 - اسم الشركة: ${user.companyName || user.name}
 - اليوم: ${currentDay}
 
-متطلبات المنشور:
+متطلبات الملاحظات:
 - استخدم ${selectedApproach}
-- يجب أن يكون مختلفاً تماماً عن المنشورات السابقة
+- يجب أن تكون مختلفة تماماً عن الإعلانات السابقة
 - استخدم عبارات جديدة ومبتكرة
 - لا تكرر نفس الأفكار
+- ركز على مميزات الشاحنة والخدمة
 
-يجب أن يكون المنشور باللغة العربية، مبتكر، وجذاب.`;
+يجب أن تكون الملاحظات باللغة العربية، مبتكرة، وجذابة.`;
 
-    let content;
+    let additionalNotes;
     try {
-      content = await callDeepSeek([
+      additionalNotes = await callDeepSeek([
         {
           role: "system",
           content: "أنت مساعد ذكي متخصص في كتابة إعلانات النقل والشحن باللغة العربية.",
@@ -98,12 +100,12 @@ async function autoPostSingleEmptyTruck(vehicleId) {
     } catch (aiError) {
       console.error('❌ Error calling DeepSeek AI:', aiError.message);
       // استخدام محتوى افتراضي إذا فشل الذكاء الاصطناعي
-      content = `🚚 شاحنة فارغة متاحة للنقل\n\nالنوع: ${vehicle.vehicleType || "غير محدد"}\nرقم اللوحة: ${vehicle.licensePlate}\nالموقع الحالي: ${vehicle.currentLocation || user.city || "غير محدد"}\n\nللتواصل: ${user.companyName || user.name}`;
+      additionalNotes = `🚚 شاحنة فارغة متاحة للنقل الفوري\n\nنوفر خدمة نقل موثوقة وسريعة. الشاحنة جاهزة للانطلاق فوراً.\n\nللتواصل: ${user.companyName || user.name}`;
     }
 
-    if (!content || content.trim() === '') {
+    if (!additionalNotes || additionalNotes.trim() === '') {
       console.log('❌ Failed to generate content, using default');
-      content = `🚚 شاحنة فارغة متاحة للنقل\n\nالنوع: ${vehicle.vehicleType || "غير محدد"}\nرقم اللوحة: ${vehicle.licensePlate}\nالموقع الحالي: ${vehicle.currentLocation || user.city || "غير محدد"}\n\nللتواصل: ${user.companyName || user.name}`;
+      additionalNotes = `🚚 شاحنة فارغة متاحة للنقل الفوري\n\nنوفر خدمة نقل موثوقة وسريعة. الشاحنة جاهزة للانطلاق فوراً.\n\nللتواصل: ${user.companyName || user.name}`;
     }
 
     // توليد صورة بالذكاء الاصطناعي
@@ -124,33 +126,60 @@ async function autoPostSingleEmptyTruck(vehicleId) {
       
       if (imageUrl) {
         mediaArray.push({ url: imageUrl, type: 'image' });
-        console.log('✅ AI-generated image URL added to post:', imageUrl);
+        console.log('✅ AI-generated image URL added to ad:', imageUrl);
       }
     } catch (imageError) {
       console.error('❌ Error in AI image generation:', imageError.message);
     }
     
-    // إنشاء المنشور
-    const post = await Post.create({
+    // تحديد الوجهة المفضلة (يمكن أن تكون ذكية بناءً على البيانات)
+    const preferredDestination = vehicle.currentLocation ? 
+      (vehicle.currentLocation.includes('الرياض') ? 'جدة' : 
+       vehicle.currentLocation.includes('جدة') ? 'الرياض' : 
+       vehicle.currentLocation.includes('الدمام') ? 'الرياض' : 
+       'أي وجهة') : 'أي وجهة';
+    
+    // تحديد تاريخ التوفر (الآن)
+    const availabilityDate = new Date();
+    
+    // إنشاء إعلان الشاحنة الفارغة
+    const emptyTruckAd = await EmptyTruckAd.create({
       user: user._id,
-      text: content,
+      currentLocation: vehicle.currentLocation || user.city || 'غير محدد',
+      preferredDestination: preferredDestination,
+      availabilityDate: availabilityDate,
+      truckType: vehicle.vehicleType || 'شاحنة نقل',
+      additionalNotes: additionalNotes,
       media: mediaArray,
-      generatedByAI: true,
-      aiFeatureType: 'auto_posting_instant',
-      relatedVehicle: vehicleId,
+      isPublished: true,
+      scheduledTime: null, // نشر فوري
     });
+
+    // إنشاء إشعارات للمتابعين (نظام 15%)
+    try {
+      await createFollowingNotifications(
+        user._id,
+        'new_following_empty_truck_ad',
+        null, // post
+        null, // shipmentAd
+        emptyTruckAd._id // emptyTruckAd
+      );
+      console.log('✅ Following notifications created for empty truck ad');
+    } catch (notifError) {
+      console.error('❌ Error creating following notifications:', notifError.message);
+    }
 
     // تحديث معلومات النشر في المركبة
     vehicle.lastAutoPostedAt = new Date();
     vehicle.autoPostCount = (vehicle.autoPostCount || 0) + 1;
     await vehicle.save();
 
-    console.log(`✅ Successfully posted for empty truck: ${vehicle.vehicleName}`);
+    console.log(`✅ Successfully posted empty truck ad for: ${vehicle.vehicleName}`);
 
     return {
       success: true,
-      message: `تم نشر إعلان للشاحنة ${vehicle.vehicleName}`,
-      post,
+      message: `تم نشر إعلان شاحنة فارغة للمركبة ${vehicle.vehicleName}`,
+      emptyTruckAd,
       vehicle: {
         id: vehicle._id,
         name: vehicle.vehicleName,
