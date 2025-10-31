@@ -134,7 +134,8 @@ router.get("/", protect, async (req, res) => {
     const sortedAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
 
     // Apply content diversity to prevent consecutive ads from same user
-    const finalAds = diversifyContent(sortedAds, 3);
+    // استخدام فجوة 5 إعلانات بين إعلانات نفس المستخدم/الشركة (مثل فيسبوك)
+    const finalAds = diversifyContent(sortedAds, 5);
 
     res.json(finalAds);
   } catch (err) {

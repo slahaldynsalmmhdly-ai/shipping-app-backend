@@ -140,7 +140,8 @@ router.get('/', protect, async (req, res) => {
     const sortedPosts = applyFeedAlgorithm(filteredPosts, following, req.user.id, 0.10);
 
     // Apply content diversity to prevent consecutive posts from same user
-    const finalPosts = diversifyContent(sortedPosts, 3);
+    // استخدام فجوة 5 منشورات بين منشورات نفس المستخدم/الشركة (مثل فيسبوك)
+    const finalPosts = diversifyContent(sortedPosts, 5);
 
     res.json(finalPosts);
   } catch (err) {

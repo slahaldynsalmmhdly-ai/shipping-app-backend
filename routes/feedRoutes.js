@@ -5,6 +5,7 @@ const Post = require('../models/Post');
 const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
+const { diversifyContent } = require('../utils/contentDiversity');
 
 /**
  * حساب نقاط التفاعل للمنشور/الإعلان
@@ -244,10 +245,14 @@ router.get('/', protect, async (req, res) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     
+    // تطبيق خوارزمية التنويع لمنع تكرار منشورات نفس الشركة/المستخدم
+    // استخدام فجوة 5 منشورات بين منشورات نفس المستخدم (مثل فيسبوك)
+    const diversifiedItems = diversifyContent(finalItems, 5);
+    
     // خلط خفيف للعناصر المتقاربة في النقاط (في مجموعات من 5)
     const shuffledItems = [];
-    for (let i = 0; i < finalItems.length; i += 5) {
-      const chunk = finalItems.slice(i, i + 5);
+    for (let i = 0; i < diversifiedItems.length; i += 5) {
+      const chunk = diversifiedItems.slice(i, i + 5);
       const shuffledChunk = seededShuffle(chunk, req.user.id.toString().charCodeAt(0) + i);
       shuffledItems.push(...shuffledChunk);
     }
