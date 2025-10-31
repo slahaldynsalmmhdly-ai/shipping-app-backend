@@ -114,13 +114,24 @@ function applyFeedAlgorithm(items, following, userId, followingPercentage = 0.15
   nonFollowingItems.sort((a, b) => b.feedScore - a.feedScore);
   
   // تطبيق نسبة المتابَعين
-  const totalItemsToShow = Math.min(items.length, 100);
-  const followingCount = Math.floor(totalItemsToShow * followingPercentage);
-  const nonFollowingCount = totalItemsToShow - followingCount;
+  // تطبيق نسبة المتابَعين
+  const totalItemsToShow = Math.min(items.length, 100); // حد أقصى للعناصر المعروضة
   
-  // اختيار العناصر
-  const selectedFollowingItems = followingItems.slice(0, followingCount);
-  const selectedNonFollowingItems = nonFollowingItems.slice(0, nonFollowingCount);
+  // حساب العدد المطلوب من كل مجموعة
+  const requiredFollowingCount = Math.floor(totalItemsToShow * followingPercentage);
+  const requiredNonFollowingCount = totalItemsToShow - requiredFollowingCount;
+  
+  // اختيار العناصر، مع التأكد من عدم تجاوز العدد المتاح
+  const selectedFollowingItems = followingItems.slice(0, Math.min(requiredFollowingCount, followingItems.length));
+  const selectedNonFollowingItems = nonFollowingItems.slice(0, Math.min(requiredNonFollowingCount, nonFollowingItems.length));
+  
+  // إذا لم يكن هناك ما يكفي من المتابَعين، نأخذ المزيد من غير المتابَعين
+  const remainingSlots = totalItemsToShow - (selectedFollowingItems.length + selectedNonFollowingItems.length);
+  
+  if (remainingSlots > 0) {
+    const additionalNonFollowing = nonFollowingItems.slice(selectedNonFollowingItems.length, selectedNonFollowingItems.length + remainingSlots);
+    selectedNonFollowingItems.push(...additionalNonFollowing);
+  }
   
   // دمج العناصر
   let finalItems = [...selectedFollowingItems, ...selectedNonFollowingItems];

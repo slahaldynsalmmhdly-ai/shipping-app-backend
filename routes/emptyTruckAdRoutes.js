@@ -78,7 +78,7 @@ router.get("/", protect, async (req, res) => {
       .populate("user", "name avatar userType companyName")
       .lean();
 
-    // Apply Facebook-style algorithm with 15% following ratio
+    // Apply Facebook-style algorithm with 5% following ratio
     const finalAds = applyFeedAlgorithm(emptyTruckAds, following, req.user.id, 0.05);
 
     res.status(200).json(finalAds);
