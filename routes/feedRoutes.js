@@ -158,7 +158,6 @@ router.get('/', protect, async (req, res) => {
     }
 
     // ... باقي الكود ...
-  try {
     const page = parseInt(req.query.page) || 1;
     const limit = 3; // دائماً 3 عناصر في كل طلب
     const skip = (page - 1) * limit;
@@ -374,7 +373,7 @@ router.get('/stats', protect, async (req, res) => {
       totalEmptyTruckAds: emptyTruckAdsCount,
       totalItems: postsCount + shipmentAdsCount + emptyTruckAdsCount,
       followingCount: following.length
-    });
+    };
     
   } catch (err) {
     console.error(err.message);
