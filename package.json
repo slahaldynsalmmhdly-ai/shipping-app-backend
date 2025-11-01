@@ -39,6 +39,7 @@
     "openai": "^6.7.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "node-cache": "^5.1.2",
     "peer": "^1.0.2"
   }
 }
