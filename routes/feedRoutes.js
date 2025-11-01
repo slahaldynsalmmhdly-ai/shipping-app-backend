@@ -157,60 +157,16 @@ router.get('/', protect, async (req, res) => {
  * ترتيب سريع وبسيط للمنشورات
  * بدلاً من الخوارزمية الذكية البطيئة
  * 
- * القواعد (محدثة):
- * 1. 1% منشورات المتابَعين (القديمة فقط - الجديدة في الإشعارات)
- * 2. 99% منشورات من الجميع (بناءً على الوقت والتفاعل)
+ * القواعد (محدثة - نهائية):
+ * 1. 0% منشورات المتابَعين (لا تظهر في الخلاصة أبداً - فقط في الإشعارات)
+ * 2. 100% منشورات من الجميع (بناءً على الوقت والتفاعل)
  * 
- * النتيجة: محتوى متنوع مع لمحة بسيطة من المتابَعين
+ * النتيجة: محتوى متنوع بالكامل - منشورات المتابَعين في الإشعارات فقط
  * الوقت: أقل من 10ms بدلاً من 5 دقائق!
  */
 function applyFastRanking(items, following) {
-  // فصل منشورات المتابَعين عن الباقي
-  const followingPosts = [];
-  const otherPosts = [];
-  
-  items.forEach(item => {
-    const isFollowing = following.some(f => f.toString() === item.user._id.toString());
-    if (isFollowing) {
-      followingPosts.push(item);
-    } else {
-      otherPosts.push(item);
-    }
-  });
-  
-  // ترتيب منشورات المتابَعين (القديمة أولاً - عكس الترتيب)
-  const rankedFollowingPosts = followingPosts
-    .filter(item => {
-      // فقط المنشورات القديمة (أكثر من 24 ساعة)
-      const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
-      return hoursSincePost >= 24;
-    })
-    .map(item => {
-    let score = 0;
-    
-    // نقاط الوقت (عكس - القديم أعلى نقاط)
-    const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
-    let timeScore = 0;
-    if (hoursSincePost >= 168) { // أسبوع أو أكثر
-      timeScore = 100;
-    } else if (hoursSincePost >= 72) { // 3 أيام
-      timeScore = 75;
-    } else if (hoursSincePost >= 24) { // يوم
-      timeScore = 50;
-    }
-    score += timeScore;
-    
-    // نقاط التفاعل (50 نقطة)
-    const reactions = item.reactions?.length || 0;
-    const comments = item.comments?.length || 0;
-    const engagementScore = Math.min(50, (reactions + comments * 2) / 2);
-    score += engagementScore;
-    
-    return { ...item, _rankScore: score, _isFollowing: true };
-  }).sort((a, b) => b._rankScore - a._rankScore);
-  
   // ترتيب جميع المنشورات (بناءً على الوقت والتفاعل)
-  const allRanked = items.map(item => {
+  return items.map(item => {
     let score = 0;
     
     // نقاط الوقت (100 نقطة)
@@ -230,45 +186,10 @@ function applyFastRanking(items, following) {
     score += engagementScore;
     
     return { ...item, _rankScore: score };
-  }).sort((a, b) => b._rankScore - a._rankScore);
-  
-  // حساب عدد منشورات المتابَعين (1% من المجموع)
-  const totalCount = allRanked.length;
-  const followingCount = Math.max(1, Math.ceil(totalCount * 0.01)); // 1% (على الأقل منشور واحد)
-  
-  // أخذ أحدث منشورات المتابَعين
-  const selectedFollowingPosts = rankedFollowingPosts.slice(0, followingCount);
-  
-  // دمج منشورات المتابَعين مع الباقي بشكل متناسق
-  const result = [];
-  const followingIds = new Set(selectedFollowingPosts.map(p => p._id.toString()));
-  
-  // إضافة منشورات المتابَعين في مواضع متناسقة
-  let followingIndex = 0;
-  let allIndex = 0;
-  const interval = Math.floor(totalCount / followingCount) || 1; // كل كم منشور نضيف منشور متابَع
-  
-  for (let i = 0; i < totalCount; i++) {
-    // إضافة منشور متابَع في الموضع المناسب
-    if (i % interval === 0 && followingIndex < selectedFollowingPosts.length) {
-      result.push(selectedFollowingPosts[followingIndex]);
-      followingIndex++;
-    } else {
-      // إضافة منشور من الجميع (باستثناء المتابَعين المضافين)
-      while (allIndex < allRanked.length) {
-        const post = allRanked[allIndex];
-        allIndex++;
-        if (!followingIds.has(post._id.toString())) {
-          result.push(post);
-          break;
-        }
-      }
-    }
-  }
-  
-  // إزالة الحقول المؤقتة
-  return result.map(item => {
-    const { _rankScore, _isFollowing, ...cleanItem } = item;
+  })
+  .sort((a, b) => b._rankScore - a._rankScore)
+  .map(item => {
+    const { _rankScore, ...cleanItem } = item;
     return cleanItem;
   });
 }
