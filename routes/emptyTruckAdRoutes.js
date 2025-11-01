@@ -79,34 +79,24 @@ router.get("/", protect, async (req, res) => {
       .populate("user", "name avatar userType companyName")
       .lean();
 
-    // فلترة الإعلانات بناءً على نظام الإشعارات (5% من المتابعين يرون المحتوى)
+    // تم تعديل النظام: إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
     const filteredAds = [];
     
     for (const ad of emptyTruckAds) {
-      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية فوراً
+      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية
       if (ad.user._id.toString() === req.user.id) {
-        // لا تظهر إعلانات المستخدم في صفحته الرئيسية أبداً
         continue;
       }
       
-      // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية
+      // إخفاء إعلانات المتابعين تماماً (100% إشعارات فقط)
       const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
       
       if (isFollowing) {
-        // المستخدم يتابع صاحب الإعلان
-        // نتحقق من الإشعارات لمعرفة إذا كان ضمن الـ 5%
-        const notification = notifications.find(
-          n => n.post && n.post.toString() === ad._id.toString() && n.showInFeed === true
-        );
-        
-        if (!notification || !notification.showInFeed) {
-          // 95% من المتابعين: لا يظهر في الصفحة الرئيسية
-          continue;
-        }
-        // 5% من المتابعين: يظهر في الصفحة الرئيسية
+        // إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً
+        continue;
       }
-      // غير المتابعين: يظهر دائماً في الصفحة الرئيسية
       
+      // غير المتابعين فقط: يظهر في الصفحة الرئيسية
       filteredAds.push(ad);
     }
 
