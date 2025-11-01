@@ -33,15 +33,18 @@ router.get('/', protect, async (req, res) => {
     const limit = parseInt(req.query.limit) || 3; // استخدام limit من query parameter (افتراضي 3)
     const skip = (page - 1) * limit;
 
-    // إعادة تفعيل الـ cache لتحسين السرعة
+    // تم تعطيل الـ cache مؤقتاً لحل مشكلة التكرار
+    // السبب: الـ cache القديم يحتوي على بيانات مكررة
+    // سيتم إعادة تفعيله بعد التأكد من حل المشكلة
     const cacheKey = `feed_${userId}_page_${page}`;
-    if (page === 1) {
-      const cachedData = feedCache.get(cacheKey);
-      if (cachedData) {
-        console.log('✅ Cache Hit - سرعة فائقة!');
-        return res.json(cachedData);
-      }
-    }
+    // if (page === 1) {
+    //   const cachedData = feedCache.get(cacheKey);
+    //   if (cachedData) {
+    //     console.log('✅ Cache Hit - سرعة فائقة!');
+    //     return res.json(cachedData);
+    //   }
+    // }
+    console.log('⚠️ Cache معطل مؤقتاً - جلب بيانات جديدة');
 
     console.log(`📥 جلب الصفحة ${page} للمستخدم ${userId}`);
     const startTime = Date.now();
@@ -210,7 +213,27 @@ router.get('/', protect, async (req, res) => {
     allItems = await applySmartEngagementTracking(allItems, userId);
     
     // أخذ العدد المطلوب فقط
-    const paginatedItems = allItems.slice(0, limit);
+    let paginatedItems = allItems.slice(0, limit);
+    
+    // فحص نهائي: التأكد من عدم وجود تكرار في البيانات النهائية
+    const finalCheck = new Set();
+    const duplicatesFound = [];
+    paginatedItems = paginatedItems.filter(item => {
+      const itemId = item._id.toString();
+      if (finalCheck.has(itemId)) {
+        duplicatesFound.push(itemId);
+        console.log(`🛑 تم إيقاف تكرار في البيانات النهائية: ${itemId}`);
+        return false;
+      }
+      finalCheck.add(itemId);
+      return true;
+    });
+    
+    if (duplicatesFound.length > 0) {
+      console.log(`⚠️ تم إيقاف ${duplicatesFound.length} تكرار في البيانات النهائية`);
+    } else {
+      console.log(`✅ لا يوجد تكرار في البيانات النهائية`);
+    }
     
     // تحديد ما إذا كان هناك المزيد من العناصر
     // إذا كان عدد العناصر المتاحة أكبر من limit، يعني هناك المزيد
@@ -228,11 +251,12 @@ router.get('/', protect, async (req, res) => {
     const endTime = Date.now();
     console.log(`✅ تم جلب ${paginatedItems.length} عنصر في ${endTime - startTime}ms`);
 
-    // حفظ البيانات في cache للصفحة الأولى
-    if (page === 1) {
-      feedCache.set(cacheKey, responseData);
-      console.log('💾 تم حفظ البيانات في Cache');
-    }
+    // تم تعطيل حفظ البيانات في cache مؤقتاً
+    // if (page === 1) {
+    //   feedCache.set(cacheKey, responseData);
+    //   console.log('💾 تم حفظ البيانات في Cache');
+    // }
+    console.log('🚫 Cache معطل - لن يتم حفظ البيانات');
 
     res.json(responseData);
     
