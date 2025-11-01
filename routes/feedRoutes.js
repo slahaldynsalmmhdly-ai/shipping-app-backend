@@ -33,15 +33,16 @@ router.get('/', protect, async (req, res) => {
     const limit = 10; // زيادة العدد من 3 إلى 10 لتحسين التجربة
     const skip = (page - 1) * limit;
 
-    // محاولة جلب البيانات من Cache للصفحة الأولى فقط
+    // تم تعطيل الـ cache مؤقتاً لحل مشكلة ظهور منشورات المتابعين
+    // يمكن إعادة تفعيله بعد التأكد من عمل النظام
     const cacheKey = `feed_${userId}_page_${page}`;
-    if (page === 1) {
-      const cachedData = feedCache.get(cacheKey);
-      if (cachedData) {
-        console.log('✅ Cache Hit - سرعة فائقة!');
-        return res.json(cachedData);
-      }
-    }
+    // if (page === 1) {
+    //   const cachedData = feedCache.get(cacheKey);
+    //   if (cachedData) {
+    //     console.log('✅ Cache Hit - سرعة فائقة!');
+    //     return res.json(cachedData);
+    //   }
+    // }
 
     console.log(`📥 جلب الصفحة ${page} للمستخدم ${userId}`);
     const startTime = Date.now();
@@ -202,11 +203,11 @@ router.get('/', protect, async (req, res) => {
     const endTime = Date.now();
     console.log(`✅ تم جلب ${paginatedItems.length} عنصر في ${endTime - startTime}ms`);
 
-    // تخزين في Cache للصفحة الأولى فقط
-    if (page === 1) {
-      feedCache.set(cacheKey, responseData);
-      console.log('💾 تم حفظ البيانات في Cache');
-    }
+    // تم تعطيل الـ cache مؤقتاً
+    // if (page === 1) {
+    //   feedCache.set(cacheKey, responseData);
+    //   console.log('💾 تم حفظ البيانات في Cache');
+    // }
 
     res.json(responseData);
     
