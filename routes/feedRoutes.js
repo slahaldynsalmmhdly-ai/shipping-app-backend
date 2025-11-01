@@ -33,16 +33,15 @@ router.get('/', protect, async (req, res) => {
     const limit = 10; // زيادة العدد من 3 إلى 10 لتحسين التجربة
     const skip = (page - 1) * limit;
 
-    // تم تعطيل الـ cache مؤقتاً لحل مشكلة ظهور منشورات المتابعين
-    // يمكن إعادة تفعيله بعد التأكد من عمل النظام
+    // إعادة تفعيل الـ cache لتحسين السرعة
     const cacheKey = `feed_${userId}_page_${page}`;
-    // if (page === 1) {
-    //   const cachedData = feedCache.get(cacheKey);
-    //   if (cachedData) {
-    //     console.log('✅ Cache Hit - سرعة فائقة!');
-    //     return res.json(cachedData);
-    //   }
-    // }
+    if (page === 1) {
+      const cachedData = feedCache.get(cacheKey);
+      if (cachedData) {
+        console.log('✅ Cache Hit - سرعة فائقة!');
+        return res.json(cachedData);
+      }
+    }
 
     console.log(`📥 جلب الصفحة ${page} للمستخدم ${userId}`);
     const startTime = Date.now();
@@ -51,9 +50,9 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية جديدة: جلب عدد كبير لضمان وجود 10 منشورات على الأقل بعد فلترة المتابعين
-    // نجلب 100 منشور من كل نوع لضمان وجود منشورات كافية
-    const fetchLimit = 100; // 100 عنصر من كل نوع
+    // استراتيجية متوازنة: جلب عدد معقول لضمان السرعة والكفاية
+    // 50 منشور من كل نوع = 150 منشور إجمالاً (أسرع من 100 من كل نوع)
+    const fetchLimit = 50; // 50 عنصر من كل نوع
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
@@ -156,11 +155,11 @@ router.get('/', protect, async (req, res) => {
     const endTime = Date.now();
     console.log(`✅ تم جلب ${paginatedItems.length} عنصر في ${endTime - startTime}ms`);
 
-    // تم تعطيل الـ cache مؤقتاً
-    // if (page === 1) {
-    //   feedCache.set(cacheKey, responseData);
-    //   console.log('💾 تم حفظ البيانات في Cache');
-    // }
+    // حفظ البيانات في cache للصفحة الأولى
+    if (page === 1) {
+      feedCache.set(cacheKey, responseData);
+      console.log('💾 تم حفظ البيانات في Cache');
+    }
 
     res.json(responseData);
     
