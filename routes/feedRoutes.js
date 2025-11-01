@@ -273,12 +273,29 @@ function getMostFrequent(arr) {
  * الطريقة: نأخذ منشور واحد فقط من كل مستخدم، ثم نرتبهم حسب الأولوية
  */
 function distributePostsByUser(items) {
+  console.log(`📦 توزيع المنشورات: عدد المنشورات قبل التوزيع = ${items.length}`);
+  
   const userPostsMap = new Map(); // userId -> [posts]
   
   // تجميع المنشورات حسب المستخدم
   items.forEach(item => {
-    const userId = item.user?._id?.toString() || item.user?.toString();
-    if (!userId) return;
+    // جرب جميع الطرق للحصول على userId
+    let userId = null;
+    
+    if (item.user) {
+      if (typeof item.user === 'object' && item.user._id) {
+        userId = item.user._id.toString();
+      } else if (typeof item.user === 'string') {
+        userId = item.user;
+      } else {
+        userId = item.user.toString();
+      }
+    }
+    
+    if (!userId) {
+      console.warn('⚠️ منشور بدون user ID:', item._id);
+      return;
+    }
     
     if (!userPostsMap.has(userId)) {
       userPostsMap.set(userId, []);
@@ -286,14 +303,22 @@ function distributePostsByUser(items) {
     userPostsMap.get(userId).push(item);
   });
   
+  console.log(`👥 عدد المستخدمين الفريدين = ${userPostsMap.size}`);
+  
   // أخذ منشور واحد فقط من كل مستخدم (الأحدث)
   const distributedItems = [];
-  userPostsMap.forEach(userPosts => {
+  userPostsMap.forEach((userPosts, userId) => {
     // نرتب منشورات المستخدم حسب التاريخ (الأحدث أولاً)
     userPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     // نأخذ أحدث منشور فقط
     distributedItems.push(userPosts[0]);
+    
+    if (userPosts.length > 1) {
+      console.log(`📦 المستخدم ${userId}: ${userPosts.length} منشور → أخذنا 1 فقط`);
+    }
   });
+  
+  console.log(`✅ عدد المنشورات بعد التوزيع = ${distributedItems.length}`);
   
   // نرتب المنشورات الموزعة حسب التاريخ (الأحدث أولاً)
   distributedItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
