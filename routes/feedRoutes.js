@@ -137,36 +137,26 @@ async function shouldShowInFeed(item, currentUserId) {
  * @route   GET /api/v1/feed
  * @access  Private
  * 
- * الاستراتيجية:
- * - عند الطلب الأول (page=1): يجلب منشور عادي + إعلان شاحنة فارغة + إعلان حمولة (3 عناصر)
- * - إذا لم توجد إعلانات: يجلب 3 منشورات عادية
- * - عند "تحميل المزيد": يجلب 3 عناصر إضافية بنفس المنطق
+ * الاستراتيجية المحدثة:
+ * - جلب جميع العناصر من الأنواع الثلاثة
+ * - دمجهم في خلاصة واحدة مرتبة
+ * - تطبيق pagination على الخلاصة المدمجة (وليس على كل نوع بشكل منفصل)
  */
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const userId = req.user.id;
-    const cacheKey = `feed_${userId}_page_${page}`;
-
-    // 1. محاولة جلب البيانات من التخزين المؤقت (Cache) للصفحة الأولى فقط
-    if (page === 1) {
-      const cachedData = feedCache.get(cacheKey);
-      if (cachedData) {
-        console.log('Cache Hit for feed page 1');
-        return res.json(cachedData);
-      }
-    }
-
-    // ... باقي الكود ...
-    const limit = 3; // دائماً 3 عناصر في كل طلب
+    const limit = 3; // عدد العناصر في كل صفحة
     const skip = (page - 1) * limit;
-    
+
     // جلب معلومات المستخدم الحالي مع الإشعارات
     const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
     
-    // جلب جميع المنشورات العادية
-    // نستخدم limit أكبر قليلاً (limit * 3) لضمان وجود بيانات كافية بعد التصفية والخلط
+    // جلب جميع المنشورات العادية (بدون skip - نجلب كل شيء)
+    // نحد العدد الإجمالي بـ 100 عنصر لكل نوع لتحسين الأداء
+    const maxFetchLimit = 100;
+    
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
@@ -180,8 +170,7 @@ router.get('/', protect, async (req, res) => {
         }
       })
       .sort({ createdAt: -1 })
-      .skip(skip) // تطبيق التخطي
-      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
+      .limit(maxFetchLimit)
       .lean();
     
     // جلب جميع إعلانات الشحن
@@ -191,8 +180,7 @@ router.get('/', protect, async (req, res) => {
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
-      .skip(skip) // تطبيق التخطي
-      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
+      .limit(maxFetchLimit)
       .lean();
     
     // جلب جميع إعلانات الشاحنات الفارغة
@@ -202,8 +190,7 @@ router.get('/', protect, async (req, res) => {
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
-      .skip(skip) // تطبيق التخطي
-      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
+      .limit(maxFetchLimit)
       .lean();
     
     // إضافة نوع لكل عنصر
@@ -211,83 +198,19 @@ router.get('/', protect, async (req, res) => {
     const shipmentAdsWithType = shipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
     const emptyTruckAdsWithType = emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
     
-    // Apply Smart Feed Algorithm على كل نوع بشكل منفصل
-    let sortedPosts = postsWithType;
-    let sortedShipmentAds = shipmentAdsWithType;
-    let sortedEmptyTruckAds = emptyTruckAdsWithType;
-
-    // تطبيق الخوارزمية الذكية فقط للصفحات اللاحقة (page > 1) لضمان سرعة التحميل الأولي
+    // دمج جميع العناصر في مصفوفة واحدة
+    let allItems = [...postsWithType, ...shipmentAdsWithType, ...emptyTruckAdsWithType];
+    
+    // ترتيب العناصر حسب التاريخ (الأحدث أولاً)
+    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    // تطبيق الخوارزمية الذكية على الخلاصة المدمجة (للصفحات اللاحقة فقط)
     if (page > 1) {
-        sortedPosts = await applySmartFeedAlgorithm(postsWithType, currentUser, []);
-        sortedShipmentAds = await applySmartFeedAlgorithm(shipmentAdsWithType, currentUser, []);
-        sortedEmptyTruckAds = await applySmartFeedAlgorithm(emptyTruckAdsWithType, currentUser, []);
+        allItems = await applySmartFeedAlgorithm(allItems, currentUser, []);
     }
     
-    // بناء الخلاصة بطريقة ذكية: توزيع متوازن بين الأنواع الثلاثة
-    const feedItems = [];
-    let postIndex = 0;
-    let shipmentAdIndex = 0;
-    let emptyTruckAdIndex = 0;
-    
-    // نمط التوزيع: منشور عادي -> إعلان شاحنة فارغة -> إعلان حمولة -> منشور عادي -> ...
-    // نستخدم فقط العناصر التي تم جلبها (limit * 3)
-    const maxItems = sortedPosts.length + sortedShipmentAds.length + sortedEmptyTruckAds.length;
-    
-    for (let i = 0; i < maxItems; i++) {
-      const position = i % 3;
-      
-      if (position === 0) {
-        // منشور عادي
-        if (postIndex < sortedPosts.length) {
-          feedItems.push(sortedPosts[postIndex]);
-          postIndex++;
-        } else if (shipmentAdIndex < sortedShipmentAds.length) {
-          // إذا انتهت المنشورات العادية، نستخدم إعلان حمولة
-          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
-          shipmentAdIndex++;
-        } else if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
-          // إذا انتهت إعلانات الحمولة، نستخدم إعلان شاحنة فارغة
-          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
-          emptyTruckAdIndex++;
-        }
-      } else if (position === 1) {
-        // إعلان شاحنة فارغة
-        if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
-          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
-          emptyTruckAdIndex++;
-        } else if (postIndex < sortedPosts.length) {
-          // إذا انتهت إعلانات الشاحنات الفارغة، نستخدم منشور عادي
-          feedItems.push(sortedPosts[postIndex]);
-          postIndex++;
-        } else if (shipmentAdIndex < sortedShipmentAds.length) {
-          // إذا انتهت المنشورات العادية، نستخدم إعلان حمولة
-          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
-          shipmentAdIndex++;
-        }
-      } else {
-        // إعلان حمولة
-        if (shipmentAdIndex < sortedShipmentAds.length) {
-          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
-          shipmentAdIndex++;
-        } else if (postIndex < sortedPosts.length) {
-          // إذا انتهت إعلانات الحمولة، نستخدم منشور عادي
-          feedItems.push(sortedPosts[postIndex]);
-          postIndex++;
-        } else if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
-          // إذا انتهت المنشورات العادية، نستخدم إعلان شاحنة فارغة
-          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
-          emptyTruckAdIndex++;
-        }
-      }
-      
-      // إذا وصلنا إلى العدد المطلوب، نخرج من الحلقة
-      if (feedItems.length >= limit) {
-          break;
-      }
-    }
-    
-    // تطبيق pagination: أخذ العناصر من skip إلى skip + limit
-    const paginatedItems = feedItems.slice(0, limit); // نأخذ أول 'limit' عنصر فقط من العناصر المدمجة
+    // تطبيق pagination على الخلاصة المدمجة
+    const paginatedItems = allItems.slice(skip, skip + limit);
     
     // إزالة feedScore من النتيجة النهائية
     const cleanedItems = paginatedItems.map(item => {
@@ -295,7 +218,7 @@ router.get('/', protect, async (req, res) => {
       return cleanItem;
     });
     
-    // حساب إجمالي العناصر المتاحة (يجب أن نستخدم CountDocuments للحصول على العدد الكلي)
+    // حساب إجمالي العناصر المتاحة
     const totalPostsCount = await Post.countDocuments({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
@@ -312,9 +235,7 @@ router.get('/', protect, async (req, res) => {
     const totalAvailableItems = totalPostsCount + totalShipmentAdsCount + totalEmptyTruckAdsCount;
     
     // تحديد ما إذا كان هناك المزيد من العناصر
-    // نتحقق مما إذا كان عدد العناصر التي تم جلبها من قاعدة البيانات يساوي الحد الأقصى الذي طلبناه (limit * 3)
-    // هذا يعني أنه قد يكون هناك المزيد من العناصر في الصفحة التالية
-    const hasMore = posts.length > limit || shipmentAds.length > limit || emptyTruckAds.length > limit;
+    const hasMore = (skip + limit) < allItems.length || allItems.length >= maxFetchLimit;
     
     const responseData = {
       items: cleanedItems,
@@ -326,12 +247,6 @@ router.get('/', protect, async (req, res) => {
         hasMore: hasMore
       }
     };
-
-    // 2. تخزين البيانات في التخزين المؤقت (Cache) للصفحة الأولى فقط
-    if (page === 1) {
-      feedCache.set(cacheKey, responseData);
-      console.log('Cache Set for feed page 1');
-    }
 
     res.json(responseData);
     
@@ -374,6 +289,7 @@ router.get('/stats', protect, async (req, res) => {
       followingCount: following.length
     };
     
+    res.json(responseData);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
