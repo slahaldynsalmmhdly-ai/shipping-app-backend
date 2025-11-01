@@ -358,9 +358,33 @@ async function applySmartShortsAlgorithm(shorts, user, viewHistory) {
       });
     }
 
-    console.log(`عدد الفيديوهات النهائي: ${diversifiedShorts.length}`);
+    console.log(`عدد الفيديوهات قبل إزالة التكرار: ${diversifiedShorts.length}`);
 
-    return diversifiedShorts;
+    // فحص نهائي: إزالة أي تكرار بناءً على _id الفريد
+    const uniqueShorts = [];
+    const seenIds = new Set();
+    const duplicatesFound = [];
+
+    diversifiedShorts.forEach(short => {
+      const shortId = short._id.toString();
+      if (!seenIds.has(shortId)) {
+        seenIds.add(shortId);
+        uniqueShorts.push(short);
+      } else {
+        duplicatesFound.push(shortId);
+        console.log(`🛑 تم إيقاف تكرار فيديو: ${shortId}`);
+      }
+    });
+
+    if (duplicatesFound.length > 0) {
+      console.log(`⚠️ تم إيقاف ${duplicatesFound.length} فيديو مكرر`);
+    } else {
+      console.log(`✅ لا يوجد تكرار في الفيديوهات`);
+    }
+
+    console.log(`عدد الفيديوهات النهائي: ${uniqueShorts.length}`);
+
+    return uniqueShorts;
   } catch (error) {
     console.error('خطأ في خوارزمية الشورتس الذكية:', error);
     // في حالة الفشل، نرجع الفيديوهات بترتيب عشوائي
