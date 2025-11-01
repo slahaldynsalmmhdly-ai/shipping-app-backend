@@ -102,15 +102,10 @@ router.get('/', protect, async (req, res) => {
     const filteredPosts = [];
     
     for (const post of allPosts) {
-      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية (إلا إذا كان حديث جداً)
+      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية فوراً
       if (post.user._id.toString() === req.user.id) {
-        // المنشورات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
-        const postAge = Date.now() - new Date(post.createdAt).getTime();
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (postAge > fiveMinutes) {
-          continue; // لا تعرض إذا مر أكثر من 5 دقائق
-        }
+        // لا تظهر منشورات المستخدم في صفحته الرئيسية أبداً
+        continue;
       }
       
       // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية

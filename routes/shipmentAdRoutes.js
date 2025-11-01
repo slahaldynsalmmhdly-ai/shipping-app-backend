@@ -97,15 +97,10 @@ router.get("/", protect, async (req, res) => {
     const filteredAds = [];
     
     for (const ad of shipmentAds) {
-      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية (إلا إذا كان حديث جداً)
+      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية فوراً
       if (ad.user._id.toString() === req.user.id) {
-        // الإعلانات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
-        const adAge = Date.now() - new Date(ad.createdAt).getTime();
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (adAge > fiveMinutes) {
-          continue; // لا تعرض إذا مر أكثر من 5 دقائق
-        }
+        // لا تظهر إعلانات المستخدم في صفحته الرئيسية أبداً
+        continue;
       }
       
       // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية
