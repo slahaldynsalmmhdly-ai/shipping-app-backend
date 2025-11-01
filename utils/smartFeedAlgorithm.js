@@ -11,8 +11,11 @@
 
 const OpenAI = require('openai');
 
-// تهيئة عميل OpenAI (المفاتيح محملة من متغيرات البيئة)
-const openai = new OpenAI();
+// تهيئة عميل DeepSeek باستخدام OpenAI SDK
+const openai = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com/v1'
+});
 
 /**
  * مراحل توزيع المنشور (Post Distribution Stages)
@@ -115,7 +118,7 @@ function shouldExpandPost(post) {
 async function extractTagsAndCategories(text) {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -160,7 +163,7 @@ async function analyzeUserPreferences(user, userHistory) {
     }));
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -198,7 +201,7 @@ async function calculateAIMatchScore(post, userPreferences) {
     };
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
