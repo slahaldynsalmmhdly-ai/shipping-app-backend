@@ -120,6 +120,57 @@ router.get('/', protect, async (req, res) => {
     // دمج جميع العناصر في مصفوفة واحدة
     let allItems = [...postsWithType, ...shipmentAdsWithType, ...emptyTruckAdsWithType];
     
+    // Fallback: إذا كانت الخلاصة فارغة بعد فلترة المتابَعين، نجلب منشورات من الجميع
+    if (allItems.length === 0 && page === 1) {
+      console.log('⚠️ الخلاصة فارغة بعد فلترة المتابَعين - جلب منشورات من الجميع');
+      
+      // جلب منشورات من الجميع (بدون فلتر المتابَعين)
+      const fallbackPosts = await Post.find({ 
+        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+        hiddenFromHomeFeedFor: { $ne: req.user.id },
+        user: { $ne: req.user.id }
+      })
+        .populate('user', 'name avatar userType companyName')
+        .populate({
+          path: 'originalPost',
+          select: 'text user createdAt',
+          populate: {
+            path: 'user',
+            select: 'name avatar'
+          }
+        })
+        .sort({ createdAt: -1 })
+        .limit(fetchLimit)
+        .lean();
+      
+      const fallbackShipmentAds = await ShipmentAd.find({ 
+        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+        hiddenFromHomeFeedFor: { $ne: req.user.id },
+        user: { $ne: req.user.id }
+      })
+        .populate('user', 'name avatar userType companyName')
+        .sort({ createdAt: -1 })
+        .limit(fetchLimit)
+        .lean();
+      
+      const fallbackEmptyTruckAds = await EmptyTruckAd.find({ 
+        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+        hiddenFromHomeFeedFor: { $ne: req.user.id },
+        user: { $ne: req.user.id }
+      })
+        .populate('user', 'name avatar userType companyName')
+        .sort({ createdAt: -1 })
+        .limit(fetchLimit)
+        .lean();
+      
+      const fallbackPostsWithType = fallbackPosts.map(p => ({ ...p, itemType: 'post' }));
+      const fallbackShipmentAdsWithType = fallbackShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
+      const fallbackEmptyTruckAdsWithType = fallbackEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
+      
+      allItems = [...fallbackPostsWithType, ...fallbackShipmentAdsWithType, ...fallbackEmptyTruckAdsWithType];
+      console.log(`✅ تم جلب ${allItems.length} عنصر من الجميع (fallback)`);
+    }
+    
     // ترتيب العناصر حسب التاريخ (الأحدث أولاً)
     allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
