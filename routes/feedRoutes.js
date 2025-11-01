@@ -58,14 +58,17 @@ router.get('/', protect, async (req, res) => {
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
     
-    // جلب المنشورات العادية (باستثناء منشورات المستخدم نفسه والمتابَعين)
-    // تم تعديل النظام: منشورات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
+    // اختيار 20% من المتابَعين عشوائياً
+    const selectedFollowing = selectRandomFollowing(following, 0.2);
+    console.log(`👥 عدد المتابَعين الكلي: ${following.length}, المختارين (20%): ${selectedFollowing.length}`);
+    
+    // جلب المنشورات العادية من غير المتابَعين
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء منشورات المستخدم نفسه
-        $nin: following // إخفاء منشورات المتابَعين تماماً (100%)
+        $nin: following // إخفاء منشورات جميع المتابَعين
       }
     })
       .populate('user', 'name avatar userType companyName') // تقليل الحقول
@@ -82,14 +85,34 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشحن (باستثناء إعلانات المستخدم نفسه والمتابَعين)
-    // تم تعديل النظام: إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
+    // جلب منشورات المتابَعين المختارين (20%)
+    const followingPosts = selectedFollowing.length > 0 ? await Post.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $in: selectedFollowing }
+    })
+      .populate('user', 'name avatar userType companyName')
+      .populate({
+        path: 'originalPost',
+        select: 'text user createdAt',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean() : [];
+    
+    console.log(`📝 منشورات المتابَعين: ${followingPosts.length}`);
+    
+    // جلب إعلانات الشحن من غير المتابَعين
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات المتابَعين تماماً (100%)
+        $nin: following // إخفاء إعلانات جميع المتابَعين
       }
     })
       .populate('user', 'name avatar userType companyName')
@@ -98,14 +121,26 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشاحنات الفارغة (باستثناء إعلانات المستخدم نفسه والمتابَعين)
-    // تم تعديل النظام: إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
+    // جلب إعلانات شحن المتابَعين المختارين (20%)
+    const followingShipmentAds = selectedFollowing.length > 0 ? await ShipmentAd.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $in: selectedFollowing }
+    })
+      .populate('user', 'name avatar userType companyName')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean() : [];
+    
+    console.log(`🚚 إعلانات شحن المتابَعين: ${followingShipmentAds.length}`);
+    
+    // جلب إعلانات الشاحنات الفارغة من غير المتابَعين
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات المتابَعين تماماً (100%)
+        $nin: following // إخفاء إعلانات جميع المتابَعين
       }
     })
       .populate('user', 'name avatar userType companyName')
@@ -114,13 +149,36 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
+    // جلب إعلانات شاحنات فارغة للمتابَعين المختارين (20%)
+    const followingEmptyTruckAds = selectedFollowing.length > 0 ? await EmptyTruckAd.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $in: selectedFollowing }
+    })
+      .populate('user', 'name avatar userType companyName')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean() : [];
+    
+    console.log(`🚛 إعلانات شاحنات فارغة للمتابَعين: ${followingEmptyTruckAds.length}`);
+    
     // إضافة نوع لكل عنصر
     const postsWithType = posts.map(p => ({ ...p, itemType: 'post' }));
+    const followingPostsWithType = followingPosts.map(p => ({ ...p, itemType: 'post', fromFollowing: true }));
     const shipmentAdsWithType = shipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
+    const followingShipmentAdsWithType = followingShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd', fromFollowing: true }));
     const emptyTruckAdsWithType = emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
+    const followingEmptyTruckAdsWithType = followingEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd', fromFollowing: true }));
     
-    // دمج جميع العناصر في مصفوفة واحدة
-    let allItems = [...postsWithType, ...shipmentAdsWithType, ...emptyTruckAdsWithType];
+    // دمج جميع العناصر في مصفوفة واحدة (بما في ذلك منشورات المتابَعين)
+    let allItems = [
+      ...postsWithType, 
+      ...followingPostsWithType,
+      ...shipmentAdsWithType, 
+      ...followingShipmentAdsWithType,
+      ...emptyTruckAdsWithType,
+      ...followingEmptyTruckAdsWithType
+    ];
     
     // تم إزالة Fallback لتجنب التحميل المزدوج
     // إذا كانت الخلاصة فارغة، نرجع مصفوفة فارغة
@@ -267,17 +325,33 @@ function getMostFrequent(arr) {
 }
 
 /**
- * توزيع المنشورات: منشور واحد لكل مستخدم (مثل فيسبوك ولينكد إن)
+ * اختيار نسبة عشوائية من المتابَعين
+ * @param {Array} following - قائمة المتابَعين
+ * @param {Number} percentage - النسبة المئوية (0.2 = 20%)
+ * @returns {Array} - قائمة المتابَعين المختارين
+ */
+function selectRandomFollowing(following, percentage) {
+  if (!following || following.length === 0) return [];
+  
+  const count = Math.ceil(following.length * percentage);
+  const shuffled = [...following].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+/**
+ * توزيع المنشورات: عنصر واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
  * 
  * الهدف: تجنب أن يملأ مستخدم واحد الصفحة بمنشوراته
- * الطريقة: نأخذ منشور واحد فقط من كل مستخدم، ثم نرتبهم حسب الأولوية
+ * الطريقة: نأخذ عنصر واحد فقط من كل مستخدم بغض النظر عن النوع (post, shipmentAd, emptyTruckAd)
+ * 
+ * التحسين: حل مشكلة التكرار - إذا كان للمستخدم منشور + إعلان شحن + إعلان شاحنة، نأخذ واحد فقط
  */
 function distributePostsByUser(items) {
-  console.log(`📦 توزيع المنشورات: عدد المنشورات قبل التوزيع = ${items.length}`);
+  console.log(`📦 توزيع المنشورات: عدد العناصر قبل التوزيع = ${items.length}`);
   
-  const userPostsMap = new Map(); // userId -> [posts]
+  const userItemsMap = new Map(); // userId -> [items]
   
-  // تجميع المنشورات حسب المستخدم
+  // تجميع جميع العناصر حسب المستخدم (بغض النظر عن النوع)
   items.forEach(item => {
     // جرب جميع الطرق للحصول على userId
     let userId = null;
@@ -293,34 +367,36 @@ function distributePostsByUser(items) {
     }
     
     if (!userId) {
-      console.warn('⚠️ منشور بدون user ID:', item._id);
+      console.warn('⚠️ عنصر بدون user ID:', item._id);
       return;
     }
     
-    if (!userPostsMap.has(userId)) {
-      userPostsMap.set(userId, []);
+    if (!userItemsMap.has(userId)) {
+      userItemsMap.set(userId, []);
     }
-    userPostsMap.get(userId).push(item);
+    userItemsMap.get(userId).push(item);
   });
   
-  console.log(`👥 عدد المستخدمين الفريدين = ${userPostsMap.size}`);
+  console.log(`👥 عدد المستخدمين الفريدين = ${userItemsMap.size}`);
   
-  // أخذ منشور واحد فقط من كل مستخدم (الأحدث)
+  // أخذ عنصر واحد فقط من كل مستخدم (الأحدث بغض النظر عن النوع)
   const distributedItems = [];
-  userPostsMap.forEach((userPosts, userId) => {
-    // نرتب منشورات المستخدم حسب التاريخ (الأحدث أولاً)
-    userPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    // نأخذ أحدث منشور فقط
-    distributedItems.push(userPosts[0]);
+  userItemsMap.forEach((userItems, userId) => {
+    // نرتب عناصر المستخدم حسب التاريخ (الأحدث أولاً)
+    userItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
-    if (userPosts.length > 1) {
-      console.log(`📦 المستخدم ${userId}: ${userPosts.length} منشور → أخذنا 1 فقط`);
+    // نأخذ أحدث عنصر فقط (سواء كان post أو shipmentAd أو emptyTruckAd)
+    distributedItems.push(userItems[0]);
+    
+    if (userItems.length > 1) {
+      const types = userItems.map(i => i.itemType).join(', ');
+      console.log(`📦 المستخدم ${userId}: ${userItems.length} عنصر (${types}) → أخذنا 1 فقط`);
     }
   });
   
-  console.log(`✅ عدد المنشورات بعد التوزيع = ${distributedItems.length}`);
+  console.log(`✅ عدد العناصر بعد التوزيع = ${distributedItems.length}`);
   
-  // نرتب المنشورات الموزعة حسب التاريخ (الأحدث أولاً)
+  // نرتب العناصر الموزعة حسب التاريخ (الأحدث أولاً)
   distributedItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   
   return distributedItems;
