@@ -30,7 +30,7 @@ router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const userId = req.user.id;
-    const limit = parseInt(req.query.limit) || 10; // استخدام limit من query parameter
+    const limit = 10; // زيادة العدد من 3 إلى 10 لتحسين التجربة
     const skip = (page - 1) * limit;
 
     // تم تعطيل الـ cache مؤقتاً لحل مشكلة ظهور منشورات المتابعين
@@ -51,10 +51,11 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية جديدة: جلب عدد كبير من كل نوع لضمان وجود منشورات كافية بعد فلترة المتابعين
-    // بعد استبعاد المتابعين، قد يبقى عدد قليل من المنشورات
-    // لذلك نجلب عدد كبير لضمان وجود منشورات كافية
-    const fetchLimit = Math.max(100, limit * 20); // 100 عنصر على الأقل من كل نوع
+    // استراتيجية جديدة: جلب عدد محدود فقط من كل نوع بناءً على الصفحة
+    // بدلاً من جلب 100 عنصر في كل مرة
+    const itemsPerType = Math.ceil(limit / 3); // 4 عناصر من كل نوع تقريباً
+    // زيادة fetchLimit لضمان وجود نتائج كافية بعد فلترة منشورات المستخدم
+    const fetchLimit = Math.max(30, itemsPerType * 5); // 30 عنصر على الأقل من كل نوع
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
