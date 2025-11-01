@@ -50,10 +50,10 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية ذكية: جلب عدد بناءً علم limit المطلوب
-    // إذا limit=3 نجلب 20 منشور من كل نوع (سريع جداً)
-    // إذا limit=10 نجلب 50 منشور من كل نوع
-    const fetchLimit = Math.min(100, Math.max(20, limit * 7)); // ديناميكي
+    // استراتيجية ذكية: جلب عدد بناءً على limit المطلوب
+    // إذا limit=3 نجلب 15 منشور من كل نوع (سريع جداً: 45 إجمالاً)
+    // إذا limit=10 نجلب 50 منشور من كل نوع (150 إجمالاً)
+    const fetchLimit = Math.min(100, Math.max(15, limit * 5)); // ديناميكي
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
@@ -139,10 +139,8 @@ router.get('/', protect, async (req, res) => {
     const paginatedItems = allItems.slice(0, limit);
     
     // تحديد ما إذا كان هناك المزيد من العناصر
-    // نفترض أن هناك المزيد إذا حصلنا على العدد الكامل من أي نوع
-    const hasMore = posts.length >= fetchLimit || 
-                    shipmentAds.length >= fetchLimit || 
-                    emptyTruckAds.length >= fetchLimit;
+    // إذا كان عدد العناصر المتاحة أكبر من limit، يعني هناك المزيد
+    const hasMore = allItems.length > limit;
     
     const responseData = {
       items: paginatedItems,
