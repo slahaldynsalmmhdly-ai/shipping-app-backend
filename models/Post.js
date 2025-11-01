@@ -128,6 +128,32 @@ const PostSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   }],
+  
+  // Smart Feed Algorithm fields
+  impressions: {
+    type: Number,
+    default: 0,
+  },
+  viewedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  }],
+  videoCompletions: {
+    type: Number,
+    default: 0,
+  },
+  shares: {
+    type: Number,
+    default: 0,
+  },
+  tags: [String],
+  categories: [String],
+  topics: [String],
+  distributionStage: {
+    type: String,
+    enum: ['testing', 'expanding', 'viral', 'saturated'],
+    default: 'testing',
+  },
 });
 
 module.exports = mongoose.model('Post', PostSchema);

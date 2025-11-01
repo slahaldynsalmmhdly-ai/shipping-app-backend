@@ -178,6 +178,17 @@ const UserSchema = new mongoose.Schema({
       },
     },
   ],
+  
+  // Smart Feed Algorithm - User Preferences
+  preferences: {
+    interests: [String],
+    preferredContentTypes: [String],
+    engagementPatterns: String,
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now,
+  },
 }, { timestamps: true });
 
 // Hash password before saving
