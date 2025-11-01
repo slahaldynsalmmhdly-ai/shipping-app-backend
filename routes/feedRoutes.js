@@ -180,6 +180,22 @@ router.get('/', protect, async (req, res) => {
       ...followingEmptyTruckAdsWithType
     ];
     
+    console.log(`📊 عدد العناصر قبل إزالة التكرار: ${allItems.length}`);
+    
+    // إزالة التكرار بناءً على _id الفريد (الحل النهائي لمشكلة التكرار)
+    const uniqueItemsMap = new Map();
+    allItems.forEach(item => {
+      const itemId = item._id.toString();
+      if (!uniqueItemsMap.has(itemId)) {
+        uniqueItemsMap.set(itemId, item);
+      } else {
+        console.log(`⚠️ تم اكتشاف تكرار: ${itemId} - النوع: ${item.itemType}`);
+      }
+    });
+    allItems = Array.from(uniqueItemsMap.values());
+    
+    console.log(`✅ عدد العناصر بعد إزالة التكرار: ${allItems.length}`);
+    
     // تم إزالة Fallback لتجنب التحميل المزدوج
     // إذا كانت الخلاصة فارغة، نرجع مصفوفة فارغة
     if (allItems.length === 0) {
