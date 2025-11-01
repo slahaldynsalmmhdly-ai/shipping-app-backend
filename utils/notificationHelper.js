@@ -44,9 +44,9 @@ function getNotificationTypeForItem(itemType) {
  * @param {String} userId - معرف المستخدم الذي نشر المحتوى
  * @param {String} itemId - معرف المنشور/الإعلان
  * @param {String} itemType - نوع المحتوى: 'post', 'shipmentAd', 'emptyTruckAd'
- * @param {Number} feedPercentage - نسبة المنشورات التي ستظهر في الخلاصة (0.10 أو 0.15)
+ * @param {Number} feedPercentage - نسبة المنشورات التي ستظهر في الخلاصة (تم التعديل: 0% في الخلاصة، 100% في الإشعارات)
  */
-async function createFollowingPostNotifications(userId, itemId, itemType, feedPercentage = 0.15) {
+async function createFollowingPostNotifications(userId, itemId, itemType, feedPercentage = 0) {
   try {
     // جلب المستخدم الذي نشر المحتوى
     const publisher = await User.findById(userId).select('followers name');
@@ -58,12 +58,10 @@ async function createFollowingPostNotifications(userId, itemId, itemType, feedPe
     const followers = publisher.followers;
     const publisherName = publisher.name;
     
-    // حساب عدد المتابعين الذين سيرون المنشور في الخلاصة
-    const feedCount = Math.ceil(followers.length * feedPercentage);
-    
-    // خلط المتابعين بشكل عشوائي واختيار من سيرى المنشور في الخلاصة
-    const shuffledFollowers = [...followers].sort(() => Math.random() - 0.5);
-    const followersInFeed = new Set(shuffledFollowers.slice(0, feedCount).map(id => id.toString()));
+    // تم تعديل النظام: جميع المتابعين يحصلون على إشعارات فقط (100%)
+    // لا يظهر أي محتوى من المتابعين في الصفحة الرئيسية
+    const feedCount = 0; // 0% في الخلاصة
+    const followersInFeed = new Set(); // لا يوجد متابعين في الخلاصة
     
     // تحديد نوع الإشعار بناءً على نوع المحتوى
     const notificationType = getNotificationTypeForItem(itemType);
@@ -103,7 +101,7 @@ async function createFollowingPostNotifications(userId, itemId, itemType, feedPe
     await Promise.all(notificationPromises);
     
     console.log(`✅ تم إنشاء ${followers.length} إشعار للمنشور ${itemId} من نوع ${itemType}`);
-    console.log(`📊 ${feedCount} متابع سيرون المنشور في الخلاصة، ${followers.length - feedCount} في الإشعارات فقط`);
+    console.log(`📊 100% من المتابعين (${followers.length}) يحصلون على إشعارات فقط - لا يظهر في الصفحة الرئيسية`);
     
   } catch (error) {
     console.error('❌ خطأ في إنشاء إشعارات المتابعين:', error);

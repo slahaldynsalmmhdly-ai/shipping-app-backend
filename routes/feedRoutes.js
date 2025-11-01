@@ -60,12 +60,13 @@ router.get('/', protect, async (req, res) => {
     const typeSkip = Math.floor(skip / 3);
     
     // جلب المنشورات العادية (باستثناء منشورات المستخدم نفسه والمتابَعين)
+    // تم تعديل النظام: منشورات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء منشورات المستخدم نفسه
-        $nin: following // إخفاء منشورات المتابَعين تماماً
+        $nin: following // إخفاء منشورات المتابَعين تماماً (100%)
       }
     })
       .populate('user', 'name avatar userType companyName') // تقليل الحقول
@@ -83,12 +84,13 @@ router.get('/', protect, async (req, res) => {
       .lean();
     
     // جلب إعلانات الشحن (باستثناء إعلانات المستخدم نفسه والمتابَعين)
+    // تم تعديل النظام: إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات المتابَعين تماماً
+        $nin: following // إخفاء إعلانات المتابَعين تماماً (100%)
       }
     })
       .populate('user', 'name avatar userType companyName')
@@ -98,12 +100,13 @@ router.get('/', protect, async (req, res) => {
       .lean();
     
     // جلب إعلانات الشاحنات الفارغة (باستثناء إعلانات المستخدم نفسه والمتابَعين)
+    // تم تعديل النظام: إعلانات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
       user: { 
         $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات المتابَعين تماماً
+        $nin: following // إخفاء إعلانات المتابَعين تماماً (100%)
       }
     })
       .populate('user', 'name avatar userType companyName')
@@ -218,10 +221,10 @@ router.get('/', protect, async (req, res) => {
  * بدلاً من الخوارزمية الذكية البطيئة
  * 
  * القواعد (محدثة - نهائية):
- * 1. 0% منشورات المتابَعين (لا تظهر في الخلاصة أبداً - فقط في الإشعارات)
- * 2. 100% منشورات من الجميع (بناءً على الوقت والتفاعل)
+ * 1. 0% منشورات المتابَعين (لا تظهر في الخلاصة أبداً - 100% في الإشعارات فقط)
+ * 2. 100% منشورات من غير المتابَعين (بناءً على الوقت والتفاعل)
  * 
- * النتيجة: محتوى متنوع بالكامل - منشورات المتابَعين في الإشعارات فقط
+ * النتيجة: محتوى متنوع بالكامل - منشورات المتابَعين في الإشعارات فقط (100%)
  * الوقت: أقل من 10ms بدلاً من 5 دقائق!
  */
 function applyFastRanking(items, following) {

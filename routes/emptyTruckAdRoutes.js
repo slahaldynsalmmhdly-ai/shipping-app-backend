@@ -32,8 +32,8 @@ router.post("/", protect, async (req, res) => {
     // إرسال إشعارات للمتابعين عند نشر إعلان شاحنة فارغة جديد
     if (!scheduledTime) { // فقط إذا كان الإعلان منشور فوراً وليس مجدول
       try {
-        // استخدام نظام الإشعارات الجديد مع نسبة 5% للخلاصة (95% إشعار فقط)
-        await createFollowingPostNotifications(req.user.id, emptyTruckAd._id, 'emptyTruckAd', 0.05);
+        // تم تعديل النظام: 100% إشعارات فقط - لا يظهر في الصفحة الرئيسية
+        await createFollowingPostNotifications(req.user.id, emptyTruckAd._id, 'emptyTruckAd', 0);
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
