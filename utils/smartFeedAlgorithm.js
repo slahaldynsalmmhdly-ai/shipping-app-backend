@@ -134,7 +134,26 @@ async function extractTagsAndCategories(text) {
     });
 
     const content = response.choices[0].message.content;
-    const parsed = JSON.parse(content);
+    
+    // تنظيف النص قبل التحليل
+    let cleanedContent = content.trim();
+    
+    // إزالة النص الإضافي قبل وبعد JSON
+    const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanedContent = jsonMatch[0];
+    }
+    
+    // محاولة تحليل JSON
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.error('خطأ في تحليل JSON من DeepSeek:', parseError.message);
+      console.error('النص المستلم:', content);
+      // إرجاع قيم افتراضية
+      return { tags: [], categories: [], topics: [] };
+    }
     
     return {
       tags: parsed.tags || [],
@@ -179,7 +198,25 @@ async function analyzeUserPreferences(user, userHistory) {
     });
 
     const content = response.choices[0].message.content;
-    return JSON.parse(content);
+    
+    // تنظيف النص قبل التحليل
+    let cleanedContent = content.trim();
+    
+    // إزالة النص الإضافي قبل وبعد JSON
+    const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanedContent = jsonMatch[0];
+    }
+    
+    // محاولة تحليل JSON
+    try {
+      return JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.error('خطأ في تحليل JSON من DeepSeek:', parseError.message);
+      console.error('النص المستلم:', content);
+      // إرجاع قيم افتراضية
+      return { interests: [], preferredContentTypes: [], engagementPatterns: '' };
+    }
   } catch (error) {
     console.error('خطأ في تحليل التفضيلات:', error);
     return { interests: [], preferredContentTypes: [], engagementPatterns: '' };
