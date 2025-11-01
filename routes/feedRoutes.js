@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
+const NodeCache = require('node-cache');
+
+// تهيئة التخزين المؤقت (Cache)
+// TTL (Time To Live) لمدة 60 ثانية
+const feedCache = new NodeCache({ stdTTL: 60 });
 const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
@@ -138,6 +143,21 @@ async function shouldShowInFeed(item, currentUserId) {
  * - عند "تحميل المزيد": يجلب 3 عناصر إضافية بنفس المنطق
  */
 router.get('/', protect, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const userId = req.user.id;
+    const cacheKey = `feed_${userId}_page_${page}`;
+
+    // 1. محاولة جلب البيانات من التخزين المؤقت (Cache) للصفحة الأولى فقط
+    if (page === 1) {
+      const cachedData = feedCache.get(cacheKey);
+      if (cachedData) {
+        console.log('Cache Hit for feed page 1');
+        return res.json(cachedData);
+      }
+    }
+
+    // ... باقي الكود ...
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 3; // دائماً 3 عناصر في كل طلب
@@ -298,7 +318,7 @@ router.get('/', protect, async (req, res) => {
     // هذا يعني أنه قد يكون هناك المزيد من العناصر في الصفحة التالية
     const hasMore = posts.length > limit || shipmentAds.length > limit || emptyTruckAds.length > limit;
     
-    res.json({
+    const responseData = {
       items: cleanedItems,
       pagination: {
         currentPage: page,
@@ -307,7 +327,15 @@ router.get('/', protect, async (req, res) => {
         itemsPerPage: limit,
         hasMore: hasMore
       }
-    });
+    };
+
+    // 2. تخزين البيانات في التخزين المؤقت (Cache) للصفحة الأولى فقط
+    if (page === 1) {
+      feedCache.set(cacheKey, responseData);
+      console.log('Cache Set for feed page 1');
+    }
+
+    res.json(responseData);
     
   } catch (err) {
     console.error(err.message);
@@ -340,7 +368,7 @@ router.get('/stats', protect, async (req, res) => {
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     });
     
-    res.json({
+    const responseData = {
       totalPosts: postsCount,
       totalShipmentAds: shipmentAdsCount,
       totalEmptyTruckAds: emptyTruckAdsCount,
