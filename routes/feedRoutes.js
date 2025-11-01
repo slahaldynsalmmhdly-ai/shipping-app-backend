@@ -128,26 +128,29 @@ async function shouldShowInFeed(item, currentUserId) {
 }
 
 /**
- * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds) with Facebook-style algorithm
+ * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds) with smart pagination
  * @route   GET /api/v1/feed
  * @access  Private
+ * 
+ * الاستراتيجية:
+ * - عند الطلب الأول (page=1): يجلب منشور عادي + إعلان شاحنة فارغة + إعلان حمولة (3 عناصر)
+ * - إذا لم توجد إعلانات: يجلب 3 منشورات عادية
+ * - عند "تحميل المزيد": يجلب 3 عناصر إضافية بنفس المنطق
  */
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = 3; // دائماً 3 عناصر في كل طلب
     const skip = (page - 1) * limit;
     
     // جلب معلومات المستخدم الحالي مع الإشعارات
     const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
-    const notifications = currentUser?.notifications || [];
     
-    // جلب جميع المنشورات
+    // جلب جميع المنشورات العادية
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
-      // تم إزالة فلتر generatedByAI لعرض المنشورات المولدة بالذكاء الاصطناعي
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({
@@ -157,55 +160,96 @@ router.get('/', protect, async (req, res) => {
           select: 'name avatar'
         }
       })
+      .sort({ createdAt: -1 })
       .lean();
     
     // جلب جميع إعلانات الشحن
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
-      // تم إزالة فلتر generatedByAI
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
+      .sort({ createdAt: -1 })
       .lean();
     
     // جلب جميع إعلانات الشاحنات الفارغة
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
-      // تم إزالة فلتر generatedByAI
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
+      .sort({ createdAt: -1 })
       .lean();
     
-    // دمج جميع العناصر مع إضافة نوع لكل عنصر
-    const allItems = [
-      ...posts.map(p => ({ ...p, itemType: 'post' })),
-      ...shipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' })),
-      ...emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }))
-    ];
+    // إضافة نوع لكل عنصر
+    const postsWithType = posts.map(p => ({ ...p, itemType: 'post' }));
+    const shipmentAdsWithType = shipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
+    const emptyTruckAdsWithType = emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
     
-    // فلترة العناصر بناءً على نظام الإشعارات (15% من المتابعين)
+    // Apply Smart Feed Algorithm على كل نوع بشكل منفصل
+    const sortedPosts = await applySmartFeedAlgorithm(postsWithType, currentUser, []);
+    const sortedShipmentAds = await applySmartFeedAlgorithm(shipmentAdsWithType, currentUser, []);
+    const sortedEmptyTruckAds = await applySmartFeedAlgorithm(emptyTruckAdsWithType, currentUser, []);
+    
+    // بناء الخلاصة بطريقة ذكية: توزيع متوازن بين الأنواع الثلاثة
     const feedItems = [];
+    let postIndex = 0;
+    let shipmentAdIndex = 0;
+    let emptyTruckAdIndex = 0;
     
-    for (const item of allItems) {
-      // إذا كان المستخدم هو صاحب المنشور/الإعلان، نعرضه دائماً
-      if (item.user._id.toString() === req.user.id) {
-        feedItems.push(item);
-        continue;
+    // نمط التوزيع: منشور عادي -> إعلان شاحنة فارغة -> إعلان حمولة -> منشور عادي -> ...
+    const totalItemsNeeded = skip + limit;
+    
+    for (let i = 0; i < totalItemsNeeded; i++) {
+      const position = i % 3;
+      
+      if (position === 0) {
+        // منشور عادي
+        if (postIndex < sortedPosts.length) {
+          feedItems.push(sortedPosts[postIndex]);
+          postIndex++;
+        } else if (shipmentAdIndex < sortedShipmentAds.length) {
+          // إذا انتهت المنشورات العادية، نستخدم إعلان حمولة
+          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
+          shipmentAdIndex++;
+        } else if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
+          // إذا انتهت إعلانات الحمولة، نستخدم إعلان شاحنة فارغة
+          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
+          emptyTruckAdIndex++;
+        }
+      } else if (position === 1) {
+        // إعلان شاحنة فارغة
+        if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
+          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
+          emptyTruckAdIndex++;
+        } else if (postIndex < sortedPosts.length) {
+          // إذا انتهت إعلانات الشاحنات الفارغة، نستخدم منشور عادي
+          feedItems.push(sortedPosts[postIndex]);
+          postIndex++;
+        } else if (shipmentAdIndex < sortedShipmentAds.length) {
+          // إذا انتهت المنشورات العادية، نستخدم إعلان حمولة
+          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
+          shipmentAdIndex++;
+        }
+      } else {
+        // إعلان حمولة
+        if (shipmentAdIndex < sortedShipmentAds.length) {
+          feedItems.push(sortedShipmentAds[shipmentAdIndex]);
+          shipmentAdIndex++;
+        } else if (postIndex < sortedPosts.length) {
+          // إذا انتهت إعلانات الحمولة، نستخدم منشور عادي
+          feedItems.push(sortedPosts[postIndex]);
+          postIndex++;
+        } else if (emptyTruckAdIndex < sortedEmptyTruckAds.length) {
+          // إذا انتهت المنشورات العادية، نستخدم إعلان شاحنة فارغة
+          feedItems.push(sortedEmptyTruckAds[emptyTruckAdIndex]);
+          emptyTruckAdIndex++;
+        }
       }
-      
-      const isFollowing = following.some(id => id.toString() === item.user._id.toString());
-      
-      // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
-      feedItems.push(item);
     }
     
-    // Apply Smart Feed Algorithm (AI-powered with DeepSeek)
-    // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي DeepSeek)
-    const shuffledItems = await applySmartFeedAlgorithm(feedItems, currentUser, []);
-    
-    // تطبيق pagination
-    const paginatedItems = shuffledItems.slice(skip, skip + limit);
+    // تطبيق pagination: أخذ العناصر من skip إلى skip + limit
+    const paginatedItems = feedItems.slice(skip, skip + limit);
     
     // إزالة feedScore من النتيجة النهائية
     const cleanedItems = paginatedItems.map(item => {
@@ -213,14 +257,20 @@ router.get('/', protect, async (req, res) => {
       return cleanItem;
     });
     
+    // حساب إجمالي العناصر المتاحة
+    const totalAvailableItems = sortedPosts.length + sortedShipmentAds.length + sortedEmptyTruckAds.length;
+    
     res.json({
       items: cleanedItems,
       pagination: {
         currentPage: page,
-        totalItems: shuffledItems.length,
-        totalPages: Math.ceil(shuffledItems.length / limit),
+        totalItems: totalAvailableItems,
+        totalPages: Math.ceil(totalAvailableItems / limit),
         itemsPerPage: limit,
-        hasMore: skip + paginatedItems.length < shuffledItems.length
+        hasMore: feedItems.length > skip + limit || 
+                 postIndex < sortedPosts.length || 
+                 shipmentAdIndex < sortedShipmentAds.length || 
+                 emptyTruckAdIndex < sortedEmptyTruckAds.length
       }
     });
     
