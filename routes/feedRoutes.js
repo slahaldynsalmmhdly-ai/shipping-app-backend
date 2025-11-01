@@ -51,11 +51,9 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية جديدة: جلب عدد محدود فقط من كل نوع بناءً على الصفحة
-    // بدلاً من جلب 100 عنصر في كل مرة
-    const itemsPerType = Math.ceil(limit / 3); // 4 عناصر من كل نوع تقريباً
-    // زيادة fetchLimit لضمان وجود نتائج كافية بعد فلترة منشورات المستخدم
-    const fetchLimit = Math.max(30, itemsPerType * 5); // 30 عنصر على الأقل من كل نوع
+    // استراتيجية جديدة: جلب عدد كبير لضمان وجود 10 منشورات على الأقل بعد فلترة المتابعين
+    // نجلب 100 منشور من كل نوع لضمان وجود منشورات كافية
+    const fetchLimit = 100; // 100 عنصر من كل نوع
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
@@ -124,55 +122,10 @@ router.get('/', protect, async (req, res) => {
     // دمج جميع العناصر في مصفوفة واحدة
     let allItems = [...postsWithType, ...shipmentAdsWithType, ...emptyTruckAdsWithType];
     
-    // Fallback: إذا كانت الخلاصة فارغة بعد فلترة المتابَعين، نجلب منشورات من الجميع
-    if (allItems.length === 0 && page === 1) {
-      console.log('⚠️ الخلاصة فارغة بعد فلترة المتابَعين - جلب منشورات من الجميع');
-      
-      // جلب منشورات من الجميع (بدون فلتر المتابَعين)
-      const fallbackPosts = await Post.find({ 
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-        hiddenFromHomeFeedFor: { $ne: req.user.id },
-        user: { $ne: req.user.id }
-      })
-        .populate('user', 'name avatar userType companyName')
-        .populate({
-          path: 'originalPost',
-          select: 'text user createdAt',
-          populate: {
-            path: 'user',
-            select: 'name avatar'
-          }
-        })
-        .sort({ createdAt: -1 })
-        .limit(fetchLimit)
-        .lean();
-      
-      const fallbackShipmentAds = await ShipmentAd.find({ 
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-        hiddenFromHomeFeedFor: { $ne: req.user.id },
-        user: { $ne: req.user.id }
-      })
-        .populate('user', 'name avatar userType companyName')
-        .sort({ createdAt: -1 })
-        .limit(fetchLimit)
-        .lean();
-      
-      const fallbackEmptyTruckAds = await EmptyTruckAd.find({ 
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-        hiddenFromHomeFeedFor: { $ne: req.user.id },
-        user: { $ne: req.user.id }
-      })
-        .populate('user', 'name avatar userType companyName')
-        .sort({ createdAt: -1 })
-        .limit(fetchLimit)
-        .lean();
-      
-      const fallbackPostsWithType = fallbackPosts.map(p => ({ ...p, itemType: 'post' }));
-      const fallbackShipmentAdsWithType = fallbackShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
-      const fallbackEmptyTruckAdsWithType = fallbackEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
-      
-      allItems = [...fallbackPostsWithType, ...fallbackShipmentAdsWithType, ...fallbackEmptyTruckAdsWithType];
-      console.log(`✅ تم جلب ${allItems.length} عنصر من الجميع (fallback)`);
+    // تم إزالة Fallback لتجنب التحميل المزدوج
+    // إذا كانت الخلاصة فارغة، نرجع مصفوفة فارغة
+    if (allItems.length === 0) {
+      console.log('⚠️ لا توجد منشورات متاحة بعد فلترة المتابعين');
     }
     
     // ترتيب العناصر حسب التاريخ (الأحدث أولاً)
