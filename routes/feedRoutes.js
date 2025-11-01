@@ -158,10 +158,10 @@ router.get('/', protect, async (req, res) => {
  * بدلاً من الخوارزمية الذكية البطيئة
  * 
  * القواعد (محدثة):
- * 1. 15% منشورات المتابَعين (الأحدث)
- * 2. 85% منشورات من الجميع (بناءً على الوقت والتفاعل)
+ * 1. 1% منشورات المتابَعين (القديمة فقط - الجديدة في الإشعارات)
+ * 2. 99% منشورات من الجميع (بناءً على الوقت والتفاعل)
  * 
- * النتيجة: توازن بين منشورات المتابَعين والمحتوى المتنوع
+ * النتيجة: محتوى متنوع مع لمحة بسيطة من المتابَعين
  * الوقت: أقل من 10ms بدلاً من 5 دقائق!
  */
 function applyFastRanking(items, following) {
@@ -178,19 +178,25 @@ function applyFastRanking(items, following) {
     }
   });
   
-  // ترتيب منشورات المتابَعين (بناءً على الوقت)
-  const rankedFollowingPosts = followingPosts.map(item => {
+  // ترتيب منشورات المتابَعين (القديمة أولاً - عكس الترتيب)
+  const rankedFollowingPosts = followingPosts
+    .filter(item => {
+      // فقط المنشورات القديمة (أكثر من 24 ساعة)
+      const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
+      return hoursSincePost >= 24;
+    })
+    .map(item => {
     let score = 0;
     
-    // نقاط الوقت (100 نقطة)
+    // نقاط الوقت (عكس - القديم أعلى نقاط)
     const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
     let timeScore = 0;
-    if (hoursSincePost < 24) {
-      timeScore = 100 * (1 - hoursSincePost / 24);
-    } else if (hoursSincePost < 72) {
-      timeScore = 50 * (1 - (hoursSincePost - 24) / 48);
-    } else if (hoursSincePost < 168) { // أسبوع
-      timeScore = 25 * (1 - (hoursSincePost - 72) / 96);
+    if (hoursSincePost >= 168) { // أسبوع أو أكثر
+      timeScore = 100;
+    } else if (hoursSincePost >= 72) { // 3 أيام
+      timeScore = 75;
+    } else if (hoursSincePost >= 24) { // يوم
+      timeScore = 50;
     }
     score += timeScore;
     
@@ -226,9 +232,9 @@ function applyFastRanking(items, following) {
     return { ...item, _rankScore: score };
   }).sort((a, b) => b._rankScore - a._rankScore);
   
-  // حساب عدد منشورات المتابَعين (15% من المجموع)
+  // حساب عدد منشورات المتابَعين (1% من المجموع)
   const totalCount = allRanked.length;
-  const followingCount = Math.ceil(totalCount * 0.15); // 15%
+  const followingCount = Math.max(1, Math.ceil(totalCount * 0.01)); // 1% (على الأقل منشور واحد)
   
   // أخذ أحدث منشورات المتابَعين
   const selectedFollowingPosts = rankedFollowingPosts.slice(0, followingCount);
