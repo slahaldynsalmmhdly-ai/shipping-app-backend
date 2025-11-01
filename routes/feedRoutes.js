@@ -157,42 +157,112 @@ router.get('/', protect, async (req, res) => {
  * ترتيب سريع وبسيط للمنشورات
  * بدلاً من الخوارزمية الذكية البطيئة
  * 
- * القواعد:
- * 1. منشورات المتابَعين لها أولوية
- * 2. المنشورات ذات التفاعل العالي لها أولوية
- * 3. المنشورات الحديثة لها أولوية
+ * القواعد (محدثة):
+ * 1. 15% منشورات المتابَعين (الأحدث)
+ * 2. 85% منشورات من الجميع (بناءً على الوقت والتفاعل)
  * 
+ * النتيجة: توازن بين منشورات المتابَعين والمحتوى المتنوع
  * الوقت: أقل من 10ms بدلاً من 5 دقائق!
  */
 function applyFastRanking(items, following) {
-  return items.map(item => {
+  // فصل منشورات المتابَعين عن الباقي
+  const followingPosts = [];
+  const otherPosts = [];
+  
+  items.forEach(item => {
+    const isFollowing = following.some(f => f.toString() === item.user._id.toString());
+    if (isFollowing) {
+      followingPosts.push(item);
+    } else {
+      otherPosts.push(item);
+    }
+  });
+  
+  // ترتيب منشورات المتابَعين (بناءً على الوقت)
+  const rankedFollowingPosts = followingPosts.map(item => {
     let score = 0;
     
-    // 1. نقاط المتابعة (40 نقطة)
-    const isFollowing = following.some(f => f.toString() === item.user._id.toString());
-    if (isFollowing) score += 40;
-    
-    // 2. نقاط التفاعل (30 نقطة)
-    const reactions = item.reactions?.length || 0;
-    const comments = item.comments?.length || 0;
-    const engagementScore = Math.min(30, (reactions + comments * 2) / 2);
-    score += engagementScore;
-    
-    // 3. نقاط الوقت (30 نقطة)
+    // نقاط الوقت (100 نقطة)
     const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
     let timeScore = 0;
     if (hoursSincePost < 24) {
-      timeScore = 30 * (1 - hoursSincePost / 24);
+      timeScore = 100 * (1 - hoursSincePost / 24);
     } else if (hoursSincePost < 72) {
-      timeScore = 15 * (1 - (hoursSincePost - 24) / 48);
+      timeScore = 50 * (1 - (hoursSincePost - 24) / 48);
+    } else if (hoursSincePost < 168) { // أسبوع
+      timeScore = 25 * (1 - (hoursSincePost - 72) / 96);
     }
     score += timeScore;
     
+    // نقاط التفاعل (50 نقطة)
+    const reactions = item.reactions?.length || 0;
+    const comments = item.comments?.length || 0;
+    const engagementScore = Math.min(50, (reactions + comments * 2) / 2);
+    score += engagementScore;
+    
+    return { ...item, _rankScore: score, _isFollowing: true };
+  }).sort((a, b) => b._rankScore - a._rankScore);
+  
+  // ترتيب جميع المنشورات (بناءً على الوقت والتفاعل)
+  const allRanked = items.map(item => {
+    let score = 0;
+    
+    // نقاط الوقت (100 نقطة)
+    const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
+    let timeScore = 0;
+    if (hoursSincePost < 24) {
+      timeScore = 100 * (1 - hoursSincePost / 24);
+    } else if (hoursSincePost < 72) {
+      timeScore = 50 * (1 - (hoursSincePost - 24) / 48);
+    }
+    score += timeScore;
+    
+    // نقاط التفاعل (50 نقطة)
+    const reactions = item.reactions?.length || 0;
+    const comments = item.comments?.length || 0;
+    const engagementScore = Math.min(50, (reactions + comments * 2) / 2);
+    score += engagementScore;
+    
     return { ...item, _rankScore: score };
-  })
-  .sort((a, b) => b._rankScore - a._rankScore)
-  .map(item => {
-    const { _rankScore, ...cleanItem } = item;
+  }).sort((a, b) => b._rankScore - a._rankScore);
+  
+  // حساب عدد منشورات المتابَعين (15% من المجموع)
+  const totalCount = allRanked.length;
+  const followingCount = Math.ceil(totalCount * 0.15); // 15%
+  
+  // أخذ أحدث منشورات المتابَعين
+  const selectedFollowingPosts = rankedFollowingPosts.slice(0, followingCount);
+  
+  // دمج منشورات المتابَعين مع الباقي بشكل متناسق
+  const result = [];
+  const followingIds = new Set(selectedFollowingPosts.map(p => p._id.toString()));
+  
+  // إضافة منشورات المتابَعين في مواضع متناسقة
+  let followingIndex = 0;
+  let allIndex = 0;
+  const interval = Math.floor(totalCount / followingCount) || 1; // كل كم منشور نضيف منشور متابَع
+  
+  for (let i = 0; i < totalCount; i++) {
+    // إضافة منشور متابَع في الموضع المناسب
+    if (i % interval === 0 && followingIndex < selectedFollowingPosts.length) {
+      result.push(selectedFollowingPosts[followingIndex]);
+      followingIndex++;
+    } else {
+      // إضافة منشور من الجميع (باستثناء المتابَعين المضافين)
+      while (allIndex < allRanked.length) {
+        const post = allRanked[allIndex];
+        allIndex++;
+        if (!followingIds.has(post._id.toString())) {
+          result.push(post);
+          break;
+        }
+      }
+    }
+  }
+  
+  // إزالة الحقول المؤقتة
+  return result.map(item => {
+    const { _rankScore, _isFollowing, ...cleanItem } = item;
     return cleanItem;
   });
 }
