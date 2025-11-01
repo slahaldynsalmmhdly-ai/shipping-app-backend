@@ -158,7 +158,6 @@ router.get('/', protect, async (req, res) => {
     }
 
     // ... باقي الكود ...
-    const page = parseInt(req.query.page) || 1;
     const limit = 3; // دائماً 3 عناصر في كل طلب
     const skip = (page - 1) * limit;
     
