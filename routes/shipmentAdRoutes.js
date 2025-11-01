@@ -44,8 +44,8 @@ router.post("/", protect, async (req, res) => {
     // إرسال إشعارات للمتابعين عند نشر إعلان شحن جديد
     if (!scheduledTime) { // فقط إذا كان الإعلان منشور فوراً وليس مجدول
       try {
-        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
-        await createFollowingPostNotifications(req.user.id, shipmentAd._id, 'shipmentAd', 0.15);
+        // استخدام نظام الإشعارات الجديد مع نسبة 5% للخلاصة (95% إشعار فقط)
+        await createFollowingPostNotifications(req.user.id, shipmentAd._id, 'shipmentAd', 0.05);
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
@@ -93,7 +93,7 @@ router.get("/", protect, async (req, res) => {
       .populate("user", ["name", "avatar", "userType", "companyName"])
       .lean();
 
-    // فلترة الإعلانات بناءً على نظام الإشعارات (15% من المتابعين)
+    // فلترة الإعلانات بناءً على نظام الإشعارات (5% من المتابعين يرون المحتوى)
     const filteredAds = [];
     
     for (const ad of shipmentAds) {
@@ -108,7 +108,24 @@ router.get("/", protect, async (req, res) => {
         }
       }
       
-      // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
+      // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية
+      const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
+      
+      if (isFollowing) {
+        // المستخدم يتابع صاحب الإعلان
+        // نتحقق من الإشعارات لمعرفة إذا كان ضمن الـ 5%
+        const notification = notifications.find(
+          n => n.post && n.post.toString() === ad._id.toString() && n.showInFeed === true
+        );
+        
+        if (!notification || !notification.showInFeed) {
+          // 95% من المتابعين: لا يظهر في الصفحة الرئيسية
+          continue;
+        }
+        // 5% من المتابعين: يظهر في الصفحة الرئيسية
+      }
+      // غير المتابعين: يظهر دائماً في الصفحة الرئيسية
+      
       filteredAds.push(ad);
     }
 

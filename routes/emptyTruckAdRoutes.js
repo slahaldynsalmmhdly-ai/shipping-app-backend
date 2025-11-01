@@ -32,8 +32,8 @@ router.post("/", protect, async (req, res) => {
     // إرسال إشعارات للمتابعين عند نشر إعلان شاحنة فارغة جديد
     if (!scheduledTime) { // فقط إذا كان الإعلان منشور فوراً وليس مجدول
       try {
-        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
-        await createFollowingPostNotifications(req.user.id, emptyTruckAd._id, 'emptyTruckAd', 0.15);
+        // استخدام نظام الإشعارات الجديد مع نسبة 5% للخلاصة (95% إشعار فقط)
+        await createFollowingPostNotifications(req.user.id, emptyTruckAd._id, 'emptyTruckAd', 0.05);
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
@@ -79,8 +79,41 @@ router.get("/", protect, async (req, res) => {
       .populate("user", "name avatar userType companyName")
       .lean();
 
-    // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
-    const filteredAds = emptyTruckAds;
+    // فلترة الإعلانات بناءً على نظام الإشعارات (5% من المتابعين يرون المحتوى)
+    const filteredAds = [];
+    
+    for (const ad of emptyTruckAds) {
+      // إخفاء إعلانات المستخدم الخاصة من صفحته الرئيسية (إلا إذا كان حديث جداً)
+      if (ad.user._id.toString() === req.user.id) {
+        // الإعلانات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
+        const adAge = Date.now() - new Date(ad.createdAt).getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (adAge > fiveMinutes) {
+          continue; // لا تعرض إذا مر أكثر من 5 دقائق
+        }
+      }
+      
+      // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية
+      const isFollowing = following.some(id => id.toString() === ad.user._id.toString());
+      
+      if (isFollowing) {
+        // المستخدم يتابع صاحب الإعلان
+        // نتحقق من الإشعارات لمعرفة إذا كان ضمن الـ 5%
+        const notification = notifications.find(
+          n => n.post && n.post.toString() === ad._id.toString() && n.showInFeed === true
+        );
+        
+        if (!notification || !notification.showInFeed) {
+          // 95% من المتابعين: لا يظهر في الصفحة الرئيسية
+          continue;
+        }
+        // 5% من المتابعين: يظهر في الصفحة الرئيسية
+      }
+      // غير المتابعين: يظهر دائماً في الصفحة الرئيسية
+      
+      filteredAds.push(ad);
+    }
 
     // Apply Smart Feed Algorithm (AI-powered with DeepSeek)
     // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي DeepSeek)

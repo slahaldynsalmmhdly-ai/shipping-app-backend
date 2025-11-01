@@ -33,8 +33,8 @@ router.post('/', protect, async (req, res) => {
     // إرسال إشعارات للمتابعين عند نشر منشور جديد
     if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
       try {
-        // استخدام نظام الإشعارات الجديد مع نسبة 15% للخلاصة
-        await createFollowingPostNotifications(req.user.id, post._id, 'post', 0.15);
+        // استخدام نظام الإشعارات الجديد مع نسبة 5% للخلاصة (95% إشعار فقط)
+        await createFollowingPostNotifications(req.user.id, post._id, 'post', 0.05);
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
@@ -98,7 +98,7 @@ router.get('/', protect, async (req, res) => {
       })
       .lean();
 
-    // فلترة المنشورات بناءً على نظام الإشعارات (15% من المتابعين)
+    // فلترة المنشورات بناءً على نظام الإشعارات (5% من المتابعين يرون المحتوى)
     const filteredPosts = [];
     
     for (const post of allPosts) {
@@ -106,15 +106,31 @@ router.get('/', protect, async (req, res) => {
       if (post.user._id.toString() === req.user.id) {
         // المنشورات الحديثة جداً (آخر 5 دقائق) تظهر مؤقتاً
         const postAge = Date.now() - new Date(post.createdAt).getTime();
-        const fiveMinutes = 5 * 60 * 1000; // 5 دقائق بالملي ثانية
+        const fiveMinutes = 5 * 60 * 1000;
         
         if (postAge > fiveMinutes) {
           continue; // لا تعرض إذا مر أكثر من 5 دقائق
         }
-        // إذا كان أحدث من 5 دقائق، يعرض ويكمل للفلترة
       }
       
-      // عرض جميع المنشورات بدون فلترة (تم حذف فلتر showInFeed)
+      // فلترة محتوى المتابعين: 95% إشعار فقط، 5% يظهر في الصفحة الرئيسية
+      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
+      
+      if (isFollowing) {
+        // المستخدم يتابع صاحب المنشور
+        // نتحقق من الإشعارات لمعرفة إذا كان ضمن الـ 5%
+        const notification = notifications.find(
+          n => n.post && n.post.toString() === post._id.toString() && n.showInFeed === true
+        );
+        
+        if (!notification || !notification.showInFeed) {
+          // 95% من المتابعين: لا يظهر في الصفحة الرئيسية
+          continue;
+        }
+        // 5% من المتابعين: يظهر في الصفحة الرئيسية
+      }
+      // غير المتابعين: يظهر دائماً في الصفحة الرئيسية
+      
       filteredPosts.push(post);
     }
 
