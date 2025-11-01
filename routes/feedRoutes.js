@@ -50,10 +50,10 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية ذكية: جلب عدد بناءً على limit المطلوب
-    // إذا limit=3 نجلب 15 منشور من كل نوع (سريع جداً: 45 إجمالاً)
-    // إذا limit=10 نجلب 50 منشور من كل نوع (150 إجمالاً)
-    const fetchLimit = Math.min(100, Math.max(15, limit * 5)); // ديناميكي
+    // استراتيجية ذكية: جلب عدد كبير لضمان وجود منشورات كافية بعد فلترة المتابعين
+    // إذا limit=3 نجلب 100 منشور من كل نوع (300 إجمالاً)
+    // هذا يضمن وجود منشورات كافية حتى بعد استبعاد المتابعين
+    const fetchLimit = 100; // ثابت لضمان الكفاية
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
@@ -135,6 +135,9 @@ router.get('/', protect, async (req, res) => {
     // بدلاً من الخوارزمية الذكية البطيئة
     allItems = applyFastRanking(allItems, following);
     
+    // توزيع المنشورات: منشور واحد لكل مستخدم (مثل فيسبوك ولينكد إن)
+    allItems = distributePostsByUser(allItems);
+    
     // أخذ العدد المطلوب فقط
     const paginatedItems = allItems.slice(0, limit);
     
@@ -207,6 +210,41 @@ function applyFastRanking(items, following) {
     const { _rankScore, ...cleanItem } = item;
     return cleanItem;
   });
+}
+
+/**
+ * توزيع المنشورات: منشور واحد لكل مستخدم (مثل فيسبوك ولينكد إن)
+ * 
+ * الهدف: تجنب أن يملأ مستخدم واحد الصفحة بمنشوراته
+ * الطريقة: نأخذ منشور واحد فقط من كل مستخدم، ثم نرتبهم حسب الأولوية
+ */
+function distributePostsByUser(items) {
+  const userPostsMap = new Map(); // userId -> [posts]
+  
+  // تجميع المنشورات حسب المستخدم
+  items.forEach(item => {
+    const userId = item.user?._id?.toString() || item.user?.toString();
+    if (!userId) return;
+    
+    if (!userPostsMap.has(userId)) {
+      userPostsMap.set(userId, []);
+    }
+    userPostsMap.get(userId).push(item);
+  });
+  
+  // أخذ منشور واحد فقط من كل مستخدم (الأحدث)
+  const distributedItems = [];
+  userPostsMap.forEach(userPosts => {
+    // نرتب منشورات المستخدم حسب التاريخ (الأحدث أولاً)
+    userPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // نأخذ أحدث منشور فقط
+    distributedItems.push(userPosts[0]);
+  });
+  
+  // نرتب المنشورات الموزعة حسب التاريخ (الأحدث أولاً)
+  distributedItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  return distributedItems;
 }
 
 /**
