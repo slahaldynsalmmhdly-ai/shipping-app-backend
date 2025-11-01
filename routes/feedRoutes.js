@@ -163,7 +163,7 @@ router.get('/', protect, async (req, res) => {
       })
       .sort({ createdAt: -1 })
       .skip(skip) // تطبيق التخطي
-      .limit(limit * 3) // جلب عدد أكبر قليلاً
+      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
       .lean();
     
     // جلب جميع إعلانات الشحن
@@ -174,7 +174,7 @@ router.get('/', protect, async (req, res) => {
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
       .skip(skip) // تطبيق التخطي
-      .limit(limit * 3) // جلب عدد أكبر قليلاً
+      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
       .lean();
     
     // جلب جميع إعلانات الشاحنات الفارغة
@@ -185,7 +185,7 @@ router.get('/', protect, async (req, res) => {
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
       .skip(skip) // تطبيق التخطي
-      .limit(limit * 3) // جلب عدد أكبر قليلاً
+      .limit(limit + 1) // جلب عدد محدود (4) فقط لتحديد ما إذا كان هناك المزيد
       .lean();
     
     // إضافة نوع لكل عنصر
@@ -194,9 +194,16 @@ router.get('/', protect, async (req, res) => {
     const emptyTruckAdsWithType = emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
     
     // Apply Smart Feed Algorithm على كل نوع بشكل منفصل
-    const sortedPosts = await applySmartFeedAlgorithm(postsWithType, currentUser, []);
-    const sortedShipmentAds = await applySmartFeedAlgorithm(shipmentAdsWithType, currentUser, []);
-    const sortedEmptyTruckAds = await applySmartFeedAlgorithm(emptyTruckAdsWithType, currentUser, []);
+    let sortedPosts = postsWithType;
+    let sortedShipmentAds = shipmentAdsWithType;
+    let sortedEmptyTruckAds = emptyTruckAdsWithType;
+
+    // تطبيق الخوارزمية الذكية فقط للصفحات اللاحقة (page > 1) لضمان سرعة التحميل الأولي
+    if (page > 1) {
+        sortedPosts = await applySmartFeedAlgorithm(postsWithType, currentUser, []);
+        sortedShipmentAds = await applySmartFeedAlgorithm(shipmentAdsWithType, currentUser, []);
+        sortedEmptyTruckAds = await applySmartFeedAlgorithm(emptyTruckAdsWithType, currentUser, []);
+    }
     
     // بناء الخلاصة بطريقة ذكية: توزيع متوازن بين الأنواع الثلاثة
     const feedItems = [];
@@ -289,7 +296,7 @@ router.get('/', protect, async (req, res) => {
     // تحديد ما إذا كان هناك المزيد من العناصر
     // نتحقق مما إذا كان عدد العناصر التي تم جلبها من قاعدة البيانات يساوي الحد الأقصى الذي طلبناه (limit * 3)
     // هذا يعني أنه قد يكون هناك المزيد من العناصر في الصفحة التالية
-    const hasMore = posts.length === limit * 3 || shipmentAds.length === limit * 3 || emptyTruckAds.length === limit * 3;
+    const hasMore = posts.length > limit || shipmentAds.length > limit || emptyTruckAds.length > limit;
     
     res.json({
       items: cleanedItems,
