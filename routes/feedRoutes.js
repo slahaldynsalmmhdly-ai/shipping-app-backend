@@ -30,7 +30,7 @@ router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const userId = req.user.id;
-    const limit = 10; // زيادة العدد من 3 إلى 10 لتحسين التجربة
+    const limit = parseInt(req.query.limit) || 3; // استخدام limit من query parameter (افتراضي 3)
     const skip = (page - 1) * limit;
 
     // إعادة تفعيل الـ cache لتحسين السرعة
@@ -50,9 +50,10 @@ router.get('/', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following').lean();
     const following = currentUser?.following || [];
     
-    // استراتيجية متوازنة: جلب عدد معقول لضمان السرعة والكفاية
-    // 50 منشور من كل نوع = 150 منشور إجمالاً (أسرع من 100 من كل نوع)
-    const fetchLimit = 50; // 50 عنصر من كل نوع
+    // استراتيجية ذكية: جلب عدد بناءً علم limit المطلوب
+    // إذا limit=3 نجلب 20 منشور من كل نوع (سريع جداً)
+    // إذا limit=10 نجلب 50 منشور من كل نوع
+    const fetchLimit = Math.min(100, Math.max(20, limit * 7)); // ديناميكي
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
