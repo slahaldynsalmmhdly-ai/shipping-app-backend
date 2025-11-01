@@ -148,6 +148,7 @@ router.get('/', protect, async (req, res) => {
     const following = currentUser?.following || [];
     
     // جلب جميع المنشورات العادية
+    // نستخدم limit أكبر قليلاً (limit * 3) لضمان وجود بيانات كافية بعد التصفية والخلط
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
@@ -161,6 +162,8 @@ router.get('/', protect, async (req, res) => {
         }
       })
       .sort({ createdAt: -1 })
+      .skip(skip) // تطبيق التخطي
+      .limit(limit * 3) // جلب عدد أكبر قليلاً
       .lean();
     
     // جلب جميع إعلانات الشحن
@@ -170,6 +173,8 @@ router.get('/', protect, async (req, res) => {
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
+      .skip(skip) // تطبيق التخطي
+      .limit(limit * 3) // جلب عدد أكبر قليلاً
       .lean();
     
     // جلب جميع إعلانات الشاحنات الفارغة
@@ -179,6 +184,8 @@ router.get('/', protect, async (req, res) => {
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .sort({ createdAt: -1 })
+      .skip(skip) // تطبيق التخطي
+      .limit(limit * 3) // جلب عدد أكبر قليلاً
       .lean();
     
     // إضافة نوع لكل عنصر
@@ -198,9 +205,10 @@ router.get('/', protect, async (req, res) => {
     let emptyTruckAdIndex = 0;
     
     // نمط التوزيع: منشور عادي -> إعلان شاحنة فارغة -> إعلان حمولة -> منشور عادي -> ...
-    const totalItemsNeeded = skip + limit;
+    // نستخدم فقط العناصر التي تم جلبها (limit * 3)
+    const maxItems = sortedPosts.length + sortedShipmentAds.length + sortedEmptyTruckAds.length;
     
-    for (let i = 0; i < totalItemsNeeded; i++) {
+    for (let i = 0; i < maxItems; i++) {
       const position = i % 3;
       
       if (position === 0) {
@@ -246,10 +254,15 @@ router.get('/', protect, async (req, res) => {
           emptyTruckAdIndex++;
         }
       }
+      
+      // إذا وصلنا إلى العدد المطلوب، نخرج من الحلقة
+      if (feedItems.length >= limit) {
+          break;
+      }
     }
     
     // تطبيق pagination: أخذ العناصر من skip إلى skip + limit
-    const paginatedItems = feedItems.slice(skip, skip + limit);
+    const paginatedItems = feedItems.slice(0, limit); // نأخذ أول 'limit' عنصر فقط من العناصر المدمجة
     
     // إزالة feedScore من النتيجة النهائية
     const cleanedItems = paginatedItems.map(item => {
@@ -257,8 +270,26 @@ router.get('/', protect, async (req, res) => {
       return cleanItem;
     });
     
-    // حساب إجمالي العناصر المتاحة
-    const totalAvailableItems = sortedPosts.length + sortedShipmentAds.length + sortedEmptyTruckAds.length;
+    // حساب إجمالي العناصر المتاحة (يجب أن نستخدم CountDocuments للحصول على العدد الكلي)
+    const totalPostsCount = await Post.countDocuments({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    });
+    const totalShipmentAdsCount = await ShipmentAd.countDocuments({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    });
+    const totalEmptyTruckAdsCount = await EmptyTruckAd.countDocuments({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    });
+    
+    const totalAvailableItems = totalPostsCount + totalShipmentAdsCount + totalEmptyTruckAdsCount;
+    
+    // تحديد ما إذا كان هناك المزيد من العناصر
+    // نتحقق مما إذا كان عدد العناصر التي تم جلبها من قاعدة البيانات يساوي الحد الأقصى الذي طلبناه (limit * 3)
+    // هذا يعني أنه قد يكون هناك المزيد من العناصر في الصفحة التالية
+    const hasMore = posts.length === limit * 3 || shipmentAds.length === limit * 3 || emptyTruckAds.length === limit * 3;
     
     res.json({
       items: cleanedItems,
@@ -267,10 +298,7 @@ router.get('/', protect, async (req, res) => {
         totalItems: totalAvailableItems,
         totalPages: Math.ceil(totalAvailableItems / limit),
         itemsPerPage: limit,
-        hasMore: feedItems.length > skip + limit || 
-                 postIndex < sortedPosts.length || 
-                 shipmentAdIndex < sortedShipmentAds.length || 
-                 emptyTruckAdIndex < sortedEmptyTruckAds.length
+        hasMore: hasMore
       }
     });
     
