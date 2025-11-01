@@ -53,7 +53,8 @@ router.get('/', protect, async (req, res) => {
     // استراتيجية جديدة: جلب عدد محدود فقط من كل نوع بناءً على الصفحة
     // بدلاً من جلب 100 عنصر في كل مرة
     const itemsPerType = Math.ceil(limit / 3); // 4 عناصر من كل نوع تقريباً
-    const fetchLimit = itemsPerType + 2; // نجلب قليلاً أكثر للتنويع
+    // زيادة fetchLimit لضمان وجود نتائج كافية بعد فلترة منشورات المستخدم
+    const fetchLimit = Math.max(30, itemsPerType * 5); // 30 عنصر على الأقل من كل نوع
     
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
