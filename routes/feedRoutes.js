@@ -128,15 +128,12 @@ router.get('/', protect, async (req, res) => {
       console.log('⚠️ لا توجد منشورات متاحة بعد فلترة المتابعين');
     }
     
-    // ترتيب العناصر حسب التاريخ (الأحدث أولاً)
-    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    // تطبيق ترتيب بسيط وسريع بناءً على المتابعة والتفاعل
-    // بدلاً من الخوارزمية الذكية البطيئة
-    allItems = applyFastRanking(allItems, following);
-    
-    // توزيع المنشورات: منشور واحد لكل مستخدم (مثل فيسبوك ولينكد إن)
+    // توزيع جبري 100%: منشور واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
+    // حذفنا applyFastRanking لأنها كانت تخلط المنشورات
     allItems = distributePostsByUser(allItems);
+    
+    // مراقبة التفاعل الذكي: ترتيب حسب تفاعل المستخدم
+    allItems = await applySmartEngagementTracking(allItems, userId);
     
     // أخذ العدد المطلوب فقط
     const paginatedItems = allItems.slice(0, limit);
@@ -172,44 +169,101 @@ router.get('/', protect, async (req, res) => {
 });
 
 /**
- * ترتيب سريع وبسيط للمنشورات
- * بدلاً من الخوارزمية الذكية البطيئة
+ * مراقبة التفاعل الذكي: ترتيب المنشورات حسب تفاعل المستخدم
  * 
- * القواعد (محدثة - نهائية):
- * 1. 0% منشورات المتابَعين (لا تظهر في الخلاصة أبداً - 100% في الإشعارات فقط)
- * 2. 100% منشورات من غير المتابَعين (بناءً على الوقت والتفاعل)
+ * الفكرة:
+ * - إذا تفاعل المستخدم مع منشور (تعليق، إعجاب، مشاركة)
+ * - نعرض له منشورات مشابهة (نفس النوع: قصص، أخبار، إلخ)
+ * - نرتب المنشورات حسب التشابه مع ما يفضله المستخدم
  * 
- * النتيجة: محتوى متنوع بالكامل - منشورات المتابَعين في الإشعارات فقط (100%)
- * الوقت: أقل من 10ms بدلاً من 5 دقائق!
+ * التصنيف:
+ * - قصص: إذا كان المنشور طويل (أكثر من 200 حرف) ويحتوي على كلمات قصصية
+ * - أخبار: إذا كان يحتوي على كلمات إخبارية
+ * - عام: باقي المنشورات
  */
-function applyFastRanking(items, following) {
-  // ترتيب جميع المنشورات (بناءً على الوقت والتفاعل)
-  return items.map(item => {
-    let score = 0;
+async function applySmartEngagementTracking(items, userId) {
+  try {
+    // جلب تفاعلات المستخدم (آخر 30 يوم)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
-    // نقاط الوقت (100 نقطة)
-    const hoursSincePost = (Date.now() - new Date(item.createdAt)) / (1000 * 60 * 60);
-    let timeScore = 0;
-    if (hoursSincePost < 24) {
-      timeScore = 100 * (1 - hoursSincePost / 24);
-    } else if (hoursSincePost < 72) {
-      timeScore = 50 * (1 - (hoursSincePost - 24) / 48);
-    }
-    score += timeScore;
+    // جلب المنشورات التي تفاعل معها المستخدم
+    const engagedPosts = await Post.find({
+      $or: [
+        { 'reactions.user': userId },
+        { 'comments.user': userId }
+      ],
+      createdAt: { $gte: thirtyDaysAgo }
+    }).select('text').lean();
     
-    // نقاط التفاعل (50 نقطة)
-    const reactions = item.reactions?.length || 0;
-    const comments = item.comments?.length || 0;
-    const engagementScore = Math.min(50, (reactions + comments * 2) / 2);
-    score += engagementScore;
+    // تحديد نوع المحتوى المفضل
+    const contentTypes = engagedPosts.map(post => classifyContent(post.text || ''));
+    const preferredType = getMostFrequent(contentTypes) || 'general';
     
-    return { ...item, _rankScore: score };
-  })
-  .sort((a, b) => b._rankScore - a._rankScore)
-  .map(item => {
-    const { _rankScore, ...cleanItem } = item;
-    return cleanItem;
+    console.log(`🧠 المستخدم ${userId} يفضل: ${preferredType}`);
+    
+    // ترتيب المنشورات حسب التفضيل
+    return items.map(item => {
+      const itemType = classifyContent(item.text || '');
+      const score = itemType === preferredType ? 100 : 0;
+      return { ...item, _preferenceScore: score };
+    })
+    .sort((a, b) => {
+      // أولاً: حسب التفضيل
+      if (b._preferenceScore !== a._preferenceScore) {
+        return b._preferenceScore - a._preferenceScore;
+      }
+      // ثانياً: حسب التاريخ
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    })
+    .map(item => {
+      const { _preferenceScore, ...cleanItem } = item;
+      return cleanItem;
+    });
+  } catch (error) {
+    console.error('⚠️ خطأ في مراقبة التفاعل:', error);
+    // في حالة الخطأ، نرجع المنشورات كما هي
+    return items;
+  }
+}
+
+/**
+ * تصنيف المحتوى حسب النوع
+ */
+function classifyContent(text) {
+  if (!text) return 'general';
+  
+  const lowerText = text.toLowerCase();
+  
+  // قصص: طويل + كلمات قصصية
+  const storyKeywords = ['قصة', 'حكاية', 'رواية', 'كان يا ما كان', 'ذات يوم'];
+  if (text.length > 200 && storyKeywords.some(kw => lowerText.includes(kw))) {
+    return 'story';
+  }
+  
+  // أخبار: كلمات إخبارية
+  const newsKeywords = ['خبر', 'عاجل', 'أعلن', 'صرح', 'أكد', 'أفاد', 'اليوم'];
+  if (newsKeywords.some(kw => lowerText.includes(kw))) {
+    return 'news';
+  }
+  
+  // عام
+  return 'general';
+}
+
+/**
+ * إيجاد العنصر الأكثر تكراراً
+ */
+function getMostFrequent(arr) {
+  if (arr.length === 0) return null;
+  
+  const frequency = {};
+  arr.forEach(item => {
+    frequency[item] = (frequency[item] || 0) + 1;
   });
+  
+  return Object.keys(frequency).reduce((a, b) => 
+    frequency[a] > frequency[b] ? a : b
+  );
 }
 
 /**
