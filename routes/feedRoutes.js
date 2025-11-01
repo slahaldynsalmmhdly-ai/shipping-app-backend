@@ -58,10 +58,11 @@ router.get('/', protect, async (req, res) => {
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
     
-    // جلب المنشورات العادية
+    // جلب المنشورات العادية (باستثناء منشورات المستخدم نفسه)
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $ne: req.user.id } // إخفاء منشورات المستخدم نفسه
     })
       .populate('user', 'name avatar userType companyName') // تقليل الحقول
       .populate({
@@ -77,10 +78,11 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشحن
+    // جلب إعلانات الشحن (باستثناء إعلانات المستخدم نفسه)
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $ne: req.user.id } // إخفاء إعلانات المستخدم نفسه
     })
       .populate('user', 'name avatar userType companyName')
       .sort({ createdAt: -1 })
@@ -88,10 +90,11 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشاحنات الفارغة
+    // جلب إعلانات الشاحنات الفارغة (باستثناء إعلانات المستخدم نفسه)
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      user: { $ne: req.user.id } // إخفاء إعلانات المستخدم نفسه
     })
       .populate('user', 'name avatar userType companyName')
       .sort({ createdAt: -1 })
