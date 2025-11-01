@@ -316,24 +316,21 @@ async function applySmartShortsAlgorithm(shorts, user, viewHistory) {
     // 5. تطبيق التنوع (عدم تكرار من نفس المستخدم)
     const diversifiedShorts = [];
     const userVideoCount = {};
-    const maxVideosPerUser = 2; // حد أقصى فيديوهين من نفس المستخدم في أول 10 فيديوهات
+    const maxVideosPerUser = 1; // حد أقصى فيديو واحد من نفس المستخدم
 
     for (const short of scoredShorts) {
       const userId = short.user._id.toString();
       
-      // في أول 10 فيديوهات، لا نسمح بأكثر من فيديوهين من نفس المستخدم
-      if (diversifiedShorts.length < 10) {
-        if (!userVideoCount[userId]) {
-          userVideoCount[userId] = 0;
-        }
-        
-        if (userVideoCount[userId] >= maxVideosPerUser) {
-          continue; // تخطي هذا الفيديو
-        }
-        
-        userVideoCount[userId]++;
+      // تطبيق التنوع على جميع الفيديوهات (ليس فقط أول 10)
+      if (!userVideoCount[userId]) {
+        userVideoCount[userId] = 0;
       }
       
+      if (userVideoCount[userId] >= maxVideosPerUser) {
+        continue; // تخطي هذا الفيديو
+      }
+      
+      userVideoCount[userId]++;
       diversifiedShorts.push(short);
       
       // حد أقصى 20 فيديو
