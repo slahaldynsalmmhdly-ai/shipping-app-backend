@@ -5,8 +5,7 @@ const Post = require('../models/Post');
 const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
-const { diversifyContent } = require('../utils/contentDiversity');
-const { advancedDiversityAlgorithm } = require('../utils/advancedDiversity');
+const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
 
 /**
  * حساب نقاط التفاعل للمنشور/الإعلان
@@ -201,47 +200,9 @@ router.get('/', protect, async (req, res) => {
       feedItems.push(item);
     }
     
-    // فصل العناصر إلى متابَعين وغير متابَعين مع حساب النقاط
-    const followingItems = [];
-    const nonFollowingItems = [];
-    
-    feedItems.forEach(item => {
-      const isFollowing = following.some(id => id.toString() === item.user._id.toString());
-      const score = calculateFeedScore(item, isFollowing, req.user.id);
-      
-      const itemWithScore = { ...item, feedScore: score };
-      
-      if (isFollowing) {
-        followingItems.push(itemWithScore);
-      } else {
-        nonFollowingItems.push(itemWithScore);
-      }
-    });
-    
-    // ترتيب كل مجموعة حسب النقاط
-    followingItems.sort((a, b) => b.feedScore - a.feedScore);
-    nonFollowingItems.sort((a, b) => b.feedScore - a.feedScore);
-    
-    // دمج العناصر مع إعطاء الأولوية للمتابعين
-    let finalItems = [...followingItems, ...nonFollowingItems];
-    
-    // ترتيب نهائي حسب النقاط مع خلط خفيف
-    finalItems.sort((a, b) => {
-      // إذا كان الفرق في النقاط كبير (أكثر من 20)، نرتب حسب النقاط
-      if (Math.abs(b.feedScore - a.feedScore) > 20) {
-        return b.feedScore - a.feedScore;
-      }
-      // إذا كان الفرق صغير، نستخدم التاريخ
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-    
-    // تطبيق خوارزمية التنويع المتقدمة (مثل فيسبوك)
-    // هذه الخوارزمية تمنع ظهور 50 منشور من نفس الشركة مباشرة!
-    const shuffledItems = advancedDiversityAlgorithm(finalItems, {
-      maxPerUser: 3,      // حد أقصى 3 منشورات لكل مستخدم/شركة
-      companyRatio: 0.4,  // 40% شركات، 60% أفراد (تنويع متوازن)
-      minGap: 5,          // فجوة 5 منشورات بين منشورات نفس المستخدم
-    });
+    // Apply Smart Feed Algorithm (AI-powered with DeepSeek)
+    // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي DeepSeek)
+    const shuffledItems = await applySmartFeedAlgorithm(feedItems, currentUser, []);
     
     // تطبيق pagination
     const paginatedItems = shuffledItems.slice(skip, skip + limit);

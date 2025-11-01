@@ -3,9 +3,7 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
-const { applyFeedAlgorithm } = require('../utils/feedAlgorithm');
-const { diversifyContent } = require('../utils/contentDiversity');
-const { advancedDiversityAlgorithm } = require('../utils/advancedDiversity');
+const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 
 // @desc    Create a new empty truck ad
@@ -84,16 +82,9 @@ router.get("/", protect, async (req, res) => {
     // عرض جميع الإعلانات بدون فلترة (تم حذف فلتر showInFeed)
     const filteredAds = emptyTruckAds;
 
-    // Apply Facebook-style algorithm with 10% following ratio for sorting
-    const sortedAds = applyFeedAlgorithm(filteredAds, following, req.user.id, 0.10);
-
-    // Apply advanced diversity algorithm
-    // تطبيق خوارزمية التنويع المتقدمة
-    const finalAds = advancedDiversityAlgorithm(sortedAds, {
-      maxPerUser: 3,
-      companyRatio: 0.4,
-      minGap: 5,
-    });
+    // Apply Smart Feed Algorithm (AI-powered with DeepSeek)
+    // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي DeepSeek)
+    const finalAds = await applySmartFeedAlgorithm(filteredAds, currentUser, []);
 
     res.status(200).json(finalAds);
   } catch (error) {
