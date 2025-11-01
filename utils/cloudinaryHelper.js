@@ -191,11 +191,23 @@ function getOptimizedImageUrl(cloudinaryUrl, options = {}) {
  * @returns {string} - رابط الصورة المنخفضة الجودة
  */
 function getImagePlaceholderUrl(cloudinaryUrl) {
-  return getOptimizedImageUrl(cloudinaryUrl, {
-    quality: 'auto:low',
-    width: 50,
-    format: 'auto'
-  });
+  const parsed = parseCloudinaryUrl(cloudinaryUrl);
+  
+  if (!parsed || parsed.resourceType !== 'image') {
+    return cloudinaryUrl;
+  }
+  
+  // إنشاء placeholder مع blur وجودة منخفضة جداً
+  const transformations = [
+    'q_auto:low',      // جودة منخفضة
+    'f_auto',          // صيغة تلقائية
+    'w_50',            // عرض صغير جداً
+    'e_blur:1000'      // blur قوي لتقليل الحجم
+  ];
+  
+  const transformString = transformations.join(',');
+  
+  return `https://res.cloudinary.com/${parsed.cloudName}/image/upload/${transformString}/${parsed.publicId}`;
 }
 
 /**
