@@ -59,11 +59,14 @@ router.get('/', protect, async (req, res) => {
     // حساب skip لكل نوع بناءً على الصفحة
     const typeSkip = Math.floor(skip / 3);
     
-    // جلب المنشورات العادية (باستثناء منشورات المستخدم نفسه)
+    // جلب المنشورات العادية (باستثناء منشورات المستخدم نفسه والمتابَعين)
     const posts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id } // إخفاء منشورات المستخدم نفسه
+      user: { 
+        $ne: req.user.id, // إخفاء منشورات المستخدم نفسه
+        $nin: following // إخفاء منشورات المتابَعين تماماً
+      }
     })
       .populate('user', 'name avatar userType companyName') // تقليل الحقول
       .populate({
@@ -79,11 +82,14 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشحن (باستثناء إعلانات المستخدم نفسه)
+    // جلب إعلانات الشحن (باستثناء إعلانات المستخدم نفسه والمتابَعين)
     const shipmentAds = await ShipmentAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id } // إخفاء إعلانات المستخدم نفسه
+      user: { 
+        $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
+        $nin: following // إخفاء إعلانات المتابَعين تماماً
+      }
     })
       .populate('user', 'name avatar userType companyName')
       .sort({ createdAt: -1 })
@@ -91,11 +97,14 @@ router.get('/', protect, async (req, res) => {
       .limit(fetchLimit)
       .lean();
     
-    // جلب إعلانات الشاحنات الفارغة (باستثناء إعلانات المستخدم نفسه)
+    // جلب إعلانات الشاحنات الفارغة (باستثناء إعلانات المستخدم نفسه والمتابَعين)
     const emptyTruckAds = await EmptyTruckAd.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id } // إخفاء إعلانات المستخدم نفسه
+      user: { 
+        $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
+        $nin: following // إخفاء إعلانات المتابَعين تماماً
+      }
     })
       .populate('user', 'name avatar userType companyName')
       .sort({ createdAt: -1 })
