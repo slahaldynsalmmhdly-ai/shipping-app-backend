@@ -242,11 +242,31 @@ router.get('/', protect, async (req, res) => {
     console.log(`✅ عدد المستخدمين الفريدين: ${userItemsMap.size}`);
     console.log(`🎲 تم اختيار منشور عشوائي من كل مستخدم`);
     
-    // خلط عشوائي للمنشورات
-    for (let i = allItems.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allItems[i], allItems[j]] = [allItems[j], allItems[i]];
-    }
+    // ترتيب ذكي حسب التفاعلات (الأكثر تفاعلاً أولاً)
+    allItems.sort((a, b) => {
+      // حساب نقاط التفاعل
+      const getEngagementScore = (item) => {
+        const likes = item.likes?.length || 0;
+        const comments = item.comments?.length || 0;
+        const shares = item.shares?.length || 0;
+        
+        // التعليقات أهم من الإعجابات، والمشاركات الأهم
+        const engagementScore = likes + (comments * 2) + (shares * 3);
+        
+        // مكافأة المنشورات الجديدة (أقل من 24 ساعة)
+        const ageInHours = (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
+        const freshnessBonus = ageInHours < 24 ? 10 : 0;
+        
+        return engagementScore + freshnessBonus;
+      };
+      
+      const scoreA = getEngagementScore(a);
+      const scoreB = getEngagementScore(b);
+      
+      return scoreB - scoreA; // الأعلى نقاطاً أولاً
+    });
+    
+    console.log(`📈 تم ترتيب المنشورات حسب التفاعلات`);
     
     // فلترة ذكية: تقليل المنشورات قليلة التفاعل بعد 6 ساعات
     allItems = filterLowEngagementPosts(allItems);
