@@ -100,6 +100,27 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
+    const { userType, limit, skip } = req.query;
+    
+    // إذا كان userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
+    if (userType) {
+      const users = await User.find({ userType: userType }).select('_id');
+      const userIds = users.map(u => u._id);
+      
+      const posts = await Post.find({
+        user: { $in: userIds },
+        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
+      })
+        .populate('user', 'name avatar userType companyName')
+        .populate('reactions.user', 'name avatar')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit) || 10)
+        .skip(parseInt(skip) || 0);
+      
+      return res.json({ posts });
+    }
+    
+    // الخوارزمية العادية للصفحة الرئيسية
     const currentUser = await User.findById(req.user.id).select('following notifications').lean();
     const following = currentUser?.following || [];
     const notifications = currentUser?.notifications || [];
