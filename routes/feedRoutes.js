@@ -206,7 +206,15 @@ router.get('/', protect, async (req, res) => {
     }
     
     // توزيع جبري 100%: منشور واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
+    console.log(`🔴 قبل توزيع المنشورات: ${allItems.length} عنصر`);
+    const beforeDistribution = allItems.length;
     allItems = distributePostsByUser(allItems);
+    const afterDistribution = allItems.length;
+    console.log(`🔵 بعد توزيع المنشورات: ${afterDistribution} عنصر (تم تقليل ${beforeDistribution - afterDistribution} عنصر)`);
+    
+    if (beforeDistribution === afterDistribution) {
+      console.warn(`⚠️ تحذير: دالة distributePostsByUser لم تقلل أي عناصر!`);
+    }
     
     // فلترة ذكية: تقليل المنشورات قليلة التفاعل بعد 6 ساعات
     allItems = filterLowEngagementPosts(allItems);
