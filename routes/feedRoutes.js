@@ -230,17 +230,19 @@ router.get('/', protect, async (req, res) => {
       }
     });
     
-    // أخذ منشور عشوائي من كل مستخدم
+    // أخذ أحدث منشور من كل مستخدم (مستقر للـ pagination)
     const distributedItems = [];
     userItemsMap.forEach((userItems, userId) => {
-      const randomIndex = Math.floor(Math.random() * userItems.length);
-      distributedItems.push(userItems[randomIndex]);
+      // ترتيب حسب التاريخ (الأحدث أولاً)
+      userItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // أخذ الأحدث فقط
+      distributedItems.push(userItems[0]);
     });
     
     allItems = distributedItems;
     console.log(`🔵 بعد توزيع المنشورات: ${allItems.length} عنصر`);
     console.log(`✅ عدد المستخدمين الفريدين: ${userItemsMap.size}`);
-    console.log(`🎲 تم اختيار منشور عشوائي من كل مستخدم`);
+    console.log(`✅ تم اختيار أحدث منشور من كل مستخدم (ترتيب مستقر)`);
     
     // ترتيب ذكي حسب التفاعلات (الأكثر تفاعلاً أولاً)
     allItems.sort((a, b) => {
