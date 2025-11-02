@@ -50,7 +50,7 @@ router.get('/search', protect, async (req, res) => {
 
     // تحويل إلى مصفوفة وترتيب حسب الاستخدام
     const hashtags = Array.from(hashtagMap.entries())
-      .map(([tag, count]) => ({ tag, count }))
+      .map(([tag, count]) => ({ _id: tag, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10); // أول 10 نتائج
 
