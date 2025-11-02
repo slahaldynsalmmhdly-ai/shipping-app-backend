@@ -4,7 +4,7 @@ const Short = require('../models/Short');
 const User = require('../models/User');
 const ShortInteraction = require('../models/ShortInteraction');
 const { protect } = require('../middleware/authMiddleware');
-const { applySmartShortsAlgorithm, analyzeVideoContent } = require('../utils/smartShortsAlgorithm');
+// تم إزالة smartShortsAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 
 /**
  * GET /api/v1/shorts
@@ -40,13 +40,22 @@ router.get('/', protect, async (req, res) => {
       };
     });
 
-    // تطبيق الخوارزمية الذكية
-    const recommendedShorts = await applySmartShortsAlgorithm(allShorts, currentUser, userViewHistory);
+    // ترتيب بسيط حسب التفاعل والتنوع (بدون AI)
+    const sortedShorts = allShorts.sort((a, b) => {
+      const engagementA = (a.likes || 0) * 2 + (a.comments || 0) * 3 + (a.views || 0) * 0.1;
+      const engagementB = (b.likes || 0) * 2 + (b.comments || 0) * 3 + (b.views || 0) * 0.1;
+      
+      // ترتيب حسب التفاعل أولاً، ثم حسب الوقت
+      if (Math.abs(engagementB - engagementA) > 10) {
+        return engagementB - engagementA;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
     res.json({
       success: true,
-      count: recommendedShorts.length,
-      data: recommendedShorts
+      count: sortedShorts.length,
+      data: sortedShorts
     });
   } catch (error) {
     console.error('خطأ في جلب الشورتس:', error);
@@ -76,16 +85,8 @@ router.post('/', protect, async (req, res) => {
       hashtags: hashtags || []
     });
 
-    // تحليل محتوى الفيديو بالذكاء الاصطناعي
-    const analysis = await analyzeVideoContent(short);
-    
-    // تحديث الشورت بنتائج التحليل
-    short.tags = analysis.tags;
-    short.categories = analysis.categories;
-    short.topics = analysis.topics;
-    short.mood = analysis.mood;
-    short.targetAudience = analysis.targetAudience;
-    await short.save();
+    // تم إزالة تحليل AI (بطيء جداً)
+    // الشورت يحتوي على الهاشتاقات من الواجهة الأمامية
 
     // جلب الشورت مع بيانات المستخدم
     const populatedShort = await Short.findById(short._id).populate('user', 'companyName avatar');

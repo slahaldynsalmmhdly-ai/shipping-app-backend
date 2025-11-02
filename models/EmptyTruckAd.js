@@ -137,5 +137,15 @@ const EmptyTruckAdSchema = mongoose.Schema(
   }
 );
 
+// إضافة فهارس لتحسين الأداء
+EmptyTruckAdSchema.index({ user: 1, createdAt: -1 });
+EmptyTruckAdSchema.index({ isPublished: 1, createdAt: -1 });
+EmptyTruckAdSchema.index({ hashtags: 1 });
+EmptyTruckAdSchema.index({ hiddenFromHomeFeedFor: 1 });
+EmptyTruckAdSchema.index({ createdAt: -1 });
+EmptyTruckAdSchema.index({ currentLocation: 1 });
+EmptyTruckAdSchema.index({ preferredDestination: 1 });
+EmptyTruckAdSchema.index({ availabilityDate: 1 });
+
 module.exports = mongoose.model('EmptyTruckAd', EmptyTruckAdSchema);
 

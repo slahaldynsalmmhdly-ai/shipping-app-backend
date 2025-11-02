@@ -3,7 +3,7 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
-const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
+// تم إزالة smartFeedAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 const { extractHashtags, extractMentionIds } = require('../utils/textParser');
 const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
@@ -121,11 +121,19 @@ router.get("/", protect, async (req, res) => {
       filteredAds.push(ad);
     }
 
-    // Apply Smart Feed Algorithm (AI-powered with DeepSeek)
-    // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي DeepSeek)
-    const finalAds = await applySmartFeedAlgorithm(filteredAds, currentUser, []);
+    // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
+    const sortedAds = filteredAds.sort((a, b) => {
+      const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
+      const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
+      
+      // ترتيب حسب التفاعل أولاً، ثم حسب الوقت
+      if (Math.abs(engagementB - engagementA) > 5) {
+        return engagementB - engagementA;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
-    res.status(200).json(finalAds);
+    res.status(200).json(sortedAds);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

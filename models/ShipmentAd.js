@@ -137,5 +137,15 @@ const ShipmentAdSchema = new mongoose.Schema({
   }],
 });
 
+// إضافة فهارس لتحسين الأداء
+ShipmentAdSchema.index({ user: 1, createdAt: -1 });
+ShipmentAdSchema.index({ isPublished: 1, createdAt: -1 });
+ShipmentAdSchema.index({ hashtags: 1 });
+ShipmentAdSchema.index({ hiddenFromHomeFeedFor: 1 });
+ShipmentAdSchema.index({ createdAt: -1 });
+ShipmentAdSchema.index({ pickupLocation: 1 });
+ShipmentAdSchema.index({ deliveryLocation: 1 });
+ShipmentAdSchema.index({ pickupDate: 1 });
+
 module.exports = mongoose.model("ShipmentAd", ShipmentAdSchema);
 

@@ -166,5 +166,14 @@ const PostSchema = new mongoose.Schema({
   },
 });
 
+// إضافة فهارس لتحسين الأداء
+PostSchema.index({ user: 1, createdAt: -1 });
+PostSchema.index({ isPublished: 1, createdAt: -1 });
+PostSchema.index({ hashtags: 1 });
+PostSchema.index({ hiddenFromHomeFeedFor: 1 });
+PostSchema.index({ createdAt: -1 });
+PostSchema.index({ 'reactions.user': 1 });
+PostSchema.index({ viewedBy: 1 });
+
 module.exports = mongoose.model('Post', PostSchema);
 

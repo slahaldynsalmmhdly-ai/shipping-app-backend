@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
-const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
+// تم إزالة smartFeedAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 const { extractHashtags, extractMentionIds } = require('../utils/textParser');
 const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
@@ -140,11 +140,19 @@ router.get('/', protect, async (req, res) => {
       filteredPosts.push(post);
     }
 
-    // Apply Smart Feed Algorithm (AI-powered)
-    // تطبيق خوارزمية التوزيع الذكية (مدعومة بالذكاء الاصطناعي)
-    const finalPosts = await applySmartFeedAlgorithm(filteredPosts, currentUser, []);
+    // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
+    const sortedPosts = filteredPosts.sort((a, b) => {
+      const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
+      const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
+      
+      // ترتيب حسب التفاعل أولاً، ثم حسب الوقت
+      if (Math.abs(engagementB - engagementA) > 5) {
+        return engagementB - engagementA;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
-    res.json(finalPosts);
+    res.json(sortedPosts);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
