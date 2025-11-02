@@ -207,14 +207,32 @@ router.get('/', protect, async (req, res) => {
     
     // توزيع جبري 100%: منشور واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
     console.log(`🔴 قبل توزيع المنشورات: ${allItems.length} عنصر`);
-    const beforeDistribution = allItems.length;
-    allItems = distributePostsByUser(allItems);
-    const afterDistribution = allItems.length;
-    console.log(`🔵 بعد توزيع المنشورات: ${afterDistribution} عنصر (تم تقليل ${beforeDistribution - afterDistribution} عنصر)`);
     
-    if (beforeDistribution === afterDistribution) {
-      console.warn(`⚠️ تحذير: دالة distributePostsByUser لم تقلل أي عناصر!`);
-    }
+    // حل مباشر وبسيط: تجميع حسب المستخدم وأخذ واحد فقط
+    const userItemsMap = new Map();
+    allItems.forEach(item => {
+      let userId = null;
+      if (item.user) {
+        if (typeof item.user === 'object' && item.user._id) {
+          userId = item.user._id.toString();
+        } else if (typeof item.user === 'string') {
+          userId = item.user;
+        } else {
+          userId = item.user.toString();
+        }
+      }
+      
+      if (userId && !userItemsMap.has(userId)) {
+        userItemsMap.set(userId, item); // أول منشور فقط لكل مستخدم
+      }
+    });
+    
+    allItems = Array.from(userItemsMap.values());
+    console.log(`🔵 بعد توزيع المنشورات: ${allItems.length} عنصر`);
+    console.log(`✅ عدد المستخدمين الفريدين: ${userItemsMap.size}`);
+    
+    // إعادة الترتيب حسب التاريخ
+    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     // فلترة ذكية: تقليل المنشورات قليلة التفاعل بعد 6 ساعات
     allItems = filterLowEngagementPosts(allItems);
