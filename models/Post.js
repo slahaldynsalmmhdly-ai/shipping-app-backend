@@ -149,6 +149,16 @@ const PostSchema = new mongoose.Schema({
   tags: [String],
   categories: [String],
   topics: [String],
+  // Hashtags and Mentions
+  hashtags: [{
+    type: String,
+    lowercase: true,
+    trim: true
+  }],
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   distributionStage: {
     type: String,
     enum: ['testing', 'expanding', 'viral', 'saturated'],

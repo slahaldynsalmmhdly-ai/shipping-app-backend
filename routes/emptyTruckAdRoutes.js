@@ -5,17 +5,27 @@ const EmptyTruckAd = require("../models/EmptyTruckAd");
 const User = require("../models/User");
 const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
+const { extractHashtags, extractMentionIds } = require('../utils/textParser');
+const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
 
 // @desc    Create a new empty truck ad
 // @route   POST /api/v1/emptytruckads
 // @access  Private
 router.post("/", protect, async (req, res) => {
   try {
-    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media, scheduledTime } = req.body;
+    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media, scheduledTime, hashtags, mentions } = req.body;
 
     if (!currentLocation || !preferredDestination || !availabilityDate || !truckType) {
       return res.status(400).json({ message: "Please fill all required fields" });
     }
+
+    // استخراج الهاشتاقات والإشارات من الملاحظات الإضافية
+    const extractedHashtags = additionalNotes ? extractHashtags(additionalNotes) : [];
+    const extractedMentions = additionalNotes ? extractMentionIds(additionalNotes) : [];
+    
+    // دمج الهاشتاقات والإشارات المستخرجة مع تلك المرسلة من الواجهة الأمامية
+    const finalHashtags = [...new Set([...extractedHashtags, ...(hashtags || [])])];
+    const finalMentions = [...new Set([...extractedMentions, ...(mentions || [])])];
 
     const emptyTruckAd = await EmptyTruckAd.create({
       user: req.user.id,
@@ -27,6 +37,8 @@ router.post("/", protect, async (req, res) => {
       media,
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
+      hashtags: finalHashtags,
+      mentions: finalMentions
     });
     
     // إرسال إشعارات للمتابعين عند نشر إعلان شاحنة فارغة جديد
@@ -37,6 +49,15 @@ router.post("/", protect, async (req, res) => {
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+      
+      // إرسال إشعارات للمستخدمين المشار إليهم
+      if (finalMentions && finalMentions.length > 0) {
+        try {
+          await createMentionNotifications(req.user.id, finalMentions, emptyTruckAd._id, 'emptyTruckAd');
+        } catch (mentionError) {
+          console.error('خطأ في إرسال إشعارات الإشارات:', mentionError);
+        }
       }
     }
 

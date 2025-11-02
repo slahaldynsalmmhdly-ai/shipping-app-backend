@@ -20,6 +20,8 @@ const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
 const followRoutes = require("./routes/followRoutes"); // Added followRoutes
 const fleetAuthRoutes = require("./routes/fleetAuthRoutes"); // Added fleetAuthRoutes
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
+const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
+const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -92,6 +94,8 @@ app.use("/api/v1/reports", reportRoutes); // Mount report routes
 app.use("/api/v1/follow", followRoutes); // Mount follow routes
 app.use("/api/fleet", fleetAuthRoutes); // Mount fleet auth routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes
+app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
+app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
 
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {

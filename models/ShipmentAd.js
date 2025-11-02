@@ -125,7 +125,16 @@ const ShipmentAdSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   }],
-
+  // Hashtags and Mentions
+  hashtags: [{
+    type: String,
+    lowercase: true,
+    trim: true
+  }],
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
 });
 
 module.exports = mongoose.model("ShipmentAd", ShipmentAdSchema);

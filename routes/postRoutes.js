@@ -6,13 +6,15 @@ const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
 const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
+const { extractHashtags, extractMentionIds } = require('../utils/textParser');
+const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
 
 // @desc    Create a new post
 // @route   POST /api/v1/posts
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media, scheduledTime } = req.body;
+    const { text, media, scheduledTime, hashtags, mentions } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -20,12 +22,22 @@ router.post('/', protect, async (req, res) => {
       return res.status(404).json({ msg: 'User not found' });
     }
 
+    // استخراج الهاشتاقات والإشارات من النص
+    const extractedHashtags = text ? extractHashtags(text) : [];
+    const extractedMentions = text ? extractMentionIds(text) : [];
+    
+    // دمج الهاشتاقات والإشارات المستخرجة مع تلك المرسلة من الواجهة الأمامية
+    const finalHashtags = [...new Set([...extractedHashtags, ...(hashtags || [])])];
+    const finalMentions = [...new Set([...extractedMentions, ...(mentions || [])])];
+
     const newPost = new Post({
       user: req.user.id,
       text,
       media: media || [], // media should be an array of { url, type: 'image' | 'video' }
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
+      hashtags: finalHashtags,
+      mentions: finalMentions
     });
 
     const post = await newPost.save();
@@ -38,6 +50,15 @@ router.post('/', protect, async (req, res) => {
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+      
+      // إرسال إشعارات للمستخدمين المشار إليهم
+      if (finalMentions && finalMentions.length > 0) {
+        try {
+          await createMentionNotifications(req.user.id, finalMentions, post._id, 'post');
+        } catch (mentionError) {
+          console.error('خطأ في إرسال إشعارات الإشارات:', mentionError);
+        }
       }
     }
     

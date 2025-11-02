@@ -5,6 +5,8 @@ const ShipmentAd = require("../models/ShipmentAd");
 const User = require("../models/User"); // Assuming User model is needed for populating user info
 const { applySmartFeedAlgorithm, recordImpression, recordInteraction } = require('../utils/smartFeedAlgorithm');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
+const { extractHashtags, extractMentionIds } = require('../utils/textParser');
+const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
 
 // @desc    Create a new shipment ad
 // @route   POST /api/v1/shipmentads
@@ -19,6 +21,8 @@ router.post("/", protect, async (req, res) => {
       description,
       media,
       scheduledTime,
+      hashtags,
+      mentions
     } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
@@ -26,6 +30,14 @@ router.post("/", protect, async (req, res) => {
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
+
+    // استخراج الهاشتاقات والإشارات من الوصف
+    const extractedHashtags = description ? extractHashtags(description) : [];
+    const extractedMentions = description ? extractMentionIds(description) : [];
+    
+    // دمج الهاشتاقات والإشارات المستخرجة مع تلك المرسلة من الواجهة الأمامية
+    const finalHashtags = [...new Set([...extractedHashtags, ...(hashtags || [])])];
+    const finalMentions = [...new Set([...extractedMentions, ...(mentions || [])])];
 
     const newShipmentAd = new ShipmentAd({
       user: req.user.id,
@@ -37,6 +49,8 @@ router.post("/", protect, async (req, res) => {
       media: media || [], // media should be an array of { url, type: \'image\' | \'video\' }
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
+      hashtags: finalHashtags,
+      mentions: finalMentions
     });
 
     const shipmentAd = await newShipmentAd.save();
@@ -49,6 +63,15 @@ router.post("/", protect, async (req, res) => {
       } catch (notifError) {
         console.error('خطأ في إرسال الإشعارات:', notifError);
         // لا نوقف العملية إذا فشل إرسال الإشعارات
+      }
+      
+      // إرسال إشعارات للمستخدمين المشار إليهم
+      if (finalMentions && finalMentions.length > 0) {
+        try {
+          await createMentionNotifications(req.user.id, finalMentions, shipmentAd._id, 'shipmentAd');
+        } catch (mentionError) {
+          console.error('خطأ في إرسال إشعارات الإشارات:', mentionError);
+        }
       }
     }
     
