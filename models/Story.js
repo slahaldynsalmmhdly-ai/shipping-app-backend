@@ -9,12 +9,12 @@ const StorySchema = new mongoose.Schema({
   media: {
     url: {
       type: String,
-      required: true,
+      required: false, // جعل الحقل اختياري لدعم القصص النصية
     },
     type: {
       type: String,
       enum: ['image', 'video'],
-      required: true,
+      required: false, // جعل الحقل اختياري لدعم القصص النصية
     },
     thumbnail: String, // للفيديوهات
     width: Number,

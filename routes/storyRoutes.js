@@ -11,23 +11,31 @@ router.post('/', protect, async (req, res) => {
   try {
     const { media, text, backgroundColor } = req.body;
 
-    // التحقق من وجود وسائط
-    if (!media || !media.url || !media.type) {
-      return res.status(400).json({ message: 'يجب إضافة صورة أو فيديو للقصة' });
+    // التحقق من وجود محتوى (إما وسائط أو نص)
+    const hasMedia = media && media.url && media.type;
+    const hasText = text && text.trim() !== '';
+    
+    if (!hasMedia && !hasText) {
+      return res.status(400).json({ message: 'يجب إضافة محتوى للقصة (صورة أو فيديو أو نص)' });
     }
 
     // حساب وقت انتهاء الصلاحية (24 ساعة من الآن)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    const newStory = new Story({
+    const storyData = {
       user: req.user.id,
-      media,
       text: text || '',
       backgroundColor: backgroundColor || '#000000',
       expiresAt,
-    });
+    };
 
+    // إضافة media فقط إذا كان موجوداً
+    if (hasMedia) {
+      storyData.media = media;
+    }
+
+    const newStory = new Story(storyData);
     const story = await newStory.save();
     
     // إرجاع القصة مع معلومات المستخدم
