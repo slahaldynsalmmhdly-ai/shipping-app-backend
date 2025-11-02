@@ -312,5 +312,50 @@ router.get("/me/notifications/following-posts/unread-count", protect, async (req
   }
 });
 
+// @desc    Get users by type (for suggestions)
+// @route   GET /api/v1/users
+// @access  Private
+router.get("/", protect, async (req, res) => {
+  try {
+    const { userType, limit = 10, skip = 0 } = req.query;
+    
+    const filter = {};
+    
+    // فلترة حسب نوع المستخدم إذا تم تحديده
+    if (userType) {
+      filter.userType = userType;
+    }
+    
+    // استبعاد المستخدم الحالي من النتائج
+    filter._id = { $ne: req.user.id };
+    
+    const users = await User.find(filter)
+      .select('name avatar userType companyName coverImage rating')
+      .limit(parseInt(limit))
+      .skip(parseInt(skip))
+      .sort({ createdAt: -1 });
+    
+    // حساب التقييم لكل مستخدم
+    const usersWithRating = await Promise.all(
+      users.map(async (user) => {
+        const reviews = await Review.find({ user: user._id });
+        const rating = reviews.length > 0
+          ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+          : 0;
+        
+        return {
+          ...user.toObject(),
+          rating: parseFloat(rating.toFixed(1))
+        };
+      })
+    );
+    
+    res.json({ users: usersWithRating });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
 
