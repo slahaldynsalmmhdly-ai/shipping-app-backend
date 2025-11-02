@@ -8,10 +8,7 @@ const PostSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: function() {
-      // Text is required only for regular posts, not for reposts
-      return !this.isRepost;
-    },
+    required: false, // النص اختياري - يمكن إرسال صور أو فيديوهات فقط
   },
   media: [
     {
@@ -147,7 +144,10 @@ const PostSchema = new mongoose.Schema({
     default: 0,
   },
   tags: [String],
-  categories: [String],
+  categories: [{
+    type: String,
+    enum: ['مشروع عادي', 'طلب نقل حمولة', 'استفسار وسؤال', 'طلب عمل', 'اعلان وظيفة', 'بين معدات شاحنة', 'ورشة لحاجات سواق', 'قطاع طريق', 'دينا', 'بيع قلب', 'ورشة', 'فيديو', 'صورة', 'شخص يحتاج نقل']
+  }],
   topics: [String],
   // Hashtags and Mentions
   hashtags: [{
