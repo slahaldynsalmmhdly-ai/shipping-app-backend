@@ -22,6 +22,7 @@ const fleetAuthRoutes = require("./routes/fleetAuthRoutes"); // Added fleetAuthR
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
 const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
 const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
+const storyRoutes = require("./routes/storyRoutes"); // Added storyRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -96,6 +97,7 @@ app.use("/api/fleet", fleetAuthRoutes); // Mount fleet auth routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes
 app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
 app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
+app.use("/api/v1/stories", storyRoutes); // Mount story routes
 
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {
