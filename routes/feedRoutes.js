@@ -208,7 +208,7 @@ router.get('/', protect, async (req, res) => {
     // توزيع جبري 100%: منشور واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
     console.log(`🔴 قبل توزيع المنشورات: ${allItems.length} عنصر`);
     
-    // حل مباشر وبسيط: تجميع حسب المستخدم وأخذ واحد فقط
+    // حل عشوائي ومتنوع: تجميع حسب المستخدم وأخذ منشور عشوائي
     const userItemsMap = new Map();
     allItems.forEach(item => {
       let userId = null;
@@ -222,17 +222,31 @@ router.get('/', protect, async (req, res) => {
         }
       }
       
-      if (userId && !userItemsMap.has(userId)) {
-        userItemsMap.set(userId, item); // أول منشور فقط لكل مستخدم
+      if (userId) {
+        if (!userItemsMap.has(userId)) {
+          userItemsMap.set(userId, []);
+        }
+        userItemsMap.get(userId).push(item);
       }
     });
     
-    allItems = Array.from(userItemsMap.values());
+    // أخذ منشور عشوائي من كل مستخدم
+    const distributedItems = [];
+    userItemsMap.forEach((userItems, userId) => {
+      const randomIndex = Math.floor(Math.random() * userItems.length);
+      distributedItems.push(userItems[randomIndex]);
+    });
+    
+    allItems = distributedItems;
     console.log(`🔵 بعد توزيع المنشورات: ${allItems.length} عنصر`);
     console.log(`✅ عدد المستخدمين الفريدين: ${userItemsMap.size}`);
+    console.log(`🎲 تم اختيار منشور عشوائي من كل مستخدم`);
     
-    // إعادة الترتيب حسب التاريخ
-    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // خلط عشوائي للمنشورات
+    for (let i = allItems.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allItems[i], allItems[j]] = [allItems[j], allItems[i]];
+    }
     
     // فلترة ذكية: تقليل المنشورات قليلة التفاعل بعد 6 ساعات
     allItems = filterLowEngagementPosts(allItems);
