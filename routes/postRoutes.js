@@ -140,8 +140,27 @@ router.get('/', protect, async (req, res) => {
       filteredPosts.push(post);
     }
 
+    // توزيع 100%: منشور واحد فقط من كل مستخدم (مثل Facebook)
+    const userPostsMap = new Map();
+    filteredPosts.forEach(post => {
+      const userId = post.user._id.toString();
+      if (!userPostsMap.has(userId)) {
+        userPostsMap.set(userId, []);
+      }
+      userPostsMap.get(userId).push(post);
+    });
+    
+    // أخذ أحدث منشور من كل مستخدم
+    const distributedPosts = [];
+    userPostsMap.forEach((userPosts) => {
+      // ترتيب حسب التاريخ (الأحدث أولاً)
+      userPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // أخذ الأحدث فقط
+      distributedPosts.push(userPosts[0]);
+    });
+    
     // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
-    const sortedPosts = filteredPosts.sort((a, b) => {
+    const sortedPosts = distributedPosts.sort((a, b) => {
       const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
       const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
       

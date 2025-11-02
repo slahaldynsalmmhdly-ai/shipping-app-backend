@@ -137,8 +137,27 @@ router.get("/", protect, async (req, res) => {
       filteredAds.push(ad);
     }
 
+    // توزيع 100%: إعلان واحد فقط من كل مستخدم (مثل Facebook)
+    const userAdsMap = new Map();
+    filteredAds.forEach(ad => {
+      const userId = ad.user._id.toString();
+      if (!userAdsMap.has(userId)) {
+        userAdsMap.set(userId, []);
+      }
+      userAdsMap.get(userId).push(ad);
+    });
+    
+    // أخذ أحدث إعلان من كل مستخدم
+    const distributedAds = [];
+    userAdsMap.forEach((userAds) => {
+      // ترتيب حسب التاريخ (الأحدث أولاً)
+      userAds.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // أخذ الأحدث فقط
+      distributedAds.push(userAds[0]);
+    });
+    
     // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
-    const sortedAds = filteredAds.sort((a, b) => {
+    const sortedAds = distributedAds.sort((a, b) => {
       const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
       const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
       
