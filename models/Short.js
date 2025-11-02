@@ -25,6 +25,10 @@ const shortSchema = new mongoose.Schema({
     type: Number, // بالثواني
     required: true
   },
+  // الهاشتاقات
+  hashtags: [{
+    type: String
+  }],
   // تحليل المحتوى بالذكاء الاصطناعي
   tags: [{
     type: String
@@ -106,6 +110,7 @@ const shortSchema = new mongoose.Schema({
 
 // إضافة فهارس لتحسين الأداء
 shortSchema.index({ user: 1, createdAt: -1 });
+shortSchema.index({ hashtags: 1 });
 shortSchema.index({ tags: 1 });
 shortSchema.index({ categories: 1 });
 shortSchema.index({ views: -1 });

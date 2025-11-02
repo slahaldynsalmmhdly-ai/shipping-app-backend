@@ -316,7 +316,7 @@ async function applySmartShortsAlgorithm(shorts, user, viewHistory) {
     // 5. تطبيق التنوع (عدم تكرار من نفس المستخدم)
     const diversifiedShorts = [];
     const userVideoCount = {};
-    const maxVideosPerUser = 1; // حد أقصى فيديو واحد من نفس المستخدم
+    const maxVideosPerUser = 3; // حد أقصى 3 فيديوهات من نفس المستخدم
 
     for (const short of scoredShorts) {
       const userId = short.user._id.toString();

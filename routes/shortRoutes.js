@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Short = require('../models/Short');
 const User = require('../models/User');
+const ShortInteraction = require('../models/ShortInteraction');
 const { protect } = require('../middleware/authMiddleware');
 const { applySmartShortsAlgorithm, analyzeVideoContent } = require('../utils/smartShortsAlgorithm');
 
@@ -62,7 +63,7 @@ router.get('/', protect, async (req, res) => {
  */
 router.post('/', protect, async (req, res) => {
   try {
-    const { title, description, videoUrl, thumbnailUrl, duration } = req.body;
+    const { title, description, videoUrl, thumbnailUrl, duration, hashtags } = req.body;
 
     // إنشاء الشورت
     const short = await Short.create({
@@ -71,7 +72,8 @@ router.post('/', protect, async (req, res) => {
       description,
       videoUrl,
       thumbnailUrl,
-      duration
+      duration,
+      hashtags: hashtags || []
     });
 
     // تحليل محتوى الفيديو بالذكاء الاصطناعي
@@ -109,7 +111,7 @@ router.post('/:id/view', protect, async (req, res) => {
   try {
     const { watchDuration, completed } = req.body;
     const short = await Short.findById(req.params.id);
-
+    
     if (!short) {
       return res.status(404).json({
         success: false,
@@ -117,8 +119,36 @@ router.post('/:id/view', protect, async (req, res) => {
       });
     }
 
+    // تحديث أو إنشاء سجل التفاعل
+    let interaction = await ShortInteraction.findOne({
+      user: req.user._id,
+      short: short._id
+    });
+
+    if (interaction) {
+      // تحديث سجل موجود
+      interaction.updateWatchData(watchDuration || 0, short.duration);
+      interaction.recordRewatch();
+      await interaction.save();
+    } else {
+      // إنشاء سجل جديد
+      interaction = await ShortInteraction.create({
+        user: req.user._id,
+        short: short._id,
+        watchDuration: watchDuration || 0,
+        totalDuration: short.duration,
+        completed: completed || false,
+        hashtags: short.hashtags || []
+      });
+      interaction.updateWatchData(watchDuration || 0, short.duration);
+      await interaction.save();
+    }
+
+    // تحديث الشورت القديم (للتوافق مع الكود القديم)
+    const short2 = await Short.findById(req.params.id);
+
     // التحقق من وجود مشاهدة سابقة
-    const existingView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+    const existingView = short2.viewedBy.find(v => v.user.toString() === req.user._id.toString());
 
     if (existingView) {
       // تحديث المشاهدة الموجودة
@@ -127,15 +157,15 @@ router.post('/:id/view', protect, async (req, res) => {
       existingView.viewedAt = Date.now();
     } else {
       // إضافة مشاهدة جديدة
-      short.viewedBy.push({
+      short2.viewedBy.push({
         user: req.user._id,
         watchDuration: watchDuration || 0,
         completed: completed || false
       });
-      short.views += 1;
+      short2.views += 1;
     }
 
-    await short.save();
+    await short2.save();
 
     res.json({
       success: true,
@@ -163,6 +193,34 @@ router.post('/:id/like', protect, async (req, res) => {
         success: false,
         message: 'الشورت غير موجود'
       });
+    }
+
+    // تحديث سجل التفاعل
+    let interaction = await ShortInteraction.findOne({
+      user: req.user._id,
+      short: short._id
+    });
+
+    let liked = false;
+
+    if (interaction) {
+      // تبديل حالة الإعجاب
+      interaction.liked = !interaction.liked;
+      liked = interaction.liked;
+      interaction.calculateInterestScore();
+      await interaction.save();
+    } else {
+      // إنشاء سجل جديد مع إعجاب
+      interaction = await ShortInteraction.create({
+        user: req.user._id,
+        short: short._id,
+        totalDuration: short.duration,
+        liked: true,
+        hashtags: short.hashtags || []
+      });
+      interaction.calculateInterestScore();
+      await interaction.save();
+      liked = true;
     }
 
     // البحث عن المشاهدة
@@ -193,7 +251,7 @@ router.post('/:id/like', protect, async (req, res) => {
 
     res.json({
       success: true,
-      liked: view ? view.liked : true,
+      liked: liked,
       likes: short.likes
     });
   } catch (error) {
@@ -218,6 +276,28 @@ router.post('/:id/comment', protect, async (req, res) => {
         success: false,
         message: 'الشورت غير موجود'
       });
+    }
+
+    // تحديث سجل التفاعل
+    let interaction = await ShortInteraction.findOne({
+      user: req.user._id,
+      short: short._id
+    });
+
+    if (interaction) {
+      interaction.commented = true;
+      interaction.calculateInterestScore();
+      await interaction.save();
+    } else {
+      interaction = await ShortInteraction.create({
+        user: req.user._id,
+        short: short._id,
+        totalDuration: short.duration,
+        commented: true,
+        hashtags: short.hashtags || []
+      });
+      interaction.calculateInterestScore();
+      await interaction.save();
     }
 
     // البحث عن المشاهدة
@@ -264,6 +344,28 @@ router.post('/:id/share', protect, async (req, res) => {
         success: false,
         message: 'الشورت غير موجود'
       });
+    }
+
+    // تحديث سجل التفاعل
+    let interaction = await ShortInteraction.findOne({
+      user: req.user._id,
+      short: short._id
+    });
+
+    if (interaction) {
+      interaction.shared = true;
+      interaction.calculateInterestScore();
+      await interaction.save();
+    } else {
+      interaction = await ShortInteraction.create({
+        user: req.user._id,
+        short: short._id,
+        totalDuration: short.duration,
+        shared: true,
+        hashtags: short.hashtags || []
+      });
+      interaction.calculateInterestScore();
+      await interaction.save();
     }
 
     // البحث عن المشاهدة
@@ -331,6 +433,80 @@ router.delete('/:id', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء حذف الشورت'
+    });
+  }
+});
+
+module.exports = router;
+
+/**
+ * GET /api/v1/shorts/:id/similar
+ * الحصول على فيديوهات مشابهة لفيديو معين
+ */
+const { getSimilarShorts, getShortsbyHashtags, getRecommendedShorts } = require('../utils/similarShortsAlgorithm');
+
+router.get('/:id/similar', protect, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const similarShorts = await getSimilarShorts(req.params.id, req.user._id, limit);
+
+    res.json({
+      success: true,
+      count: similarShorts.length,
+      data: similarShorts
+    });
+  } catch (error) {
+    console.error('خطأ في جلب الفيديوهات المشابهة:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء جلب الفيديوهات المشابهة'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/shorts/hashtag/:hashtag
+ * الحصول على فيديوهات بهاشتاق معين
+ */
+router.get('/hashtag/:hashtag', protect, async (req, res) => {
+  try {
+    const hashtag = req.params.hashtag;
+    const limit = parseInt(req.query.limit) || 10;
+    const shorts = await getShortsbyHashtags([hashtag], req.user._id, limit);
+
+    res.json({
+      success: true,
+      count: shorts.length,
+      data: shorts
+    });
+  } catch (error) {
+    console.error('خطأ في جلب الفيديوهات بالهاشتاق:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء جلب الفيديوهات'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/shorts/recommended
+ * الحصول على فيديوهات موصى بها بناءً على اهتمامات المستخدم
+ */
+router.get('/recommended', protect, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const recommendedShorts = await getRecommendedShorts(req.user._id, limit);
+
+    res.json({
+      success: true,
+      count: recommendedShorts.length,
+      data: recommendedShorts
+    });
+  } catch (error) {
+    console.error('خطأ في جلب الفيديوهات الموصى بها:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء جلب الفيديوهات الموصى بها'
     });
   }
 });
