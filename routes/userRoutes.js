@@ -312,12 +312,12 @@ router.get("/me/notifications/following-posts/unread-count", protect, async (req
   }
 });
 
-// @desc    Get users by type (for suggestions)
+// @desc    Get users by type (for suggestions and explore)
 // @route   GET /api/v1/users
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const { userType, limit = 10, skip = 0 } = req.query;
+    const { userType, limit = 15, page = 1, search } = req.query;
     
     const filter = {};
     
@@ -326,13 +326,30 @@ router.get("/", protect, async (req, res) => {
       filter.userType = userType;
     }
     
+    // البحث في الاسم أو اسم الشركة أو المدينة
+    if (search && search.trim()) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
     // استبعاد المستخدم الحالي من النتائج
     filter._id = { $ne: req.user.id };
     
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // حساب إجمالي عدد المستخدمين
+    const totalUsers = await User.countDocuments(filter);
+    
     const users = await User.find(filter)
-      .select('name avatar userType companyName coverImage rating')
-      .limit(parseInt(limit))
-      .skip(parseInt(skip))
+      .select('name avatar userType companyName coverImage rating city description')
+      .limit(limitNum)
+      .skip(skip)
       .sort({ createdAt: -1 });
     
     // حساب التقييم لكل مستخدم
@@ -350,7 +367,20 @@ router.get("/", protect, async (req, res) => {
       })
     );
     
-    res.json({ users: usersWithRating });
+    // حساب معلومات الصفحات
+    const totalPages = Math.ceil(totalUsers / limitNum);
+    const hasMore = pageNum < totalPages;
+    
+    res.json({ 
+      users: usersWithRating,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: totalPages,
+        totalItems: totalUsers,
+        itemsPerPage: limitNum,
+        hasMore: hasMore
+      }
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
