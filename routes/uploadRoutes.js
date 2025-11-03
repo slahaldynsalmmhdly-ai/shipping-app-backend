@@ -115,7 +115,9 @@ router.post("/single", protect, (req, res) => {
               optimized: optimizedUrls,
               // إضافة أبعاد الفيديو
               width: dimensions.width,
-              height: dimensions.height
+              height: dimensions.height,
+              // إضافة الصورة المصغرة للفيديو
+              thumbnail: optimizedUrls.thumbnail || optimizedUrls.thumbnailSmall
             });
           })
           .catch(error => {
@@ -125,7 +127,9 @@ router.post("/single", protect, (req, res) => {
               message: "File uploaded successfully",
               filePath: req.file.path,
               fileType: fileType,
-              optimized: optimizedUrls
+              optimized: optimizedUrls,
+              // إضافة الصورة المصغرة حتى في حالة الفشل
+              thumbnail: optimizedUrls.thumbnail || optimizedUrls.thumbnailSmall
             });
           });
       } else {
@@ -181,14 +185,18 @@ router.post("/multiple", protect, (req, res) => {
             optimized: optimizedUrls
           };
           
-          // إذا كان فيديو، نستخرج الأبعاد
+          // إذا كان فيديو، نستخرج الأبعاد والصورة المصغرة
           if (fileType === "video") {
             try {
               const dimensions = await getVideoMetadataFromCloudinary(file.path);
               fileData.width = dimensions.width;
               fileData.height = dimensions.height;
+              // إضافة الصورة المصغرة للفيديو
+              fileData.thumbnail = optimizedUrls.thumbnail || optimizedUrls.thumbnailSmall;
             } catch (error) {
               console.error("Error getting video dimensions:", error);
+              // إضافة الصورة المصغرة حتى في حالة الفشل
+              fileData.thumbnail = optimizedUrls.thumbnail || optimizedUrls.thumbnailSmall;
             }
           }
           
