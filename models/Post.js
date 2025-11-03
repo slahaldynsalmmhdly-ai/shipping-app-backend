@@ -164,6 +164,12 @@ const PostSchema = new mongoose.Schema({
     enum: ['testing', 'expanding', 'viral', 'saturated'],
     default: 'testing',
   },
+  // Scope: local (same country) or global (all countries)
+  scope: {
+    type: String,
+    enum: ['local', 'global'],
+    default: 'global',
+  },
 });
 
 // إضافة فهارس لتحسين الأداء
