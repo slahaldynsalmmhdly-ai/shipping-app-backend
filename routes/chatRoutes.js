@@ -303,6 +303,7 @@ router.get("/conversations/:conversationId/messages", protect, async (req, res) 
       mediaSize: msg.mediaSize,
       mediaDuration: msg.mediaDuration,
       isRead: msg.readBy.length > 1, // More than just the sender
+      reading_id: msg.readBy.find(id => id.toString() !== msg.sender._id.toString()), // Find the ID of the reader (if any) other than the sender
       isSender: msg.sender._id.toString() === req.user.id,
       createdAt: msg.createdAt,
     }));
@@ -386,6 +387,7 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
       messageType: message.messageType,
       content: message.content,
       isRead: false,
+      reading_id: null,
       isSender: true,
       createdAt: message.createdAt,
     };
@@ -479,6 +481,7 @@ router.post(
         mediaSize: message.mediaSize,
         mediaDuration: message.mediaDuration,
         isRead: false,
+      reading_id: null,
         isSender: true,
         createdAt: message.createdAt,
       };
@@ -560,6 +563,7 @@ router.post(
         mediaSize: message.mediaSize,
         mediaDuration: message.mediaDuration,
         isRead: false,
+      reading_id: null,
         isSender: true,
         createdAt: message.createdAt,
       };
@@ -1105,6 +1109,7 @@ router.post(
         fileName: message.fileName,
         mediaSize: message.mediaSize,
         isRead: false,
+      reading_id: null,
         isSender: true,
         createdAt: message.createdAt,
       };
@@ -1180,6 +1185,7 @@ router.post("/conversations/:conversationId/location", protect, async (req, res)
       messageType: message.messageType,
       location: message.location,
       isRead: false,
+      reading_id: null,
       isSender: true,
       createdAt: message.createdAt,
     };
@@ -1254,6 +1260,7 @@ router.post("/conversations/:conversationId/contact", protect, async (req, res) 
       messageType: message.messageType,
       contact: message.contact,
       isRead: false,
+      reading_id: null,
       isSender: true,
       createdAt: message.createdAt,
     };
