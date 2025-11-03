@@ -7,28 +7,22 @@ const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
 
 /**
- * @desc    Get unified feed with scope filtering
+ * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds)
  * @route   GET /api/v1/feed
  * @access  Private
  * 
- * الفلترة:
- * - المنشورات العالمية (scope=global): تظهر للجميع
- * - المنشورات المحلية (scope=local): تظهر فقط لنفس الدولة
- * - الترتيب: الأحدث أولاً
+ * خوارزمية بسيطة:
+ * - ترتيب حسب الوقت (الأحدث أولاً)
+ * - بدون فلترة scope (لأن المنشورات القديمة ما عندها scope)
+ * - pagination ثابت ومستقر
  */
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 20; // زيادة من 10 إلى 20
     const skip = (page - 1) * limit;
 
-    console.log(`📥 جلب الصفحة ${page}`);
-
-    // جلب معلومات المستخدم الحالي
-    const currentUser = await User.findById(req.user.id).select('country').lean();
-    const userCountry = currentUser?.country || '';
-
-    console.log(`🌍 دولة المستخدم: ${userCountry}`);
+    console.log(`📥 جلب الصفحة ${page}, limit: ${limit}`);
 
     // جلب المنشورات العادية
     const posts = await Post.find({
@@ -47,7 +41,7 @@ router.get('/', protect, async (req, res) => {
       })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit * 3)
+      .limit(limit)
       .lean();
 
     // جلب إعلانات الشحن
@@ -59,7 +53,7 @@ router.get('/', protect, async (req, res) => {
       .populate('user', 'name avatar userType companyName country')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit * 3)
+      .limit(limit)
       .lean();
 
     // جلب إعلانات الشاحنات الفارغة
@@ -71,30 +65,13 @@ router.get('/', protect, async (req, res) => {
       .populate('user', 'name avatar userType companyName country')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit * 3)
+      .limit(limit)
       .lean();
 
-    // فلترة المنشورات حسب scope
-    const filterByScope = (items) => {
-      return items.filter(item => {
-        // إذا لم يكن للعنصر user، نتجاهله
-        if (!item.user) return false;
-
-        // إذا كان المنشور عالمي، يظهر للجميع
-        if (item.scope === 'global' || !item.scope) return true;
-
-        // إذا كان المنشور محلي، يظهر فقط لنفس الدولة
-        if (item.scope === 'local') {
-          return item.user.country === userCountry;
-        }
-
-        return true;
-      });
-    };
-
-    const validPosts = filterByScope(posts);
-    const validShipmentAds = filterByScope(shipmentAds);
-    const validEmptyTruckAds = filterByScope(emptyTruckAds);
+    // فلترة العناصر التي لديها user (بعد populate)
+    const validPosts = posts.filter(p => p.user !== null);
+    const validShipmentAds = shipmentAds.filter(s => s.user !== null);
+    const validEmptyTruckAds = emptyTruckAds.filter(e => e.user !== null);
 
     console.log(`📊 منشورات: ${validPosts.length}, إعلانات شحن: ${validShipmentAds.length}, شاحنات فارغة: ${validEmptyTruckAds.length}`);
 
