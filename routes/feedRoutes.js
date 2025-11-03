@@ -2,328 +2,152 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
-const NodeCache = require('node-cache');
-
-// تهيئة التخزين المؤقت (Cache)
-// TTL (Time To Live) لمدة 60 ثانية للخلاصة
-const feedCache = new NodeCache({ stdTTL: 60 });
-// Cache للتفضيلات لمدة ساعة واحدة
-const userPreferencesCache = new NodeCache({ stdTTL: 3600 });
-
 const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
 
 /**
- * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds) with optimized performance
- * @route   GET /api/v1/feed
+ * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds) with local/global filter
+ * @route   GET /api/v1/feed?scope=local|global
  * @access  Private
  * 
- * التحسينات المطبقة:
- * - إزالة الخوارزمية الذكية البطيئة (100+ استدعاء API)
- * - استخدام pagination بسيط وسريع
- * - تقليل استعلامات قاعدة البيانات
- * - إضافة cache ذكي
- * - النتيجة: تحميل في 2-3 ثوانٍ بدلاً من 5 دقائق
+ * الميزات الجديدة:
+ * - ميزة محلي/عالمي: scope=local (نفس الدولة) أو scope=global (كل الدول)
+ * - خوارزمية بسيطة: ترتيب حسب الوقت (الأحدث أولاً) فقط
+ * - بدون تعقيدات: لا توجد نقاط تفاعل أو خوارزميات معقدة
  */
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const userId = req.user.id;
-    const limit = parseInt(req.query.limit) || 3; // استخدام limit من query parameter (افتراضي 3)
+    const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const scope = req.query.scope || 'global'; // local أو global
 
-    // تم تعطيل الـ cache مؤقتاً لحل مشكلة التكرار
-    // السبب: الـ cache القديم يحتوي على بيانات مكررة
-    // سيتم إعادة تفعيله بعد التأكد من حل المشكلة
-    const cacheKey = `feed_${userId}_page_${page}`;
-    // if (page === 1) {
-    //   const cachedData = feedCache.get(cacheKey);
-    //   if (cachedData) {
-    //     console.log('✅ Cache Hit - سرعة فائقة!');
-    //     return res.json(cachedData);
-    //   }
-    // }
-    console.log('⚠️ Cache معطل مؤقتاً - جلب بيانات جديدة');
+    console.log(`📥 جلب الصفحة ${page} - النطاق: ${scope}`);
 
-    console.log(`📥 جلب الصفحة ${page} للمستخدم ${userId}`);
-    const startTime = Date.now();
+    // جلب معلومات المستخدم الحالي
+    const currentUser = await User.findById(req.user.id).select('country').lean();
+    const userCountry = currentUser?.country || '';
 
-    // جلب معلومات المستخدم الحالي (following فقط - بدون notifications لتوفير الوقت)
-    const currentUser = await User.findById(req.user.id).select('following').lean();
-    const following = currentUser?.following || [];
-    
-    // استراتيجية ذكية: جلب عدد كبير لضمان وجود منشورات كافية بعد فلترة المتابعين
-    // إذا limit=3 نجلب 100 منشور من كل نوع (300 إجمالاً)
-    // هذا يضمن وجود منشورات كافية حتى بعد استبعاد المتابعين
-    const fetchLimit = 100; // ثابت لضمان الكفاية
-    
-    // حساب skip لكل نوع بناءً على الصفحة
-    const typeSkip = Math.floor(skip / 3);
-    
-    // اختيار 20% من المتابَعين عشوائياً
-    const selectedFollowing = selectRandomFollowing(following, 0.2);
-    console.log(`👥 عدد المتابَعين الكلي: ${following.length}, المختارين (20%): ${selectedFollowing.length}`);
-    
-    // جلب المنشورات العادية من غير المتابَعين
-    const posts = await Post.find({ 
+    console.log(`🌍 دولة المستخدم: ${userCountry}`);
+
+    // بناء فلتر الدولة
+    let countryFilter = {};
+    if (scope === 'local' && userCountry) {
+      // محلي: فقط نفس الدولة
+      countryFilter = { country: userCountry };
+      console.log(`🏠 وضع محلي: عرض منشورات من ${userCountry} فقط`);
+    } else {
+      // عالمي: كل الدول
+      console.log(`🌐 وضع عالمي: عرض منشورات من جميع الدول`);
+    }
+
+    // جلب المنشورات العادية
+    const posts = await Post.find({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { 
-        $ne: req.user.id, // إخفاء منشورات المستخدم نفسه
-        $nin: following // إخفاء منشورات جميع المتابَعين
-      }
+      user: { $ne: req.user.id }
     })
-      .populate('user', 'name avatar userType companyName') // تقليل الحقول
       .populate({
-        path: 'originalPost',
-        select: 'text user createdAt', // تقليل الحقول
-        populate: {
-          path: 'user',
-          select: 'name avatar'
-        }
+        path: 'user',
+        select: 'name avatar userType companyName country',
+        match: countryFilter // فلترة حسب الدولة
       })
-      .sort({ createdAt: -1 })
-      .skip(typeSkip)
-      .limit(fetchLimit)
-      .lean();
-    
-    // جلب منشورات المتابَعين المختارين (20%)
-    const followingPosts = selectedFollowing.length > 0 ? await Post.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $in: selectedFollowing }
-    })
-      .populate('user', 'name avatar userType companyName')
       .populate({
         path: 'originalPost',
         select: 'text user createdAt',
         populate: {
           path: 'user',
-          select: 'name avatar'
+          select: 'name avatar country'
         }
       })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean() : [];
-    
-    console.log(`📝 منشورات المتابَعين: ${followingPosts.length}`);
-    
-    // جلب إعلانات الشحن من غير المتابَعين
-    const shipmentAds = await ShipmentAd.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { 
-        $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات جميع المتابَعين
-      }
-    })
-      .populate('user', 'name avatar userType companyName')
-      .sort({ createdAt: -1 })
-      .skip(typeSkip)
-      .limit(fetchLimit)
+      .sort({ createdAt: -1 }) // الأحدث أولاً
+      .skip(skip)
+      .limit(limit * 3) // نجلب أكثر لضمان وجود بيانات بعد الفلترة
       .lean();
-    
-    // جلب إعلانات شحن المتابَعين المختارين (20%)
-    const followingShipmentAds = selectedFollowing.length > 0 ? await ShipmentAd.find({ 
+
+    // جلب إعلانات الشحن
+    const shipmentAds = await ShipmentAd.find({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $in: selectedFollowing }
+      user: { $ne: req.user.id }
     })
-      .populate('user', 'name avatar userType companyName')
+      .populate({
+        path: 'user',
+        select: 'name avatar userType companyName country',
+        match: countryFilter
+      })
       .sort({ createdAt: -1 })
-      .limit(20)
-      .lean() : [];
-    
-    console.log(`🚚 إعلانات شحن المتابَعين: ${followingShipmentAds.length}`);
-    
-    // جلب إعلانات الشاحنات الفارغة من غير المتابَعين
-    const emptyTruckAds = await EmptyTruckAd.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { 
-        $ne: req.user.id, // إخفاء إعلانات المستخدم نفسه
-        $nin: following // إخفاء إعلانات جميع المتابَعين
-      }
-    })
-      .populate('user', 'name avatar userType companyName')
-      .sort({ createdAt: -1 })
-      .skip(typeSkip)
-      .limit(fetchLimit)
+      .skip(skip)
+      .limit(limit * 3)
       .lean();
-    
-    // جلب إعلانات شاحنات فارغة للمتابَعين المختارين (20%)
-    const followingEmptyTruckAds = selectedFollowing.length > 0 ? await EmptyTruckAd.find({ 
+
+    // جلب إعلانات الشاحنات الفارغة
+    const emptyTruckAds = await EmptyTruckAd.find({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $in: selectedFollowing }
+      user: { $ne: req.user.id }
     })
-      .populate('user', 'name avatar userType companyName')
+      .populate({
+        path: 'user',
+        select: 'name avatar userType companyName country',
+        match: countryFilter
+      })
       .sort({ createdAt: -1 })
-      .limit(20)
-      .lean() : [];
-    
-    console.log(`🚛 إعلانات شاحنات فارغة للمتابَعين: ${followingEmptyTruckAds.length}`);
-    
+      .skip(skip)
+      .limit(limit * 3)
+      .lean();
+
+    // فلترة العناصر التي لديها user (بعد populate)
+    const validPosts = posts.filter(p => p.user !== null);
+    const validShipmentAds = shipmentAds.filter(s => s.user !== null);
+    const validEmptyTruckAds = emptyTruckAds.filter(e => e.user !== null);
+
+    console.log(`📊 منشورات: ${validPosts.length}, إعلانات شحن: ${validShipmentAds.length}, شاحنات فارغة: ${validEmptyTruckAds.length}`);
+
     // إضافة نوع لكل عنصر
-    const postsWithType = posts.map(p => ({ ...p, itemType: 'post' }));
-    const followingPostsWithType = followingPosts.map(p => ({ ...p, itemType: 'post', fromFollowing: true }));
-    const shipmentAdsWithType = shipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
-    const followingShipmentAdsWithType = followingShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd', fromFollowing: true }));
-    const emptyTruckAdsWithType = emptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
-    const followingEmptyTruckAdsWithType = followingEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd', fromFollowing: true }));
-    
-    // دمج جميع العناصر في مصفوفة واحدة (بما في ذلك منشورات المتابَعين)
+    const postsWithType = validPosts.map(p => ({ ...p, itemType: 'post' }));
+    const shipmentAdsWithType = validShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
+    const emptyTruckAdsWithType = validEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
+
+    // دمج جميع العناصر
     let allItems = [
-      ...postsWithType, 
-      ...followingPostsWithType,
-      ...shipmentAdsWithType, 
-      ...followingShipmentAdsWithType,
-      ...emptyTruckAdsWithType,
-      ...followingEmptyTruckAdsWithType
+      ...postsWithType,
+      ...shipmentAdsWithType,
+      ...emptyTruckAdsWithType
     ];
-    
-    console.log(`📊 عدد العناصر قبل إزالة التكرار: ${allItems.length}`);
-    
-    // إزالة التكرار بناءً على _id الفريد (الحل النهائي لمشكلة التكرار)
+
+    // إزالة التكرار
     const uniqueItemsMap = new Map();
     allItems.forEach(item => {
       const itemId = item._id.toString();
       if (!uniqueItemsMap.has(itemId)) {
         uniqueItemsMap.set(itemId, item);
-      } else {
-        console.log(`⚠️ تم اكتشاف تكرار: ${itemId} - النوع: ${item.itemType}`);
       }
     });
     allItems = Array.from(uniqueItemsMap.values());
-    
-    console.log(`✅ عدد العناصر بعد إزالة التكرار: ${allItems.length}`);
-    
-    // تم إزالة Fallback لتجنب التحميل المزدوج
-    // إذا كانت الخلاصة فارغة، نرجع مصفوفة فارغة
-    if (allItems.length === 0) {
-      console.log('⚠️ لا توجد منشورات متاحة بعد فلترة المتابعين');
-    }
-    
-    // توزيع جبري 100%: منشور واحد فقط لكل مستخدم (مثل فيسبوك ولينكد إن)
-    console.log(`🔴 قبل توزيع المنشورات: ${allItems.length} عنصر`);
-    
-    // حل عشوائي ومتنوع: تجميع حسب المستخدم وأخذ منشور عشوائي
-    const userItemsMap = new Map();
-    allItems.forEach(item => {
-      let userId = null;
-      if (item.user) {
-        if (typeof item.user === 'object' && item.user._id) {
-          userId = item.user._id.toString();
-        } else if (typeof item.user === 'string') {
-          userId = item.user;
-        } else {
-          userId = item.user.toString();
-        }
-      }
-      
-      if (userId) {
-        if (!userItemsMap.has(userId)) {
-          userItemsMap.set(userId, []);
-        }
-        userItemsMap.get(userId).push(item);
-      }
-    });
-    
-    // أخذ أحدث منشور من كل مستخدم (مستقر للـ pagination)
-    const distributedItems = [];
-    userItemsMap.forEach((userItems, userId) => {
-      // ترتيب حسب التاريخ (الأحدث أولاً)
-      userItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      // أخذ الأحدث فقط
-      distributedItems.push(userItems[0]);
-    });
-    
-    allItems = distributedItems;
-    console.log(`🔵 بعد توزيع المنشورات: ${allItems.length} عنصر`);
-    console.log(`✅ عدد المستخدمين الفريدين: ${userItemsMap.size}`);
-    console.log(`✅ تم اختيار أحدث منشور من كل مستخدم (ترتيب مستقر)`);
-    
-    // ترتيب ذكي حسب التفاعلات (الأكثر تفاعلاً أولاً)
-    allItems.sort((a, b) => {
-      // حساب نقاط التفاعل
-      const getEngagementScore = (item) => {
-        const likes = item.likes?.length || 0;
-        const comments = item.comments?.length || 0;
-        const shares = item.shares?.length || 0;
-        
-        // التعليقات أهم من الإعجابات، والمشاركات الأهم
-        const engagementScore = likes + (comments * 2) + (shares * 3);
-        
-        // مكافأة المنشورات الجديدة (أقل من 24 ساعة)
-        const ageInHours = (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
-        const freshnessBonus = ageInHours < 24 ? 10 : 0;
-        
-        return engagementScore + freshnessBonus;
-      };
-      
-      const scoreA = getEngagementScore(a);
-      const scoreB = getEngagementScore(b);
-      
-      return scoreB - scoreA; // الأعلى نقاطاً أولاً
-    });
-    
-    console.log(`📈 تم ترتيب المنشورات حسب التفاعلات`);
-    
-    // فلترة ذكية: تقليل المنشورات قليلة التفاعل بعد 6 ساعات
-    allItems = filterLowEngagementPosts(allItems);
-    
-    // مراقبة التفاعل الذكي: ترتيب حسب تفاعل المستخدم
-    allItems = await applySmartEngagementTracking(allItems, userId);
-    
+
+    // ترتيب بسيط حسب الوقت (الأحدث أولاً)
+    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    console.log(`✅ إجمالي العناصر بعد الفلترة: ${allItems.length}`);
+
     // أخذ العدد المطلوب فقط
-    let paginatedItems = allItems.slice(0, limit);
-    
-    // فحص نهائي: التأكد من عدم وجود تكرار في البيانات النهائية
-    const finalCheck = new Set();
-    const duplicatesFound = [];
-    paginatedItems = paginatedItems.filter(item => {
-      const itemId = item._id.toString();
-      if (finalCheck.has(itemId)) {
-        duplicatesFound.push(itemId);
-        console.log(`🛑 تم إيقاف تكرار في البيانات النهائية: ${itemId}`);
-        return false;
-      }
-      finalCheck.add(itemId);
-      return true;
-    });
-    
-    if (duplicatesFound.length > 0) {
-      console.log(`⚠️ تم إيقاف ${duplicatesFound.length} تكرار في البيانات النهائية`);
-    } else {
-      console.log(`✅ لا يوجد تكرار في البيانات النهائية`);
-    }
-    
-    // تحديد ما إذا كان هناك المزيد من العناصر
-    // إذا كان عدد العناصر المتاحة أكبر من limit، يعني هناك المزيد
+    const paginatedItems = allItems.slice(0, limit);
     const hasMore = allItems.length > limit;
-    
+
     const responseData = {
       items: paginatedItems,
       pagination: {
         currentPage: page,
         itemsPerPage: limit,
-        hasMore: hasMore
+        hasMore: hasMore,
+        scope: scope // إرجاع النطاق الحالي
       }
     };
 
-    const endTime = Date.now();
-    console.log(`✅ تم جلب ${paginatedItems.length} عنصر في ${endTime - startTime}ms`);
-
-    // تم تعطيل حفظ البيانات في cache مؤقتاً
-    // if (page === 1) {
-    //   feedCache.set(cacheKey, responseData);
-    //   console.log('💾 تم حفظ البيانات في Cache');
-    // }
-    console.log('🚫 Cache معطل - لن يتم حفظ البيانات');
-
     res.json(responseData);
-    
+
   } catch (err) {
     console.error('❌ خطأ في جلب الخلاصة:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
@@ -331,284 +155,48 @@ router.get('/', protect, async (req, res) => {
 });
 
 /**
- * مراقبة التفاعل الذكي: ترتيب المنشورات حسب تفاعل المستخدم
- * 
- * الفكرة:
- * - إذا تفاعل المستخدم مع منشور (تعليق، إعجاب، مشاركة)
- * - نعرض له منشورات مشابهة (نفس النوع: قصص، أخبار، إلخ)
- * - نرتب المنشورات حسب التشابه مع ما يفضله المستخدم
- * 
- * التصنيف:
- * - قصص: إذا كان المنشور طويل (أكثر من 200 حرف) ويحتوي على كلمات قصصية
- * - أخبار: إذا كان يحتوي على كلمات إخبارية
- * - عام: باقي المنشورات
- */
-async function applySmartEngagementTracking(items, userId) {
-  try {
-    // جلب تفاعلات المستخدم (آخر 30 يوم)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
-    // جلب المنشورات التي تفاعل معها المستخدم
-    const engagedPosts = await Post.find({
-      $or: [
-        { 'reactions.user': userId },
-        { 'comments.user': userId }
-      ],
-      createdAt: { $gte: thirtyDaysAgo }
-    }).select('text').lean();
-    
-    // تحديد نوع المحتوى المفضل
-    const contentTypes = engagedPosts.map(post => classifyContent(post.text || ''));
-    const preferredType = getMostFrequent(contentTypes) || 'general';
-    
-    console.log(`🧠 المستخدم ${userId} يفضل: ${preferredType}`);
-    
-    // ترتيب المنشورات حسب التفضيل
-    return items.map(item => {
-      const itemType = classifyContent(item.text || '');
-      const score = itemType === preferredType ? 100 : 0;
-      return { ...item, _preferenceScore: score };
-    })
-    .sort((a, b) => {
-      // أولاً: حسب التفضيل
-      if (b._preferenceScore !== a._preferenceScore) {
-        return b._preferenceScore - a._preferenceScore;
-      }
-      // ثانياً: حسب التاريخ
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    })
-    .map(item => {
-      const { _preferenceScore, ...cleanItem } = item;
-      return cleanItem;
-    });
-  } catch (error) {
-    console.error('⚠️ خطأ في مراقبة التفاعل:', error);
-    // في حالة الخطأ، نرجع المنشورات كما هي
-    return items;
-  }
-}
-
-/**
- * تصنيف المحتوى حسب النوع
- */
-function classifyContent(text) {
-  if (!text) return 'general';
-  
-  const lowerText = text.toLowerCase();
-  
-  // قصص: طويل + كلمات قصصية
-  const storyKeywords = ['قصة', 'حكاية', 'رواية', 'كان يا ما كان', 'ذات يوم'];
-  if (text.length > 200 && storyKeywords.some(kw => lowerText.includes(kw))) {
-    return 'story';
-  }
-  
-  // أخبار: كلمات إخبارية
-  const newsKeywords = ['خبر', 'عاجل', 'أعلن', 'صرح', 'أكد', 'أفاد', 'اليوم'];
-  if (newsKeywords.some(kw => lowerText.includes(kw))) {
-    return 'news';
-  }
-  
-  // عام
-  return 'general';
-}
-
-/**
- * إيجاد العنصر الأكثر تكراراً
- */
-function getMostFrequent(arr) {
-  if (arr.length === 0) return null;
-  
-  const frequency = {};
-  arr.forEach(item => {
-    frequency[item] = (frequency[item] || 0) + 1;
-  });
-  
-  return Object.keys(frequency).reduce((a, b) => 
-    frequency[a] > frequency[b] ? a : b
-  );
-}
-
-/**
- * اختيار نسبة عشوائية من المتابَعين
- * @param {Array} following - قائمة المتابَعين
- * @param {Number} percentage - النسبة المئوية (0.2 = 20%)
- * @returns {Array} - قائمة المتابَعين المختارين
- */
-function selectRandomFollowing(following, percentage) {
-  if (!following || following.length === 0) return [];
-  
-  const count = Math.ceil(following.length * percentage);
-  const shuffled = [...following].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
-
-/**
- * توزيع المنشورات: عنصر واحد فقط لكل مستخدم مع توزيع دائري عادل
- * 
- * الهدف:
- * 1. تجنب هيمنة مستخدم واحد على الصفحة الرئيسية
- * 2. توزيع عادل للمحتوى من مستخدمين مختلفين
- * 3. تقليل ظهور المنشورات قليلة التفاعل بعد 6 ساعات
- */
-function distributePostsByUser(items) {
-  console.log(`📦 توزيع المنشورات: عدد العناصر قبل التوزيع = ${items.length}`);
-  
-  const userItemsMap = new Map(); // userId -> [items]
-  
-  // تجميع جميع العناصر حسب المستخدم
-  items.forEach(item => {
-    let userId = null;
-    
-    if (item.user) {
-      if (typeof item.user === 'object' && item.user._id) {
-        userId = item.user._id.toString();
-      } else if (typeof item.user === 'string') {
-        userId = item.user;
-      } else {
-        userId = item.user.toString();
-      }
-    }
-    
-    if (!userId) {
-      console.warn('⚠️ عنصر بدون user ID:', item._id);
-      return;
-    }
-    
-    if (!userItemsMap.has(userId)) {
-      userItemsMap.set(userId, []);
-    }
-    userItemsMap.get(userId).push(item);
-  });
-  
-  console.log(`👥 عدد المستخدمين الفريدين = ${userItemsMap.size}`);
-  
-  // أخذ عنصر واحد فقط من كل مستخدم
-  const distributedItems = [];
-  userItemsMap.forEach((userItems, userId) => {
-    // نرتب عناصر المستخدم حسب التاريخ (الأحدث أولاً)
-    userItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    // نأخذ أحدث عنصر فقط
-    distributedItems.push(userItems[0]);
-    
-    if (userItems.length > 1) {
-      const types = userItems.map(i => i.itemType).join(', ');
-      console.log(`📦 المستخدم ${userId}: ${userItems.length} عنصر (${types}) → أخذنا 1 فقط`);
-    }
-  });
-  
-  console.log(`✅ عدد العناصر بعد التوزيع = ${distributedItems.length}`);
-  
-  // نرتب العناصر حسب التاريخ (الأحدث أولاً)
-  distributedItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  
-  return distributedItems;
-}
-
-/**
- * تقليل ظهور المنشورات قليلة التفاعل بعد 6 ساعات
- * 
- * الخوارزمية:
- * 1. إذا كان المنشور أقل من 6 ساعات → يظهر بشكل طبيعي
- * 2. إذا كان المنشور أكثر من 6 ساعات:
- *    - نحسب معدل التفاعل (likes + comments + shares) / عمر المنشور بالساعات
- *    - إذا كان معدل التفاعل منخفض → نقلل احتمالية ظهوره
- */
-function filterLowEngagementPosts(items) {
-  console.log(`🎯 فلترة المنشورات قليلة التفاعل: عدد العناصر قبل الفلترة = ${items.length}`);
-  
-  const SIX_HOURS = 6 * 60 * 60 * 1000; // 6 ساعات بالميلي ثانية
-  const now = Date.now();
-  
-  const filteredItems = items.filter(item => {
-    const createdAt = new Date(item.createdAt).getTime();
-    const ageInMs = now - createdAt;
-    const ageInHours = ageInMs / (60 * 60 * 1000);
-    
-    // إذا كان المنشور أقل من 6 ساعات → يظهر بشكل طبيعي
-    if (ageInMs < SIX_HOURS) {
-      return true;
-    }
-    
-    // حساب معدل التفاعل
-    const likes = item.likes?.length || item.reactions?.length || 0;
-    const comments = item.comments?.length || 0;
-    const shares = item.shares || 0;
-    const totalEngagement = likes + comments + shares;
-    
-    // معدل التفاعل = إجمالي التفاعل / عمر المنشور بالساعات
-    const engagementRate = totalEngagement / ageInHours;
-    
-    // الحد الأدنى لمعدل التفاعل (0.5 تفاعل/ساعة)
-    // يعني: إذا كان المنشور عمره 10 ساعات، يجب أن يكون عليه 5 تفاعلات على الأقل
-    const MIN_ENGAGEMENT_RATE = 0.5;
-    
-    if (engagementRate < MIN_ENGAGEMENT_RATE) {
-      console.log(`⬇️ تقليل منشور قليل التفاعل: ID=${item._id}, عمر=${ageInHours.toFixed(1)}ساعة, تفاعل=${totalEngagement}, معدل=${engagementRate.toFixed(2)}`);
-      
-      // نعطي فرصة 20% للظهور (بدلاً من حذفه تماماً)
-      return Math.random() < 0.2;
-    }
-    
-    // المنشور لديه تفاعل جيد → يظهر
-    return true;
-  });
-  
-  console.log(`✅ عدد العناصر بعد الفلترة = ${filteredItems.length} (تم تقليل ${items.length - filteredItems.length} منشور)`);
-  
-  return filteredItems;
-}
-
-/**
- * @desc    Get feed statistics (for debugging)
+ * @desc    Get feed statistics
  * @route   GET /api/v1/feed/stats
  * @access  Private
  */
 router.get('/stats', protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id).select('following');
-    const following = currentUser?.following || [];
-    
-    const postsCount = await Post.countDocuments({ 
+    const currentUser = await User.findById(req.user.id).select('country');
+    const userCountry = currentUser?.country || '';
+
+    const postsCount = await Post.countDocuments({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     });
-    
-    const shipmentAdsCount = await ShipmentAd.countDocuments({ 
+
+    const shipmentAdsCount = await ShipmentAd.countDocuments({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     });
-    
-    const emptyTruckAdsCount = await EmptyTruckAd.countDocuments({ 
+
+    const emptyTruckAdsCount = await EmptyTruckAd.countDocuments({
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     });
-    
+
+    // إحصائيات محلية (نفس الدولة)
+    const localPostsCount = await Post.countDocuments({
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      hiddenFromHomeFeedFor: { $ne: req.user.id }
+    }).populate({
+      path: 'user',
+      match: { country: userCountry }
+    });
+
     const responseData = {
       totalPosts: postsCount,
       totalShipmentAds: shipmentAdsCount,
       totalEmptyTruckAds: emptyTruckAdsCount,
       totalItems: postsCount + shipmentAdsCount + emptyTruckAdsCount,
-      followingCount: following.length
+      userCountry: userCountry
     };
-    
-    res.json(responseData);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Server Error', error: err.message });
-  }
-});
 
-/**
- * @desc    Clear feed cache (for testing/debugging)
- * @route   POST /api/v1/feed/clear-cache
- * @access  Private
- */
-router.post('/clear-cache', protect, async (req, res) => {
-  try {
-    feedCache.flushAll();
-    userPreferencesCache.flushAll();
-    res.json({ message: 'Cache cleared successfully' });
+    res.json(responseData);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
