@@ -58,7 +58,7 @@ const UserSchema = new mongoose.Schema({
   },
   country: {
     type: String,
-    default: "",
+    required: true,
   },
   streetName: {
     type: String,

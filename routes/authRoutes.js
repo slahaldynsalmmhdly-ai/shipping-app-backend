@@ -12,7 +12,7 @@ const admin = require("../config/firebase"); // استيراد Firebase Admin SD
 router.post(
   "/register",
   asyncHandler(async (req, res) => {
-    const { name, email, password, userType, phone, companyName } = req.body;
+    const { name, email, password, userType, phone, companyName, country } = req.body;
 
     const userExists = await User.findOne({ email });
 
@@ -27,6 +27,7 @@ router.post(
       email,
       password,
       userType,
+      country,
     };
 
     // Add optional fields if provided
@@ -49,6 +50,7 @@ router.post(
           userType: user.userType,
           phone: user.phone,
           companyName: user.companyName,
+          country: user.country,
         },
       });
     } else {
@@ -88,6 +90,7 @@ router.post(
           avatar: user.avatar,
           isOnline: user.isOnline,
           lastSeen: user.lastSeen,
+          country: user.country,
         },
       });
     } else {
@@ -103,7 +106,7 @@ router.post(
 router.post(
   "/firebase-login",
   asyncHandler(async (req, res) => {
-    const { idToken, userType } = req.body; // userType يمكن أن يأتي من الواجهة الأمامية لتحديد نوع المستخدم عند التسجيل لأول مرة
+    const { idToken, userType, country } = req.body; // userType و country يمكن أن يأتي من الواجهة الأمامية لتحديد نوع المستخدم والدولة عند التسجيل لأول مرة
 
     if (!idToken) {
       res.status(400);
@@ -126,6 +129,7 @@ router.post(
           // لا نقوم بتخزين كلمة مرور هنا لأن المصادقة تتم عبر Firebase
           userType: userType || "individual", // تعيين نوع المستخدم الافتراضي أو استخدام ما تم توفيره
           firebaseUid, // تخزين Firebase UID لربط المستخدمين
+          country: country || "", // تخزين الدولة
         });
       } else if (!user.firebaseUid) {
         // إذا كان المستخدم موجودًا ولكن ليس لديه firebaseUid، قم بتحديثه
