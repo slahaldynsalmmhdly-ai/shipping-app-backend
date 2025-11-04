@@ -13,6 +13,7 @@ const emptyTruckAdRoutes = require("./routes/emptyTruckAdRoutes"); // Added empt
 const userRoutes = require("./routes/userRoutes"); // Added userRoutes
 const exploreRoutes = require("./routes/exploreRoutes"); // Added exploreRoutes
 const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
+const typingIndicatorRoutes = require("./routes/typingIndicator"); // Added typingIndicator
 const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
 const callLogRoutes = require("./routes/callLogRoutes"); // Added callLogRoutes
 const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
@@ -89,6 +90,7 @@ app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad ro
 app.use("/api/v1/users", userRoutes); // Mount user routes
 app.use("/api/v1/explore", exploreRoutes); // Mount explore routes
 app.use("/api/v1/chat", chatRoutes); // Mount chat routes
+app.use("/api/v1/chat", typingIndicatorRoutes); // Mount typing indicator routes
 app.use("/api/v1/search", searchRoutes); // Mount search routes
 app.use("/api/v1/call-logs", callLogRoutes); // Mount call log routes
 app.use("/api/v1/reports", reportRoutes); // Mount report routes
