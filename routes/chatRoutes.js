@@ -155,6 +155,30 @@ router.get("/conversations", protect, async (req, res) => {
   }
 });
 
+// @desc    Get total unread messages count for the logged-in user
+// @route   GET /api/v1/chat/unread-count
+// @access  Private
+router.get("/unread-count", protect, async (req, res) => {
+  try {
+    // Get all conversations for the user
+    const conversations = await Conversation.find({
+      participants: req.user.id,
+    });
+
+    // Calculate total unread count
+    let totalUnread = 0;
+    conversations.forEach((conv) => {
+      const userUnreadCount = conv.unreadCount.get(req.user.id) || 0;
+      totalUnread += userUnreadCount;
+    });
+
+    res.json({ totalUnreadCount: totalUnread });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 // @desc    Get or create a conversation with another user
 // @route   POST /api/v1/chat/conversations
 // @access  Private
