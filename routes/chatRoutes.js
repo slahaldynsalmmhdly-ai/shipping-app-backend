@@ -420,6 +420,12 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
     // إرسال الرد للعميل
     res.status(201).json(formattedMessage);
 
+    // إرسال الرسالة عبر Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(conversationId).emit('message:new', formattedMessage);
+    }
+
     // التحقق من تفعيل البوت للطرف الآخر (إذا كان شركة)
     const otherParticipantId = conversation.participants.find(
       (p) => p.toString() !== req.user.id
@@ -466,6 +472,11 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
           content: msg.content || '[صورة]'
         }));
 
+        // إرسال إشعار أن البوت يكتب
+        if (io) {
+          io.to(conversationId).emit('bot:typing', { isTyping: true });
+        }
+
         // معالجة الرسالة بالبوت
         const botResult = await processChatMessage(
           content.trim(),
@@ -490,6 +501,37 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
           const currentCount = conversation.unreadCount.get(req.user.id) || 0;
           conversation.unreadCount.set(req.user.id, currentCount + 1);
           await conversation.save();
+
+          // إيقاف إشعار الكتابة
+          if (io) {
+            io.to(conversationId).emit('bot:typing', { isTyping: false });
+          }
+
+          // إرسال رسالة البوت عبر Socket.IO
+          await botMessage.populate('sender', 'name avatar');
+          const botFormattedMessage = {
+            _id: botMessage._id,
+            sender: {
+              _id: botMessage.sender._id,
+              name: botMessage.sender.name,
+              avatar: botMessage.sender.avatar,
+            },
+            messageType: botMessage.messageType,
+            content: botMessage.content,
+            isRead: false,
+            reading_id: null,
+            isSender: false,
+            createdAt: botMessage.createdAt,
+          };
+          
+          if (io) {
+            io.to(conversationId).emit('message:new', botFormattedMessage);
+          }
+        } else {
+          // إيقاف إشعار الكتابة في حالة الفشل
+          if (io) {
+            io.to(conversationId).emit('bot:typing', { isTyping: false });
+          }
         }
       }
     }

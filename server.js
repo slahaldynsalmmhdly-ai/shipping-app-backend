@@ -160,3 +160,77 @@ peerServer.on('disconnect', (client) => {
 
 console.log('PeerJS Server is running on /peerjs');
 
+// Socket.IO Setup
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Store online users: { userId: socketId }
+const onlineUsers = new Map();
+
+// Socket.IO Connection
+io.on('connection', (socket) => {
+  console.log(`✅ Socket connected: ${socket.id}`);
+
+  // User joins
+  socket.on('user:join', (userId) => {
+    onlineUsers.set(userId, socket.id);
+    socket.userId = userId;
+    console.log(`👤 User ${userId} is now online`);
+    
+    // Broadcast to all users that this user is online
+    io.emit('user:online', { userId, isOnline: true });
+  });
+
+  // User typing
+  socket.on('user:typing', ({ conversationId, userId, isTyping }) => {
+    console.log(`✍️ User ${userId} typing in ${conversationId}: ${isTyping}`);
+    socket.to(conversationId).emit('user:typing', { userId, isTyping });
+  });
+
+  // AI Bot typing
+  socket.on('bot:typing', ({ conversationId, isTyping }) => {
+    console.log(`🤖 Bot typing in ${conversationId}: ${isTyping}`);
+    socket.to(conversationId).emit('bot:typing', { isTyping });
+  });
+
+  // Join conversation room
+  socket.on('conversation:join', (conversationId) => {
+    socket.join(conversationId);
+    console.log(`💬 User joined conversation: ${conversationId}`);
+  });
+
+  // Leave conversation room
+  socket.on('conversation:leave', (conversationId) => {
+    socket.leave(conversationId);
+    console.log(`🚪 User left conversation: ${conversationId}`);
+  });
+
+  // New message
+  socket.on('message:send', (data) => {
+    console.log(`📨 New message in ${data.conversationId}`);
+    socket.to(data.conversationId).emit('message:new', data);
+  });
+
+  // Disconnect
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      onlineUsers.delete(socket.userId);
+      console.log(`❌ User ${socket.userId} is now offline`);
+      io.emit('user:online', { userId: socket.userId, isOnline: false });
+    }
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+  });
+});
+
+// Make io available globally
+app.set('io', io);
+
+console.log('🚀 Socket.IO is running');
+
