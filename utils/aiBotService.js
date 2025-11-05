@@ -1,3 +1,4 @@
+const axios = require('axios');
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -5,53 +6,36 @@ const EmptyTruckAd = require('../models/EmptyTruckAd');
 const ShipmentAd = require('../models/ShipmentAd');
 
 /**
- * استدعاء DeepSeek API الرسمي للحصول على رد ذكي
+ * استدعاء DeepSeek API للحصول على رد ذكي
  */
-async function callAIChat(messages) {
+async function callDeepSeekChat(messages) {
   try {
-    console.log('🤖 Calling DeepSeek API...');
     const apiKey = process.env.DEEPSEEK_API_KEY;
     
-    if (!apiKey) {
-      console.error('❌ DEEPSEEK_API_KEY is not configured');
-      throw new Error('DEEPSEEK_API_KEY is not configured');
+    if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
+      throw new Error('DEEPSEEK_API_KEY is not configured properly');
     }
 
-    // تحويل الرسائل إلى صيغة OpenAI (DeepSeek متوافق مع OpenAI)
-    const formattedMessages = messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
-
-    console.log('📝 Sending', formattedMessages.length, 'messages to DeepSeek');
-    
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat', // النموذج الأساسي
-        messages: formattedMessages,
+    const response = await axios.post(
+      'https://api.deepseek.com/v1/chat/completions',
+      {
+        model: 'deepseek-chat',
+        messages: messages,
         temperature: 0.7,
-        max_tokens: 500
-      })
-    });
+        max_tokens: 150,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ DeepSeek API Error:', response.status, errorText);
-      throw new Error(`DeepSeek API Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices[0].message.content;
-    
-    console.log('✅ DeepSeek response received:', text.substring(0, 100));
-    return text;
+    return response.data.choices[0].message.content;
   } catch (error) {
-    console.error('❌ Error calling DeepSeek API:', error.message);
+    console.error('❌ Error calling DeepSeek API:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -171,10 +155,7 @@ async function searchCompanyPosts(companyId) {
  */
 async function processChatMessage(messageText, userId, conversationHistory = [], companyId) {
   try {
-    console.log(`\n========== NEW MESSAGE ==========`);
     console.log(`📨 رسالة: "${messageText}"`);
-    console.log(`🏭 Company ID: ${companyId}`);
-    console.log(`📊 Conversation history length: ${conversationHistory.length}`);
     
     const lowerMessage = messageText.toLowerCase();
     
@@ -205,7 +186,7 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
     }
 
     // إذا سأل عن الأساطيل بشكل عام
-    if (lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح') || lowerMessage.includes('فارغ')) {
+    if (lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح')) {
       const allFleets = await getAllAvailableFleets(companyId);
       if (allFleets) {
         realData += '\n\n✅ الشاحنات المتاحة لدينا:\n';
@@ -230,60 +211,31 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
     }
 
     // System context محسّن
-    let systemContext = `أنت مساعد ذكاء اصطناعي احترافي لشركة شحن سعودية.
+    let systemContext = `أنت مساعد ذكاء اصطناعي لشركة شحن سعودية.
 
-🎯 قواعد صارمة جداً - اتبعها بدقة:
+🎯 قواعد صارمة:
+1. أنت ذكاء اصطناعي، لست موظف بشري - كن صادقاً
+2. ردودك قصيرة (2-3 جمل فقط)
+3. استخدم فقط البيانات الحقيقية المرفقة
+4. إذا لم تجد بيانات، قل "دعني أحولك لموظف بشري"
 
-1. **الهوية:**
-   - أنت ذكاء اصطناعي، لست موظف بشري
-   - قل دائماً "أنا مساعد ذكاء اصطناعي"
-   - إذا طلب موظف بشري: قل "سأحولك لموظف بشري الآن"
-
-2. **أسلوب الرد:**
-   - ردودك قصيرة جداً (2-3 جمل فقط)
-   - رد فقط على السؤال المطروح
-   - لا تعطي معلومات إضافية إلا إذا طُلبت منك
-
-3. **البيانات:**
-   - استخدم فقط البيانات المرفقة أدناه
-   - إذا لم تجد بيانات: قل "دعني أحولك لموظف بشري"
-   - لا تخترع أي معلومات أبداً
-
-4. **المسافات:**
-   - لا تحسب المسافات بنفسك
-   - إذا سأل عن المسافة: قل "للمسافة الدقيقة، تواصل مع موظفنا"
-   - لا تعطي أرقام للمسافات إلا إذا كانت في البيانات المرفقة
-
-5. **الأسعار:**
-   - لا تعطي أسعار إلا إذا سأل العميل مباشرة
-   - قل دائماً "السعر المتوقع تقريباً X-Y ريال (غير نهائي)"
-   - لا تقل "السعر الحقيقي" أو "السعر الفعلي" أبداً
-
-6. **تفاصيل الشاحنات:**
-   - لا تعطي تفاصيل الشاحنات إلا إذا سأل العميل
-   - إذا سأل: أعطه التفاصيل من البيانات المرفقة فقط
+📋 معلومات مهمة:
+- أنت تعرف فقط عن الشاحنات الموجودة في البيانات المرفقة
+- إذا سأل عن المسافة: قل "المسافة تقريباً حوالي X كم (تقدير تقريبي)"
+- إذا سأل عن السعر: قل "السعر المتوقع تقريباً X-Y ريال (غير نهائي)"
+- إذا سأل عن تفاصيل الشاحنة: أعطه التفاصيل من البيانات المرفقة
 
 ⚠️ ممنوع منعاً باتاً:
-- اختراع أرقام للمسافات
-- قول "السعر الحقيقي"
-- إعطاء معلومات لم يطلبها العميل
-- تكرار نفس الكلام
+- قول "السعر الحقيقي" أو "السعر الفعلي"
+- قول "المسافة الحقيقية" أو "المسافة الفعلية"
+- اختراع أرقام للمسافات أو الأسعار
+- تكرار نفس الكلام في كل رسالة
 - ادعاء أنك موظف بشري
 
-✅ أمثلة على الردود الصحيحة:
-
-السؤال: "السلام عليكم"
-الرد: "وعليكم السلام! كيف يمكنني مساعدتك؟"
-
-السؤال: "عندي حمولة من الرياض لجدة"
-الرد: "ممتاز! ما نوع الحمولة؟"
-
-السؤال: "كم السعر؟"
-الرد: "السعر المتوقع تقريباً 1500-2000 ريال (غير نهائي). للسعر الدقيق، تواصل مع موظفنا"
-
-السؤال: "هل عندكم شاحنات فارغة؟"
-الرد: (إذا موجودة في البيانات) "نعم! لدينا شاحنات متاحة"
-الرد: (إذا غير موجودة) "للأسف لا توجد حالياً"`;
+✅ الأسلوب الصحيح:
+- "السعر المتوقع تقريباً..."
+- "المسافة تقريباً حوالي... (تقدير)"
+- "هذا تقدير أولي، للسعر الدقيق تواصل مع موظفنا"`;
 
     if (realData) {
       systemContext += `\n\n[البيانات الحقيقية من قاعدة البيانات]${realData}\n\n⚠️ استخدم هذه البيانات فقط! لا تخترع معلومات!`;
@@ -295,7 +247,7 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
       { role: 'user', content: messageText }
     ];
 
-    const botResponse = await callAIChat(messages);
+    const botResponse = await callDeepSeekChat(messages);
     
     console.log(`✅ رد البوت: ${botResponse}`);
 
@@ -325,7 +277,11 @@ async function sendWelcomeMessage(companyId) {
 
 أنا مساعد ذكاء اصطناعي لشركة الشحن.
 
-كيف يمكنني مساعدتك اليوم؟`
+كيف يمكنني مساعدتك اليوم؟
+- استفسار عن الأسعار 💰
+- البحث عن شاحنات متاحة 🚛
+- معلومات عن المسافات 📍
+- التواصل مع موظف بشري 👤`
   };
 }
 
@@ -355,7 +311,7 @@ async function isBotEnabledForCompany(companyId) {
 }
 
 module.exports = {
-  callAIChat,
+  callDeepSeekChat,
   searchAvailableFleets,
   getAllAvailableFleets,
   processChatMessage,
