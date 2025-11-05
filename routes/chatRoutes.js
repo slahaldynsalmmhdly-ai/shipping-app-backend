@@ -424,6 +424,30 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
     const io = req.app.get('io');
     if (io) {
       io.to(conversationId).emit('message:new', formattedMessage);
+      
+      // تحديث قائمة المحادثات لجميع المشاركين
+      const updatedConversation = await Conversation.findById(conversationId)
+        .populate('participants', 'name avatar userType companyName')
+        .populate('lastMessage');
+
+      if (updatedConversation) {
+        // إرسال التحديث لكل مشارك
+        updatedConversation.participants.forEach(participant => {
+          const otherParticipant = updatedConversation.participants.find(
+            p => p._id.toString() !== participant._id.toString()
+          );
+          
+          const unreadCount = updatedConversation.unreadCount.get(participant._id.toString()) || 0;
+          
+          io.to(participant._id.toString()).emit('conversation:updated', {
+            _id: updatedConversation._id,
+            participant: otherParticipant,
+            lastMessage: updatedConversation.lastMessage,
+            unreadCount: unreadCount,
+            updatedAt: updatedConversation.updatedAt
+          });
+        });
+      }
     }
 
     // التحقق من تفعيل البوت للطرف الآخر (إذا كان شركة)
