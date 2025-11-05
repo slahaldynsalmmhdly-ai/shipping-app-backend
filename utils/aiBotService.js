@@ -5,53 +5,53 @@ const EmptyTruckAd = require('../models/EmptyTruckAd');
 const ShipmentAd = require('../models/ShipmentAd');
 
 /**
- * استدعاء OpenRouter API (DeepSeek Free) للحصول على رد ذكي
+ * استدعاء DeepSeek API الرسمي للحصول على رد ذكي
  */
 async function callAIChat(messages) {
   try {
-    console.log('🤖 Calling OpenRouter API (DeepSeek Free)...');
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    console.log('🤖 Calling DeepSeek API...');
+    const apiKey = process.env.DEEPSEEK_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ OPENROUTER_API_KEY is not configured');
-      throw new Error('OPENROUTER_API_KEY is not configured');
+      console.error('❌ DEEPSEEK_API_KEY is not configured');
+      throw new Error('DEEPSEEK_API_KEY is not configured');
     }
 
-    // تحويل الرسائل إلى صيغة OpenAI (متوافقة مع OpenRouter)
+    // تحويل الرسائل إلى صيغة OpenAI (DeepSeek متوافق مع OpenAI)
     const formattedMessages = messages.map(msg => ({
       role: msg.role,
       content: msg.content
     }));
 
-    console.log('📝 Sending', formattedMessages.length, 'messages to AI');
+    console.log('📝 Sending', formattedMessages.length, 'messages to DeepSeek');
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://shipping-app-backend.onrender.com',
-        'X-Title': 'Shipping App AI Bot'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat-v3-0324:free', // نموذج مجاني 100%
-        messages: formattedMessages
+        model: 'deepseek-chat', // النموذج الأساسي
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 500
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ OpenRouter API Error:', response.status, errorText);
-      throw new Error(`OpenRouter API Error: ${response.status}`);
+      console.error('❌ DeepSeek API Error:', response.status, errorText);
+      throw new Error(`DeepSeek API Error: ${response.status}`);
     }
 
     const data = await response.json();
     const text = data.choices[0].message.content;
     
-    console.log('✅ AI response received:', text.substring(0, 100));
+    console.log('✅ DeepSeek response received:', text.substring(0, 100));
     return text;
   } catch (error) {
-    console.error('❌ Error calling OpenRouter API:', error.message);
+    console.error('❌ Error calling DeepSeek API:', error.message);
     throw error;
   }
 }
