@@ -3,7 +3,7 @@ const router = express.Router();
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcryptjs");
 const Vehicle = require("../models/Vehicle");
-const User = require("../models/User"); // Import User model
+const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
 const { generateFleetAccount } = require("../utils/generateFleetAccount");
 
@@ -19,7 +19,24 @@ router.post(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel, status } = req.body;
+    const {
+      driverName,
+      transportType,
+      departureCity,
+      departureCountry,
+      tripType,
+      distance,
+      duration,
+      internationalDestinations,
+      cities,
+      vehicleType,
+      vehicleColor,
+      currency,
+      discount,
+      plateNumber,
+      status,
+      imageUrls,
+    } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -28,45 +45,79 @@ router.post(
       throw new Error("User not found");
     }
 
-    const vehicleExists = await Vehicle.findOne({ licensePlate });
+    // التحقق من عدم تكرار رقم اللوحة
+    const vehicleExists = await Vehicle.findOne({ plateNumber });
 
     if (vehicleExists) {
       res.status(400);
-      throw new Error("Vehicle with this license plate already exists");
+      throw new Error("Vehicle with this plate number already exists");
     }
 
-    // توليد حساب الأسطول (رقم تسلسلي + كلمة سر)
+    // التحقق من الصور (اختيارية، حد أقصى 5 صور)
+    if (imageUrls && imageUrls.length > 5) {
+      res.status(400);
+      throw new Error("الحد الأقصى للصور هو 5");
+    }
+
+    // التحقق من الحقول المطلوبة حسب نوع النقل
+    if (transportType === "international") {
+      if (!departureCountry || !tripType || !distance || !duration) {
+        res.status(400);
+        throw new Error("جميع حقول النقل الدولي مطلوبة");
+      }
+      if (!internationalDestinations || internationalDestinations.length === 0) {
+        res.status(400);
+        throw new Error("يجب إضافة وجهة دولية واحدة على الأقل");
+      }
+    } else if (transportType === "domestic") {
+      if (!cities || cities.length === 0) {
+        res.status(400);
+        throw new Error("يجب إضافة مدينة واحدة على الأقل");
+      }
+    }
+
+    // توليد حساب الأسطول
     const { fleetId, password: plainPassword } = await generateFleetAccount();
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-    const vehicle = new Vehicle({
-      user: req.user._id, // Link vehicle to user directly
+    const vehicleData = {
+      user: req.user._id,
       driverName,
-      vehicleName,
-      licensePlate,
-      imageUrl,
+      transportType,
+      departureCity,
       vehicleType,
-      currentLocation,
       vehicleColor,
-      vehicleModel,
+      currency,
+      discount: discount || 0,
+      plateNumber,
       status: status || "متاح",
-      // بيانات الحساب الفرعي
+      imageUrls,
       fleetAccountId: fleetId,
       fleetPassword: hashedPassword,
       accountCreatedAt: new Date(),
       isAccountActive: true,
-    });
+    };
 
+    // إضافة الحقول حسب نوع النقل
+    if (transportType === "international") {
+      vehicleData.departureCountry = departureCountry;
+      vehicleData.tripType = tripType;
+      vehicleData.distance = distance;
+      vehicleData.duration = duration;
+      vehicleData.internationalDestinations = internationalDestinations;
+    } else if (transportType === "domestic") {
+      vehicleData.cities = cities;
+    }
+
+    const vehicle = new Vehicle(vehicleData);
     const createdVehicle = await vehicle.save();
 
-    // إرجاع البيانات مع كلمة السر (مرة واحدة فقط)
-    // نرسل الاستجابة فوراً قبل أن يتم تشغيل Hook النشر التلقائي
     res.status(201).json({
       success: true,
       data: createdVehicle,
       fleetAccount: {
         fleetId: fleetId,
-        password: plainPassword, // كلمة السر غير المشفرة (تُعرض مرة واحدة فقط)
+        password: plainPassword,
         message: "احفظ هذه البيانات! لن تتمكن من رؤية كلمة السر مرة أخرى"
       }
     });
@@ -102,32 +153,81 @@ router.put(
       throw new Error("Not authorized, only companies can manage fleet");
     }
 
-    const { driverName, vehicleName, licensePlate, imageUrl, vehicleType, currentLocation, vehicleColor, vehicleModel, status } = req.body;
+    const {
+      driverName,
+      transportType,
+      departureCity,
+      departureCountry,
+      tripType,
+      distance,
+      duration,
+      internationalDestinations,
+      cities,
+      vehicleType,
+      vehicleColor,
+      currency,
+      discount,
+      plateNumber,
+      status,
+      imageUrls,
+    } = req.body;
 
     const vehicle = await Vehicle.findById(req.params.vehicleId);
 
-    if (vehicle) {
-      if (vehicle.user.toString() !== req.user._id.toString()) {
-        res.status(401);
-        throw new Error("Not authorized to update this vehicle");
-      }
-
-      vehicle.driverName = driverName || vehicle.driverName;
-      vehicle.vehicleName = vehicleName || vehicle.vehicleName;
-      vehicle.licensePlate = licensePlate || vehicle.licensePlate;
-      vehicle.imageUrl = imageUrl || vehicle.imageUrl;
-      vehicle.vehicleType = vehicleType || vehicle.vehicleType;
-      vehicle.currentLocation = currentLocation || vehicle.currentLocation;
-      vehicle.vehicleColor = vehicleColor || vehicle.vehicleColor;
-      vehicle.vehicleModel = vehicleModel || vehicle.vehicleModel;
-      vehicle.status = status || vehicle.status;
-
-      const updatedVehicle = await vehicle.save();
-      res.json({ success: true, data: updatedVehicle });
-    } else {
+    if (!vehicle) {
       res.status(404);
       throw new Error("Vehicle not found");
     }
+
+    if (vehicle.user.toString() !== req.user._id.toString()) {
+      res.status(401);
+      throw new Error("Not authorized to update this vehicle");
+    }
+
+    // التحقق من الصور إذا تم تحديثها
+    if (imageUrls && imageUrls.length > 5) {
+      res.status(400);
+      throw new Error("الحد الأقصى للصور هو 5");
+    }
+
+    // تحديث الحقول المشتركة
+    if (driverName) vehicle.driverName = driverName;
+    if (transportType) vehicle.transportType = transportType;
+    if (departureCity) vehicle.departureCity = departureCity;
+    if (vehicleType) vehicle.vehicleType = vehicleType;
+    if (vehicleColor) vehicle.vehicleColor = vehicleColor;
+    if (currency) vehicle.currency = currency;
+    if (discount !== undefined) vehicle.discount = discount;
+    if (plateNumber) vehicle.plateNumber = plateNumber;
+    if (status) vehicle.status = status;
+    if (imageUrls) vehicle.imageUrls = imageUrls;
+
+    // تحديث حقول النقل الدولي
+    if (transportType === "international" || vehicle.transportType === "international") {
+      if (departureCountry) vehicle.departureCountry = departureCountry;
+      if (tripType) vehicle.tripType = tripType;
+      if (distance) vehicle.distance = distance;
+      if (duration) vehicle.duration = duration;
+      if (internationalDestinations) vehicle.internationalDestinations = internationalDestinations;
+      
+      // مسح حقول النقل الداخلي
+      vehicle.cities = [];
+    }
+
+    // تحديث حقول النقل الداخلي
+    if (transportType === "domestic" || vehicle.transportType === "domestic") {
+      if (cities) vehicle.cities = cities;
+      
+      // مسح حقول النقل الدولي
+      vehicle.departureCountry = undefined;
+      vehicle.tripType = undefined;
+      vehicle.distance = undefined;
+      vehicle.duration = undefined;
+      vehicle.internationalDestinations = [];
+    }
+
+    const updatedVehicle = await vehicle.save();
+    res.json({ success: true, data: updatedVehicle });
   })
 );
 
@@ -145,18 +245,18 @@ router.delete(
 
     const vehicle = await Vehicle.findById(req.params.vehicleId);
 
-    if (vehicle) {
-      if (vehicle.user.toString() !== req.user._id.toString()) {
-        res.status(401);
-        throw new Error("Not authorized to delete this vehicle");
-      }
-
-      await vehicle.deleteOne();
-      res.json({ message: "Vehicle removed" });
-    } else {
+    if (!vehicle) {
       res.status(404);
       throw new Error("Vehicle not found");
     }
+
+    if (vehicle.user.toString() !== req.user._id.toString()) {
+      res.status(401);
+      throw new Error("Not authorized to delete this vehicle");
+    }
+
+    await vehicle.deleteOne();
+    res.json({ message: "Vehicle removed" });
   })
 );
 
@@ -172,4 +272,3 @@ router.get(
 );
 
 module.exports = router;
-

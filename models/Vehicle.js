@@ -10,43 +10,128 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  vehicleName: {
+  
+  // حقول النقل
+  transportType: {
+    type: String,
+    enum: ["international", "domestic"],
+    required: true,
+  },
+  
+  // حقول مشتركة
+  departureCity: {
     type: String,
     required: true,
   },
-  licensePlate: {
+  
+  vehicleType: {
+    type: String,
+    required: true,
+  },
+  
+  vehicleColor: {
+    type: String,
+    required: true,
+  },
+  
+  currency: {
+    type: String,
+    required: true,
+  },
+  
+  discount: {
+    type: Number,
+    default: 0,
+  },
+  
+  plateNumber: {
     type: String,
     required: true,
     unique: true,
   },
-  imageUrl: {
-    type: String,
-    default: "",
-  },
-  vehicleType: {
-    type: String,
-    default: "",
-  },
-  currentLocation: {
-    type: String,
-    default: "",
-  },
-  vehicleColor: {
-    type: String,
-    default: "",
-  },
-  vehicleModel: {
-    type: String,
-    default: "",
-  },
+  
   status: {
     type: String,
-    enum: ["متاح", "في العمل"],
+    enum: ["متاح", "غير متاح"],
     default: "متاح",
   },
+  
+  // صور متعددة (اختيارية، حد أقصى 5 صور)
+  imageUrls: {
+    type: [String],
+    validate: {
+      validator: function(v) {
+        return v.length <= 5;
+      },
+      message: 'الحد الأقصى للصور هو 5'
+    },
+    default: [],
+  },
+  
+  // حقول النقل الدولي
+  departureCountry: {
+    type: String,
+    required: function() {
+      return this.transportType === 'international';
+    },
+  },
+  
+  tripType: {
+    type: String,
+    enum: ["one-way", "round-trip"],
+    required: function() {
+      return this.transportType === 'international';
+    },
+  },
+  
+  distance: {
+    type: Number,
+    required: function() {
+      return this.transportType === 'international';
+    },
+  },
+  
+  duration: {
+    type: Number,
+    required: function() {
+      return this.transportType === 'international';
+    },
+  },
+  
+  internationalDestinations: [{
+    arrivalCountry: {
+      type: String,
+      required: true,
+    },
+    arrivalCity: {
+      type: String,
+      required: true,
+    },
+    oneWayPrice: {
+      type: Number,
+      required: true,
+    },
+    roundTripPrice: {
+      type: Number,
+      default: 0,
+    },
+  }],
+  
+  // حقول النقل الداخلي
+  cities: [{
+    city: {
+      type: String,
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+    },
+  }],
+  
   previousStatus: {
     type: String,
-    enum: ["متاح", "في العمل", null],
+    enum: ["متاح", "غير متاح", null],
     default: null,
   },
 
@@ -54,11 +139,11 @@ const VehicleSchema = new mongoose.Schema({
   fleetAccountId: {
     type: String,
     unique: true,
-    sparse: true, // يسمح بـ null للأساطيل القديمة
+    sparse: true,
   },
   fleetPassword: {
     type: String,
-    select: false, // لا تُرجع مع الاستعلامات العادية
+    select: false,
   },
   accountCreatedAt: {
     type: Date,
@@ -70,8 +155,37 @@ const VehicleSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
   },
+  
+  // حقول قديمة للتوافق (اختيارية)
+  vehicleName: {
+    type: String,
+  },
+  licensePlate: {
+    type: String,
+  },
+  imageUrl: {
+    type: String,
+  },
+  currentLocation: {
+    type: String,
+  },
+  vehicleModel: {
+    type: String,
+  },
 }, { timestamps: true });
 
-// تم حذف جميع Hooks المتعلقة بالنشر التلقائي
+// Validation: التأكد من وجود الحقول المناسبة حسب نوع النقل
+VehicleSchema.pre('validate', function(next) {
+  if (this.transportType === 'international') {
+    if (!this.internationalDestinations || this.internationalDestinations.length === 0) {
+      this.invalidate('internationalDestinations', 'يجب إضافة وجهة دولية واحدة على الأقل');
+    }
+  } else if (this.transportType === 'domestic') {
+    if (!this.cities || this.cities.length === 0) {
+      this.invalidate('cities', 'يجب إضافة مدينة واحدة على الأقل');
+    }
+  }
+  next();
+});
 
 module.exports = mongoose.model("Vehicle", VehicleSchema);
