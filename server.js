@@ -182,7 +182,11 @@ io.on('connection', (socket) => {
   socket.on('user:join', (userId) => {
     onlineUsers.set(userId, socket.id);
     socket.userId = userId;
-    console.log(`👤 User ${userId} is now online`);
+    
+    // انضمام المستخدم إلى غرفته الخاصة (لاستقبال conversation:updated)
+    socket.join(userId);
+    
+    console.log(`👤 User ${userId} is now online and joined room ${userId}`);
     
     // Broadcast to all users that this user is online
     io.emit('user:online', { userId, isOnline: true });
