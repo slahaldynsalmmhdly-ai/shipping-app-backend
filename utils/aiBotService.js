@@ -10,9 +10,11 @@ const ShipmentAd = require('../models/ShipmentAd');
  */
 async function callGeminiChat(messages) {
   try {
+    console.log('🤖 Calling Gemini API...');
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
+      console.error('❌ GEMINI_API_KEY is not configured');
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
@@ -31,9 +33,12 @@ async function callGeminiChat(messages) {
       }
     });
 
+    console.log('📝 Prompt length:', prompt.length);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response.text();
+    const text = response.text();
+    console.log('✅ Gemini response received:', text.substring(0, 100));
+    return text;
   } catch (error) {
     console.error('❌ Error calling Gemini API:', error.message);
     throw error;
@@ -155,7 +160,10 @@ async function searchCompanyPosts(companyId) {
  */
 async function processChatMessage(messageText, userId, conversationHistory = [], companyId) {
   try {
+    console.log(`\n========== NEW MESSAGE ==========`);
     console.log(`📨 رسالة: "${messageText}"`);
+    console.log(`🏭 Company ID: ${companyId}`);
+    console.log(`📊 Conversation history length: ${conversationHistory.length}`);
     
     const lowerMessage = messageText.toLowerCase();
     
