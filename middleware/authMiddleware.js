@@ -36,5 +36,17 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { protect };
+// Middleware to restrict access to specific user types
+const restrictTo = (...userTypes) => {
+  return (req, res, next) => {
+    if (!userTypes.includes(req.user.userType)) {
+      return res.status(403).json({
+        message: `Access denied. Only ${userTypes.join(', ')} can access this resource.`
+      });
+    }
+    next();
+  };
+};
+
+module.exports = { protect, restrictTo };
 
