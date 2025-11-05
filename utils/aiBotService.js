@@ -19,7 +19,7 @@ async function callGeminiChat(messages) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     // تحويل الرسائل إلى صيغة Gemini
     let prompt = '';
