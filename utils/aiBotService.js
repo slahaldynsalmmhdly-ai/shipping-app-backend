@@ -41,7 +41,7 @@ async function callDeepSeekChat(messages) {
 }
 
 /**
- * البحث عن الأساطيل الفارغة
+ * البحث عن الأساطيل الفارغة مع التفاصيل الكاملة
  */
 async function searchAvailableFleets(city, companyId) {
   try {
@@ -51,7 +51,7 @@ async function searchAvailableFleets(city, companyId) {
       currentLocation: { $regex: new RegExp(city, 'i') }
     })
     .populate('user', 'name phone companyName')
-    .select('vehicleName vehicleType driverName currentLocation')
+    .select('vehicleName vehicleType vehicleColor vehicleModel driverName currentLocation')
     .limit(5);
 
     if (vehicles.length === 0) return null;
@@ -59,6 +59,8 @@ async function searchAvailableFleets(city, companyId) {
     return vehicles.map(v => ({
       name: v.vehicleName,
       type: v.vehicleType || 'غير محدد',
+      color: v.vehicleColor || 'غير محدد',
+      model: v.vehicleModel || 'غير محدد',
       driver: v.driverName,
       location: v.currentLocation
     }));
@@ -76,7 +78,7 @@ async function getAllAvailableFleets(companyId) {
     const vehicles = await Vehicle.find({
       user: companyId,
       status: 'متاح'
-    }).select('vehicleName vehicleType currentLocation');
+    }).select('vehicleName vehicleType vehicleColor vehicleModel currentLocation');
 
     if (vehicles.length === 0) return null;
 
@@ -86,7 +88,9 @@ async function getAllAvailableFleets(companyId) {
       if (!fleetsByCity[city]) fleetsByCity[city] = [];
       fleetsByCity[city].push({
         name: v.vehicleName,
-        type: v.vehicleType || 'غير محدد'
+        type: v.vehicleType || 'غير محدد',
+        color: v.vehicleColor || 'غير محدد',
+        model: v.vehicleModel || 'غير محدد'
       });
     });
 
@@ -147,37 +151,6 @@ async function searchCompanyPosts(companyId) {
 }
 
 /**
- * حساب المسافة والوقت بين المدن السعودية
- */
-function getDistanceAndTime(fromCity, toCity) {
-  const distances = {
-    'الرياض-جدة': { km: 950, hours: 9 },
-    'الرياض-الدمام': { km: 400, hours: 4 },
-    'الرياض-أبها': { km: 850, hours: 8 },
-    'جدة-الدمام': { km: 1350, hours: 13 },
-    'جدة-المدينة': { km: 420, hours: 4 },
-    'الدمام-جدة': { km: 1350, hours: 13 },
-    'الدمام-الرياض': { km: 400, hours: 4 },
-    'أبها-جدة': { km: 550, hours: 5 },
-  };
-
-  const key = `${fromCity}-${toCity}`;
-  return distances[key] || { km: 800, hours: 8 }; // قيمة افتراضية
-}
-
-/**
- * حساب السعر التقريبي
- */
-function calculatePrice(fromCity, toCity) {
-  const { km } = getDistanceAndTime(fromCity, toCity);
-  const pricePerKm = 2; // ريالين للكيلو
-  const basePrice = km * pricePerKm;
-  const min = Math.floor(basePrice * 0.8);
-  const max = Math.floor(basePrice * 1.2);
-  return { min, max };
-}
-
-/**
  * معالجة رسالة العميل
  */
 async function processChatMessage(messageText, userId, conversationHistory = [], companyId) {
@@ -186,32 +159,29 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
     
     const lowerMessage = messageText.toLowerCase();
     
-    // جمع البيانات الحقيقية
+    // جمع البيانات الحقيقية من قاعدة البيانات
     let realData = '';
     const saudiCities = ['الرياض', 'جدة', 'الدمام', 'مكة', 'المدينة', 'الطائف', 'تبوك', 'أبها', 'الخبر', 'بريدة'];
     
-    // البحث عن مدينتين (من - إلى)
-    let fromCity = null;
-    let toCity = null;
+    // البحث عن مدينة في الرسالة
+    let foundCity = null;
     for (const city of saudiCities) {
       if (lowerMessage.includes(city)) {
-        if (!fromCity) fromCity = city;
-        else if (!toCity && city !== fromCity) toCity = city;
+        foundCity = city;
+        break;
       }
     }
 
-    // إذا ذكر مدينتين، أعطه المسافة والسعر
-    if (fromCity && toCity) {
-      const { km, hours } = getDistanceAndTime(fromCity, toCity);
-      const { min, max } = calculatePrice(fromCity, toCity);
-      realData += `\n\n📍 المسافة من ${fromCity} إلى ${toCity}: ${km} كم (حوالي ${hours} ساعات)\n💰 السعر التقريبي: ${min}-${max} ريال`;
-    }
-
-    // إذا ذكر مدينة واحدة، ابحث عن الأساطيل
-    if (fromCity && !toCity) {
-      const fleets = await searchAvailableFleets(fromCity, companyId);
+    // إذا ذكر مدينة، ابحث عن الأساطيل المتاحة
+    if (foundCity) {
+      const fleets = await searchAvailableFleets(foundCity, companyId);
       if (fleets && fleets.length > 0) {
-        realData += `\n\n✅ لدينا ${fleets.length} شاحنة متاحة في ${fromCity}`;
+        realData += `\n\n✅ لدينا ${fleets.length} شاحنة متاحة في ${foundCity}:\n`;
+        fleets.forEach((f, i) => {
+          realData += `${i + 1}. ${f.name} - النوع: ${f.type} - اللون: ${f.color} - الموديل: ${f.model} - السائق: ${f.driver}\n`;
+        });
+      } else {
+        realData += `\n\n❌ للأسف لا توجد شاحنات متاحة في ${foundCity} حالياً`;
       }
     }
 
@@ -219,9 +189,12 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
     if (lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح')) {
       const allFleets = await getAllAvailableFleets(companyId);
       if (allFleets) {
-        realData += '\n\n✅ الشاحنات المتاحة:\n';
+        realData += '\n\n✅ الشاحنات المتاحة لدينا:\n';
         for (const [city, vehicles] of Object.entries(allFleets)) {
-          realData += `📍 ${city}: ${vehicles.length} شاحنة\n`;
+          realData += `\n📍 ${city}: ${vehicles.length} شاحنة\n`;
+          vehicles.forEach((v, i) => {
+            realData += `   ${i + 1}. ${v.name} - ${v.type} - ${v.color} - ${v.model}\n`;
+          });
         }
       }
     }
@@ -237,32 +210,35 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
       }
     }
 
-    // System context
+    // System context محسّن
     let systemContext = `أنت مساعد ذكاء اصطناعي لشركة شحن سعودية.
 
 🎯 قواعد صارمة:
-1. كن صادقاً: أنت ذكاء اصطناعي، لست موظف بشري
+1. أنت ذكاء اصطناعي، لست موظف بشري - كن صادقاً
 2. ردودك قصيرة (2-3 جمل فقط)
 3. استخدم فقط البيانات الحقيقية المرفقة
 4. إذا لم تجد بيانات، قل "دعني أحولك لموظف بشري"
-5. أسلوبك متحمس ومقنع
-6. لا تكرر نفس الكلام في كل رسالة
 
-📋 ما يجب فعله:
-- إذا سأل عن سعر: أعطه السعر من البيانات
-- إذا سأل عن مسافة: أعطه المسافة من البيانات
-- إذا سأل عن شاحنات: أعطه القائمة من البيانات
-- إذا طلب موظف: قل "سأحولك لموظف بشري الآن"
-- إذا سأل عن منشور: أخبره إذا كان موجود أم لا
+📋 معلومات مهمة:
+- أنت تعرف فقط عن الشاحنات الموجودة في البيانات المرفقة
+- إذا سأل عن المسافة: قل "المسافة تقريباً حوالي X كم (تقدير تقريبي)"
+- إذا سأل عن السعر: قل "السعر المتوقع تقريباً X-Y ريال (غير نهائي)"
+- إذا سأل عن تفاصيل الشاحنة: أعطه التفاصيل من البيانات المرفقة
 
 ⚠️ ممنوع منعاً باتاً:
-- تكرار "عندنا دينا" في كل رسالة
-- طلب صورة في كل رسالة
-- الكذب وادعاء أنك موظف
-- اختراع معلومات غير موجودة`;
+- قول "السعر الحقيقي" أو "السعر الفعلي"
+- قول "المسافة الحقيقية" أو "المسافة الفعلية"
+- اختراع أرقام للمسافات أو الأسعار
+- تكرار نفس الكلام في كل رسالة
+- ادعاء أنك موظف بشري
+
+✅ الأسلوب الصحيح:
+- "السعر المتوقع تقريباً..."
+- "المسافة تقريباً حوالي... (تقدير)"
+- "هذا تقدير أولي، للسعر الدقيق تواصل مع موظفنا"`;
 
     if (realData) {
-      systemContext += `\n\n[البيانات الحقيقية]${realData}\n\nاستخدم هذه البيانات فقط!`;
+      systemContext += `\n\n[البيانات الحقيقية من قاعدة البيانات]${realData}\n\n⚠️ استخدم هذه البيانات فقط! لا تخترع معلومات!`;
     }
 
     const messages = [
