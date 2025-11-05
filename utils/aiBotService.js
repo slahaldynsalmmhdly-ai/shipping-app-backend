@@ -1,4 +1,3 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -6,41 +5,53 @@ const EmptyTruckAd = require('../models/EmptyTruckAd');
 const ShipmentAd = require('../models/ShipmentAd');
 
 /**
- * استدعاء Gemini API للحصول على رد ذكي
+ * استدعاء OpenRouter API (DeepSeek Free) للحصول على رد ذكي
  */
-async function callGeminiChat(messages) {
+async function callAIChat(messages) {
   try {
-    console.log('🤖 Calling Gemini API...');
-    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('🤖 Calling OpenRouter API (DeepSeek Free)...');
+    const apiKey = process.env.OPENROUTER_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ GEMINI_API_KEY is not configured');
-      throw new Error('GEMINI_API_KEY is not configured');
+      console.error('❌ OPENROUTER_API_KEY is not configured');
+      throw new Error('OPENROUTER_API_KEY is not configured');
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // تحويل الرسائل إلى صيغة OpenAI (متوافقة مع OpenRouter)
+    const formattedMessages = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
 
-    // تحويل الرسائل إلى صيغة Gemini
-    let prompt = '';
-    messages.forEach(msg => {
-      if (msg.role === 'system') {
-        prompt += `${msg.content}\n\n`;
-      } else if (msg.role === 'user') {
-        prompt += `العميل: ${msg.content}\n`;
-      } else if (msg.role === 'assistant') {
-        prompt += `المساعد: ${msg.content}\n`;
-      }
+    console.log('📝 Sending', formattedMessages.length, 'messages to AI');
+    
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://shipping-app-backend.onrender.com',
+        'X-Title': 'Shipping App AI Bot'
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat-v3-0324:free', // نموذج مجاني 100%
+        messages: formattedMessages
+      })
     });
 
-    console.log('📝 Prompt length:', prompt.length);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    console.log('✅ Gemini response received:', text.substring(0, 100));
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ OpenRouter API Error:', response.status, errorText);
+      throw new Error(`OpenRouter API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+    
+    console.log('✅ AI response received:', text.substring(0, 100));
     return text;
   } catch (error) {
-    console.error('❌ Error calling Gemini API:', error.message);
+    console.error('❌ Error calling OpenRouter API:', error.message);
     throw error;
   }
 }
@@ -218,7 +229,7 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
       }
     }
 
-    // System context محسّن لـ Gemini
+    // System context محسّن
     let systemContext = `أنت مساعد ذكاء اصطناعي احترافي لشركة شحن سعودية.
 
 🎯 قواعد صارمة جداً - اتبعها بدقة:
@@ -284,7 +295,7 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
       { role: 'user', content: messageText }
     ];
 
-    const botResponse = await callGeminiChat(messages);
+    const botResponse = await callAIChat(messages);
     
     console.log(`✅ رد البوت: ${botResponse}`);
 
@@ -344,7 +355,7 @@ async function isBotEnabledForCompany(companyId) {
 }
 
 module.exports = {
-  callGeminiChat,
+  callAIChat,
   searchAvailableFleets,
   getAllAvailableFleets,
   processChatMessage,
