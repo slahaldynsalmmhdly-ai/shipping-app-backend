@@ -223,24 +223,6 @@ router.post("/conversations", protect, async (req, res) => {
           path: "lastMessage",
           select: "content messageType mediaUrl createdAt sender",
         });
-
-      // إرسال رسالة ترحيب تلقائية من البوت إذا كان مفعلاً
-      const isBotEnabled = await isBotEnabledForCompany(participantId);
-      if (isBotEnabled && participant.userType === 'company') {
-        const welcomeMsg = await sendWelcomeMessage(participantId);
-        if (welcomeMsg.success) {
-          const botMessage = await Message.create({
-            conversation: conversation._id,
-            sender: participantId,
-            messageType: "text",
-            content: welcomeMsg.response,
-            readBy: [participantId],
-          });
-          conversation.lastMessage = botMessage._id;
-          conversation.lastMessageTime = botMessage.createdAt;
-          await conversation.save();
-        }
-      }
     }
 
     // Format conversation for frontend
@@ -448,6 +430,29 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
       
       // التحقق من أن الموظف لم يوقف البوت يدوياً
       if (isBotEnabled && !conversation.botPaused) {
+        // التحقق من عدد الرسائل - إذا كانت أول رسالة، أرسل ترحيب
+        const messageCount = await Message.countDocuments({ conversation: conversationId });
+        
+        if (messageCount === 1) {
+          // أول رسالة - إرسال ترحيب
+          const welcomeMsg = await sendWelcomeMessage(otherParticipantId);
+          if (welcomeMsg.success) {
+            const welcomeMessage = await Message.create({
+              conversation: conversationId,
+              sender: otherParticipantId,
+              messageType: "text",
+              content: welcomeMsg.response,
+              readBy: [otherParticipantId],
+            });
+            conversation.lastMessage = welcomeMessage._id;
+            conversation.lastMessageTime = welcomeMessage.createdAt;
+            const currentCount = conversation.unreadCount.get(req.user.id) || 0;
+            conversation.unreadCount.set(req.user.id, currentCount + 1);
+            await conversation.save();
+          }
+          return; // لا ترد على أول رسالة، فقط أرسل الترحيب
+        }
+        
         // جمع آخر رسائل المحادثة للسياق
         const recentMessages = await Message.find({
           conversation: conversationId,
