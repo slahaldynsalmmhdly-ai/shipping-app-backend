@@ -9,7 +9,7 @@ const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const { processChatMessage, processImageMessage, isBotEnabledForCompany } = require('../utils/aiBotService');
+const { processChatMessage, processImageMessage, isBotEnabledForCompany, sendWelcomeMessage } = require('../utils/aiBotService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -223,6 +223,24 @@ router.post("/conversations", protect, async (req, res) => {
           path: "lastMessage",
           select: "content messageType mediaUrl createdAt sender",
         });
+
+      // إرسال رسالة ترحيب تلقائية من البوت إذا كان مفعلاً
+      const isBotEnabled = await isBotEnabledForCompany(participantId);
+      if (isBotEnabled && participant.userType === 'company') {
+        const welcomeMsg = await sendWelcomeMessage(participantId);
+        if (welcomeMsg.success) {
+          const botMessage = await Message.create({
+            conversation: conversation._id,
+            sender: participantId,
+            messageType: "text",
+            content: welcomeMsg.response,
+            readBy: [participantId],
+          });
+          conversation.lastMessage = botMessage._id;
+          conversation.lastMessageTime = botMessage.createdAt;
+          await conversation.save();
+        }
+      }
     }
 
     // Format conversation for frontend
