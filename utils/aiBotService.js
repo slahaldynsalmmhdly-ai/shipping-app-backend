@@ -1,5 +1,4 @@
 const axios = require('axios');
-const EmptyTruckAd = require('../models/EmptyTruckAd');
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 
@@ -19,8 +18,8 @@ async function callDeepSeekChat(messages) {
       {
         model: 'deepseek-chat',
         messages: messages,
-        temperature: 0.7,
-        max_tokens: 500,
+        temperature: 0.8,
+        max_tokens: 200, // ردود قصيرة
       },
       {
         headers: {
@@ -39,101 +38,87 @@ async function callDeepSeekChat(messages) {
 }
 
 /**
- * البحث عن الأساطيل الفارغة حسب المنطقة
+ * البحث عن الأساطيل الفارغة حسب المنطقة - الإصدار الصحيح 100%
  */
 async function searchAvailableFleets(city, companyId) {
   try {
-    console.log(`🔍 البحث عن أساطيل في: ${city} للشركة: ${companyId}`);
+    console.log(`🔍 البحث الحقيقي: المدينة="${city}" | الشركة="${companyId}"`);
     
-    // البحث عن المركبات المتاحة في المدينة المحددة للشركة
+    // البحث الصحيح باستخدام الحقول الحقيقية من النموذج
     const vehicles = await Vehicle.find({
-      owner: companyId,
-      status: 'متاح',
-      city: { $regex: new RegExp(city, 'i') }
+      user: companyId,                    // الحقل الصحيح: user (ليس owner)
+      status: 'متاح',                     // الحالة: متاح
+      currentLocation: { $regex: new RegExp(city, 'i') }  // الحقل الصحيح: currentLocation (ليس city)
     })
-    .populate('owner', 'name phone companyName')
+    .populate('user', 'name phone companyName')
+    .select('vehicleName vehicleType driverName currentLocation licensePlate')
     .limit(10);
 
-    console.log(`✅ تم العثور على ${vehicles.length} مركبة متاحة في ${city}`);
-
+    console.log(`✅ النتيجة الحقيقية: ${vehicles.length} شاحنة متاحة في ${city}`);
+    
     if (vehicles.length === 0) {
+      console.log(`❌ لا توجد شاحنات في ${city}`);
       return null;
     }
 
-    // تنسيق النتائج
+    // تنسيق النتائج الحقيقية
     const fleetInfo = vehicles.map(v => ({
-      type: v.type,
-      capacity: v.capacity,
-      city: v.city,
-      owner: v.owner.companyName || v.owner.name,
-      phone: v.owner.phone,
-      registrationNumber: v.registrationNumber
+      name: v.vehicleName,
+      type: v.vehicleType || 'غير محدد',
+      driver: v.driverName,
+      location: v.currentLocation,
+      plate: v.licensePlate,
+      ownerName: v.user.companyName || v.user.name,
+      ownerPhone: v.user.phone
     }));
 
     return fleetInfo;
   } catch (error) {
-    console.error('❌ Error searching fleets:', error);
+    console.error('❌ خطأ في البحث:', error);
     return null;
   }
 }
 
 /**
- * البحث عن جميع الأساطيل المتاحة للشركة
+ * البحث عن جميع الأساطيل المتاحة للشركة - الإصدار الصحيح 100%
  */
 async function getAllAvailableFleets(companyId) {
   try {
-    console.log(`🔍 البحث عن جميع الأساطيل المتاحة للشركة: ${companyId}`);
+    console.log(`🔍 البحث عن جميع الأساطيل للشركة: ${companyId}`);
     
     const vehicles = await Vehicle.find({
-      owner: companyId,
+      user: companyId,
       status: 'متاح'
     })
-    .populate('owner', 'name phone companyName')
-    .select('type capacity city registrationNumber');
+    .select('vehicleName vehicleType driverName currentLocation licensePlate');
 
-    console.log(`✅ تم العثور على ${vehicles.length} مركبة متاحة للشركة`);
+    console.log(`✅ إجمالي الشاحنات المتاحة: ${vehicles.length}`);
 
     if (vehicles.length === 0) {
+      console.log(`❌ لا توجد شاحنات متاحة للشركة`);
       return null;
     }
 
-    // تجميع المركبات حسب المدينة
+    // تجميع حسب المدينة
     const fleetsByCity = {};
     vehicles.forEach(v => {
-      const city = v.city || 'غير محدد';
+      const city = v.currentLocation || 'غير محدد';
       if (!fleetsByCity[city]) {
         fleetsByCity[city] = [];
       }
       fleetsByCity[city].push({
-        type: v.type,
-        capacity: v.capacity,
-        registrationNumber: v.registrationNumber
+        name: v.vehicleName,
+        type: v.vehicleType || 'غير محدد',
+        driver: v.driverName
       });
     });
 
+    console.log(`📊 المدن المتاحة:`, Object.keys(fleetsByCity));
     return fleetsByCity;
   } catch (error) {
-    console.error('❌ Error getting all fleets:', error);
+    console.error('❌ خطأ في جلب الأساطيل:', error);
     return null;
   }
-}
-
-/**
- * الحصول على معلومات الأسعار التقريبية
- */
-function getPricingInfo(fromCity, toCity) {
-  // أسعار تقريبية للمناطق السعودية (يمكن تخصيصها حسب الحاجة)
-  const pricingGuide = {
-    'الرياض-جدة': '2000-3000 ريال',
-    'الرياض-الدمام': '1500-2500 ريال',
-    'جدة-الدمام': '2500-3500 ريال',
-    'الرياض-أبها': '1800-2800 ريال',
-    'جدة-المدينة': '800-1500 ريال',
-    'default': '1000-3000 ريال حسب المسافة ونوع الحمولة'
-  };
-
-  const route = `${fromCity}-${toCity}`;
-  return pricingGuide[route] || pricingGuide['default'];
 }
 
 /**
@@ -141,104 +126,89 @@ function getPricingInfo(fromCity, toCity) {
  */
 async function processChatMessage(messageText, userId, conversationHistory = [], companyId) {
   try {
-    console.log(`📨 معالجة رسالة من العميل: ${userId} للشركة: ${companyId}`);
+    console.log(`📨 رسالة جديدة من ${userId} للشركة ${companyId}: "${messageText}"`);
     
-    // تحليل الرسالة لمعرفة نوع الاستفسار
     const lowerMessage = messageText.toLowerCase();
     
-    let systemContext = `أنت مساعد ذكي لشركة شحن ونقليات في السعودية. اسمك "مساعد الشحن الذكي".
-
-⚠️ قواعد مهمة جداً:
-1. أنت تعمل لدى شركة شحن، لديها شاحنات (قاطرات) لنقل الحمولات
-2. عندما يسأل العميل عن "حمولة" أو "بضاعة"، فهو يريد شحن بضاعته بشاحناتك
-3. الشاحنة = القاطرة = المركبة (هي ملك الشركة)
-4. الحمولة = البضاعة = الشحنة (هي ملك العميل)
-5. لا تطلب صورة القاطرة أبداً، اطلب فقط صورة الحمولة/البضاعة
-6. استخدم فقط المعلومات الحقيقية من قاعدة البيانات، لا تخترع معلومات
-
-مهامك:
-1. الرد على استفسارات العملاء عن شحن بضائعهم
-2. إخبارهم بالشاحنات المتاحة لدى الشركة
-3. تقديم معلومات عن الأسعار التقريبية
-4. طلب صور الحمولة/البضاعة (ليس القاطرة!)
-5. تحويل المحادثة لخدمة العملاء بعد جمع المعلومات
-
-أسلوب الرد:
-- تحدث بالعربية فقط
-- كن مهذباً ومحترفاً
-- لا تتحدث عن مواضيع خارج نطاق الشحن
-- إذا سأل عن موضوع آخر، أعده بلطف لموضوع الشحن`;
-
-    // البحث عن أساطيل متاحة إذا ذكر العميل مدينة
-    let fleetSearchResult = '';
+    // البحث في قاعدة البيانات أولاً
+    let realData = '';
     const saudiCities = ['الرياض', 'جدة', 'الدمام', 'مكة', 'المدينة', 'الطائف', 'تبوك', 'أبها', 'الخبر', 'بريدة', 'حائل', 'نجران', 'جازان', 'ينبع', 'القصيم', 'الظهران'];
     
-    // البحث عن مدينة محددة في الرسالة
+    // إذا ذكر مدينة محددة
     let foundCity = null;
     for (const city of saudiCities) {
       if (lowerMessage.includes(city)) {
         foundCity = city;
         const fleets = await searchAvailableFleets(city, companyId);
+        
         if (fleets && fleets.length > 0) {
-          fleetSearchResult = `\n\n✅ معلومات حقيقية من قاعدة البيانات - لدينا ${fleets.length} شاحنة متاحة في ${city}:\n`;
-          fleets.forEach((fleet, index) => {
-            fleetSearchResult += `${index + 1}. نوع الشاحنة: ${fleet.type}, الحمولة: ${fleet.capacity}, المدينة: ${fleet.city}\n`;
+          realData = `\n\n[بيانات حقيقية من النظام]\nلدينا ${fleets.length} شاحنة متاحة في ${city}:\n`;
+          fleets.forEach((f, i) => {
+            realData += `${i + 1}. ${f.name} - ${f.type} - السائق: ${f.driver}\n`;
           });
-          fleetSearchResult += '\nهذه معلومات حقيقية من النظام.';
         } else {
-          fleetSearchResult = `\n\n❌ للأسف لا توجد شاحنات متاحة حالياً في ${city} حسب قاعدة البيانات.`;
+          realData = `\n\n[بيانات حقيقية من النظام]\nللأسف لا توجد شاحنات متاحة في ${city} حالياً.`;
         }
         break;
       }
     }
 
-    // إذا سأل عن الأساطيل المتاحة بشكل عام
-    if ((lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح') || lowerMessage.includes('متوفر')) && !foundCity) {
+    // إذا سأل عن الأساطيل بشكل عام
+    if (!foundCity && (lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح') || lowerMessage.includes('متوفر') || lowerMessage.includes('اين'))) {
       const allFleets = await getAllAvailableFleets(companyId);
+      
       if (allFleets && Object.keys(allFleets).length > 0) {
-        fleetSearchResult = '\n\n✅ معلومات حقيقية من قاعدة البيانات - الشاحنات المتاحة لدينا حسب المدن:\n\n';
+        realData = '\n\n[بيانات حقيقية من النظام]\nالشاحنات المتاحة لدينا:\n\n';
         for (const [city, vehicles] of Object.entries(allFleets)) {
-          fleetSearchResult += `📍 ${city}: ${vehicles.length} شاحنة متاحة\n`;
-          vehicles.forEach((v, i) => {
-            fleetSearchResult += `   ${i + 1}. ${v.type} - ${v.capacity}\n`;
-          });
-          fleetSearchResult += '\n';
+          realData += `📍 ${city}: ${vehicles.length} شاحنة\n`;
         }
-        fleetSearchResult += 'هذه معلومات حقيقية من النظام، لا توجد شاحنات في مدن أخرى حالياً.';
+        realData += '\nهذه فقط المدن المتاحة حالياً.';
       } else {
-        fleetSearchResult = '\n\n❌ للأسف لا توجد شاحنات متاحة حالياً حسب قاعدة البيانات.';
+        realData = '\n\n[بيانات حقيقية من النظام]\nللأسف لا توجد شاحنات متاحة حالياً.';
       }
     }
 
-    // إضافة معلومات الأسعار إذا ذكر مدينتين
-    let pricingInfo = '';
-    if (lowerMessage.includes('سعر') || lowerMessage.includes('كم') || lowerMessage.includes('تكلفة')) {
-      pricingInfo = '\n\n💰 الأسعار التقريبية تتراوح بين 1000-3000 ريال حسب المسافة ونوع الحمولة والشاحنة.';
+    // System context - أسلوب بائع محترف
+    let systemContext = `أنت موظف مبيعات محترف في شركة شحن سعودية. اسمك "مساعد الشحن".
+
+🎯 هدفك الوحيد: إقناع العميل بالحجز فوراً!
+
+📋 قواعد صارمة:
+1. ردودك قصيرة (2-3 جمل فقط) - مثل الإنسان العادي
+2. أسلوبك حماسي ومقنع - تجذب العميل
+3. استخدم فقط البيانات الحقيقية من [بيانات حقيقية من النظام]
+4. إذا لم تجد بيانات حقيقية، قل "للأسف لا يوجد" - لا تخترع!
+5. الحمولة = بضاعة العميل | الشاحنة = مركبتنا
+6. اطلب صورة الحمولة فقط (ليس الشاحنة!)
+
+🔥 أسلوب الرد:
+- كن حماسياً: "عندنا الحل المثالي لك!"
+- اجعله يشعر بالحظ: "أنت محظوظ! لدينا شاحنات متاحة الآن"
+- خلق الإلحاح: "احجز الآن قبل ما تنتهي!"
+- كن واثقاً: "نضمن لك خدمة ممتازة"
+
+⚠️ ممنوع منعاً باتاً:
+- الردود الطويلة (أكثر من 3 جمل)
+- اختراع معلومات غير موجودة
+- طلب صورة الشاحنة
+- الأسلوب البارد الرسمي`;
+
+    if (realData) {
+      systemContext += realData;
+      systemContext += '\n\n⚠️ استخدم فقط هذه البيانات الحقيقية! لا تخترع أي معلومات أخرى!';
     }
 
-    if (fleetSearchResult) {
-      systemContext += fleetSearchResult;
-    }
-    if (pricingInfo) {
-      systemContext += pricingInfo;
-    }
-
-    // إضافة تعليمات خاصة إذا ذكر "حمولة" أو "قاطرة"
-    if (lowerMessage.includes('حمول') || lowerMessage.includes('بضاع') || lowerMessage.includes('شحن')) {
-      systemContext += '\n\n⚠️ تذكر: العميل يريد شحن حمولته/بضاعته، اطلب منه صورة الحمولة (ليس القاطرة!)';
-    }
-
-    // بناء سياق المحادثة
+    // بناء المحادثة
     const messages = [
       { role: 'system', content: systemContext },
-      ...conversationHistory.slice(-6), // آخر 6 رسائل فقط للسياق
+      ...conversationHistory.slice(-4), // آخر 4 رسائل فقط
       { role: 'user', content: messageText }
     ];
 
-    // الحصول على الرد من DeepSeek
+    // الحصول على الرد
     const botResponse = await callDeepSeekChat(messages);
-
-    console.log(`✅ رد البوت: ${botResponse.substring(0, 100)}...`);
+    
+    console.log(`✅ رد البوت: ${botResponse}`);
 
     return {
       success: true,
@@ -247,10 +217,10 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
     };
 
   } catch (error) {
-    console.error('❌ Error processing chat message:', error);
+    console.error('❌ خطأ في معالجة الرسالة:', error);
     return {
       success: false,
-      response: 'عذراً، حدث خطأ في معالجة رسالتك. يرجى المحاولة مرة أخرى أو الانتظار لخدمة العملاء.',
+      response: 'عذراً، حدث خطأ. سيتواصل معك فريقنا قريباً!',
       shouldTransferToHuman: true
     };
   }
@@ -261,11 +231,11 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
  */
 async function processImageMessage(imageUrl, userId) {
   try {
-    const response = `شكراً لإرسال صورة الحمولة! 📸
+    const response = `ممتاز! 📸 استلمنا صورة الحمولة
 
-تم استلام الصورة بنجاح. سيقوم أحد ممثلي خدمة العملاء بمراجعة صورة حمولتك والتواصل معك قريباً لتقديم عرض سعر دقيق.
+فريقنا يراجعها الآن وسيرسل لك عرض سعر خلال دقائق!
 
-هل لديك أي معلومات إضافية عن الحمولة؟ (الوزن، الأبعاد، المدينة المطلوبة، إلخ)`;
+في هذه الأثناء، هل لديك تفاصيل إضافية؟ (الوزن، الأبعاد، التاريخ المطلوب)`;
 
     return {
       success: true,
@@ -273,10 +243,9 @@ async function processImageMessage(imageUrl, userId) {
       shouldTransferToHuman: true
     };
   } catch (error) {
-    console.error('❌ Error processing image:', error);
     return {
       success: false,
-      response: 'تم استلام الصورة، سيتواصل معك فريق خدمة العملاء قريباً.',
+      response: 'تم استلام الصورة! سنتواصل معك قريباً',
       shouldTransferToHuman: true
     };
   }
@@ -290,7 +259,7 @@ async function isBotEnabledForCompany(companyId) {
     const company = await User.findById(companyId);
     return company?.botEnabled === true;
   } catch (error) {
-    console.error('❌ Error checking bot status:', error);
+    console.error('❌ خطأ في التحقق من البوت:', error);
     return false;
   }
 }
@@ -299,7 +268,6 @@ module.exports = {
   callDeepSeekChat,
   searchAvailableFleets,
   getAllAvailableFleets,
-  getPricingInfo,
   processChatMessage,
   processImageMessage,
   isBotEnabledForCompany
