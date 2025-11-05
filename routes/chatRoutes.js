@@ -9,6 +9,7 @@ const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const { processChatMessage, processImageMessage, isBotEnabledForCompany } = require('../utils/aiBotService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -416,7 +417,57 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
       createdAt: message.createdAt,
     };
 
+    // إرسال الرد للعميل
     res.status(201).json(formattedMessage);
+
+    // التحقق من تفعيل البوت للطرف الآخر (إذا كان شركة)
+    const otherParticipantId = conversation.participants.find(
+      (p) => p.toString() !== req.user.id
+    );
+    
+    if (otherParticipantId) {
+      const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
+      
+      if (isBotEnabled) {
+        // جمع آخر رسائل المحادثة للسياق
+        const recentMessages = await Message.find({
+          conversation: conversationId,
+        })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .populate('sender', 'name');
+        
+        const conversationHistory = recentMessages.reverse().map(msg => ({
+          role: msg.sender._id.toString() === req.user.id ? 'user' : 'assistant',
+          content: msg.content || '[صورة]'
+        }));
+
+        // معالجة الرسالة بالبوت
+        const botResult = await processChatMessage(
+          content.trim(),
+          req.user.id,
+          conversationHistory
+        );
+
+        if (botResult.success && botResult.response) {
+          // إنشاء رد البوت
+          const botMessage = await Message.create({
+            conversation: conversationId,
+            sender: otherParticipantId,
+            messageType: "text",
+            content: botResult.response,
+            readBy: [otherParticipantId],
+          });
+
+          // تحديث المحادثة
+          conversation.lastMessage = botMessage._id;
+          conversation.lastMessageTime = botMessage.createdAt;
+          const currentCount = conversation.unreadCount.get(req.user.id) || 0;
+          conversation.unreadCount.set(req.user.id, currentCount + 1);
+          await conversation.save();
+        }
+      }
+    }
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -511,6 +562,37 @@ router.post(
       };
 
       res.status(201).json(formattedMessage);
+
+      // معالجة الصور بواسطة البوت (إذا كانت صورة)
+      if (detectedMessageType === 'image') {
+        const otherParticipantId = conversation.participants.find(
+          (p) => p.toString() !== req.user.id
+        );
+        
+        if (otherParticipantId) {
+          const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
+          
+          if (isBotEnabled) {
+            const botResult = await processImageMessage(req.file.path, req.user.id);
+
+            if (botResult.success && botResult.response) {
+              const botMessage = await Message.create({
+                conversation: conversationId,
+                sender: otherParticipantId,
+                messageType: "text",
+                content: botResult.response,
+                readBy: [otherParticipantId],
+              });
+
+              conversation.lastMessage = botMessage._id;
+              conversation.lastMessageTime = botMessage.createdAt;
+              const currentCount = conversation.unreadCount.get(req.user.id) || 0;
+              conversation.unreadCount.set(req.user.id, currentCount + 1);
+              await conversation.save();
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error(err.message);
       res.status(500).send("Server Error");
