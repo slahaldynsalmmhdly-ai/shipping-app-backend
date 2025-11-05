@@ -428,7 +428,8 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
     if (otherParticipantId) {
       const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
       
-      if (isBotEnabled) {
+      // التحقق من أن الموظف لم يوقف البوت يدوياً
+      if (isBotEnabled && !conversation.botPaused) {
         // جمع آخر رسائل المحادثة للسياق
         const recentMessages = await Message.find({
           conversation: conversationId,

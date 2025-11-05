@@ -21,6 +21,10 @@ const ConversationSchema = new mongoose.Schema({
     of: Number,
     default: {},
   },
+  botPaused: {
+    type: Boolean,
+    default: false,
+  },
 }, { timestamps: true });
 
 // Index for faster queries

@@ -27,6 +27,7 @@ const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
 const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
 const storyRoutes = require("./routes/storyRoutes"); // Added storyRoutes
 const botSettingsRoutes = require("./routes/botSettingsRoutes"); // Added botSettingsRoutes
+const botControlRoutes = require("./routes/botControlRoutes"); // Added botControlRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -106,6 +107,7 @@ app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
 app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
 app.use("/api/v1/stories", storyRoutes); // Mount story routes
 app.use("/api/v1/bot", botSettingsRoutes); // Mount bot settings routes
+app.use("/api/v1/bot-control", botControlRoutes); // Mount bot control routes
 
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {
