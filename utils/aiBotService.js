@@ -41,15 +41,20 @@ async function callDeepSeekChat(messages) {
 /**
  * البحث عن الأساطيل الفارغة حسب المنطقة
  */
-async function searchAvailableFleets(city, userId) {
+async function searchAvailableFleets(city, companyId) {
   try {
-    // البحث عن المركبات المتاحة في المدينة المحددة
+    console.log(`🔍 البحث عن أساطيل في: ${city} للشركة: ${companyId}`);
+    
+    // البحث عن المركبات المتاحة في المدينة المحددة للشركة
     const vehicles = await Vehicle.find({
+      owner: companyId,
       status: 'متاح',
       city: { $regex: new RegExp(city, 'i') }
     })
     .populate('owner', 'name phone companyName')
-    .limit(5);
+    .limit(10);
+
+    console.log(`✅ تم العثور على ${vehicles.length} مركبة متاحة في ${city}`);
 
     if (vehicles.length === 0) {
       return null;
@@ -68,6 +73,47 @@ async function searchAvailableFleets(city, userId) {
     return fleetInfo;
   } catch (error) {
     console.error('❌ Error searching fleets:', error);
+    return null;
+  }
+}
+
+/**
+ * البحث عن جميع الأساطيل المتاحة للشركة
+ */
+async function getAllAvailableFleets(companyId) {
+  try {
+    console.log(`🔍 البحث عن جميع الأساطيل المتاحة للشركة: ${companyId}`);
+    
+    const vehicles = await Vehicle.find({
+      owner: companyId,
+      status: 'متاح'
+    })
+    .populate('owner', 'name phone companyName')
+    .select('type capacity city registrationNumber');
+
+    console.log(`✅ تم العثور على ${vehicles.length} مركبة متاحة للشركة`);
+
+    if (vehicles.length === 0) {
+      return null;
+    }
+
+    // تجميع المركبات حسب المدينة
+    const fleetsByCity = {};
+    vehicles.forEach(v => {
+      const city = v.city || 'غير محدد';
+      if (!fleetsByCity[city]) {
+        fleetsByCity[city] = [];
+      }
+      fleetsByCity[city].push({
+        type: v.type,
+        capacity: v.capacity,
+        registrationNumber: v.registrationNumber
+      });
+    });
+
+    return fleetsByCity;
+  } catch (error) {
+    console.error('❌ Error getting all fleets:', error);
     return null;
   }
 }
@@ -93,51 +139,81 @@ function getPricingInfo(fromCity, toCity) {
 /**
  * معالجة رسالة العميل والرد عليها
  */
-async function processChatMessage(messageText, userId, conversationHistory = []) {
+async function processChatMessage(messageText, userId, conversationHistory = [], companyId) {
   try {
+    console.log(`📨 معالجة رسالة من العميل: ${userId} للشركة: ${companyId}`);
+    
     // تحليل الرسالة لمعرفة نوع الاستفسار
     const lowerMessage = messageText.toLowerCase();
     
-    let systemContext = `أنت مساعد ذكي لتطبيق شحن ونقليات في السعودية. اسمك "مساعد الشحن الذكي".
+    let systemContext = `أنت مساعد ذكي لشركة شحن ونقليات في السعودية. اسمك "مساعد الشحن الذكي".
+
+⚠️ قواعد مهمة جداً:
+1. أنت تعمل لدى شركة شحن، لديها شاحنات (قاطرات) لنقل الحمولات
+2. عندما يسأل العميل عن "حمولة" أو "بضاعة"، فهو يريد شحن بضاعته بشاحناتك
+3. الشاحنة = القاطرة = المركبة (هي ملك الشركة)
+4. الحمولة = البضاعة = الشحنة (هي ملك العميل)
+5. لا تطلب صورة القاطرة أبداً، اطلب فقط صورة الحمولة/البضاعة
+6. استخدم فقط المعلومات الحقيقية من قاعدة البيانات، لا تخترع معلومات
 
 مهامك:
-1. الرد على استفسارات العملاء عن الشحن والنقليات فقط
-2. البحث عن الأساطيل المتاحة حسب المنطقة
+1. الرد على استفسارات العملاء عن شحن بضائعهم
+2. إخبارهم بالشاحنات المتاحة لدى الشركة
 3. تقديم معلومات عن الأسعار التقريبية
-4. طلب صور الحمولة عند الحاجة
-5. تحويل المحادثة لخدمة العملاء بعد جمع المعلومات الأساسية
+4. طلب صور الحمولة/البضاعة (ليس القاطرة!)
+5. تحويل المحادثة لخدمة العملاء بعد جمع المعلومات
 
-قواعد مهمة:
+أسلوب الرد:
 - تحدث بالعربية فقط
 - كن مهذباً ومحترفاً
-- لا تتحدث عن مواضيع خارج نطاق الشحن والنقليات
-- إذا سأل العميل عن موضوع آخر، أعده بلطف لموضوع الشحن
-- اطلب صورة الحمولة إذا لم يرسلها العميل بعد
-- بعد الحصول على الصورة أو المعلومات الكافية، قل: "شكراً لك! سيتواصل معك أحد ممثلي خدمة العملاء قريباً"`;
+- لا تتحدث عن مواضيع خارج نطاق الشحن
+- إذا سأل عن موضوع آخر، أعده بلطف لموضوع الشحن`;
 
     // البحث عن أساطيل متاحة إذا ذكر العميل مدينة
     let fleetSearchResult = '';
-    const saudiCities = ['الرياض', 'جدة', 'الدمام', 'مكة', 'المدينة', 'الطائف', 'تبوك', 'أبها', 'الخبر', 'بريدة', 'حائل', 'نجران', 'جازان', 'ينبع', 'القصيم'];
+    const saudiCities = ['الرياض', 'جدة', 'الدمام', 'مكة', 'المدينة', 'الطائف', 'تبوك', 'أبها', 'الخبر', 'بريدة', 'حائل', 'نجران', 'جازان', 'ينبع', 'القصيم', 'الظهران'];
     
+    // البحث عن مدينة محددة في الرسالة
+    let foundCity = null;
     for (const city of saudiCities) {
       if (lowerMessage.includes(city)) {
-        const fleets = await searchAvailableFleets(city, userId);
+        foundCity = city;
+        const fleets = await searchAvailableFleets(city, companyId);
         if (fleets && fleets.length > 0) {
-          fleetSearchResult = `\n\nمعلومات الأساطيل المتاحة في ${city}:\n`;
+          fleetSearchResult = `\n\n✅ معلومات حقيقية من قاعدة البيانات - لدينا ${fleets.length} شاحنة متاحة في ${city}:\n`;
           fleets.forEach((fleet, index) => {
-            fleetSearchResult += `${index + 1}. نوع المركبة: ${fleet.type}, الحمولة: ${fleet.capacity}, المالك: ${fleet.owner}\n`;
+            fleetSearchResult += `${index + 1}. نوع الشاحنة: ${fleet.type}, الحمولة: ${fleet.capacity}, المدينة: ${fleet.city}\n`;
           });
+          fleetSearchResult += '\nهذه معلومات حقيقية من النظام.';
         } else {
-          fleetSearchResult = `\n\nللأسف لا توجد أساطيل متاحة حالياً في ${city}، لكن سيتواصل معك فريق خدمة العملاء للمساعدة.`;
+          fleetSearchResult = `\n\n❌ للأسف لا توجد شاحنات متاحة حالياً في ${city} حسب قاعدة البيانات.`;
         }
         break;
+      }
+    }
+
+    // إذا سأل عن الأساطيل المتاحة بشكل عام
+    if ((lowerMessage.includes('اسطول') || lowerMessage.includes('شاحن') || lowerMessage.includes('متاح') || lowerMessage.includes('متوفر')) && !foundCity) {
+      const allFleets = await getAllAvailableFleets(companyId);
+      if (allFleets && Object.keys(allFleets).length > 0) {
+        fleetSearchResult = '\n\n✅ معلومات حقيقية من قاعدة البيانات - الشاحنات المتاحة لدينا حسب المدن:\n\n';
+        for (const [city, vehicles] of Object.entries(allFleets)) {
+          fleetSearchResult += `📍 ${city}: ${vehicles.length} شاحنة متاحة\n`;
+          vehicles.forEach((v, i) => {
+            fleetSearchResult += `   ${i + 1}. ${v.type} - ${v.capacity}\n`;
+          });
+          fleetSearchResult += '\n';
+        }
+        fleetSearchResult += 'هذه معلومات حقيقية من النظام، لا توجد شاحنات في مدن أخرى حالياً.';
+      } else {
+        fleetSearchResult = '\n\n❌ للأسف لا توجد شاحنات متاحة حالياً حسب قاعدة البيانات.';
       }
     }
 
     // إضافة معلومات الأسعار إذا ذكر مدينتين
     let pricingInfo = '';
     if (lowerMessage.includes('سعر') || lowerMessage.includes('كم') || lowerMessage.includes('تكلفة')) {
-      pricingInfo = '\n\nالأسعار التقريبية تتراوح بين 1000-3000 ريال حسب المسافة ونوع الحمولة والمركبة.';
+      pricingInfo = '\n\n💰 الأسعار التقريبية تتراوح بين 1000-3000 ريال حسب المسافة ونوع الحمولة والشاحنة.';
     }
 
     if (fleetSearchResult) {
@@ -145,6 +221,11 @@ async function processChatMessage(messageText, userId, conversationHistory = [])
     }
     if (pricingInfo) {
       systemContext += pricingInfo;
+    }
+
+    // إضافة تعليمات خاصة إذا ذكر "حمولة" أو "قاطرة"
+    if (lowerMessage.includes('حمول') || lowerMessage.includes('بضاع') || lowerMessage.includes('شحن')) {
+      systemContext += '\n\n⚠️ تذكر: العميل يريد شحن حمولته/بضاعته، اطلب منه صورة الحمولة (ليس القاطرة!)';
     }
 
     // بناء سياق المحادثة
@@ -156,6 +237,8 @@ async function processChatMessage(messageText, userId, conversationHistory = [])
 
     // الحصول على الرد من DeepSeek
     const botResponse = await callDeepSeekChat(messages);
+
+    console.log(`✅ رد البوت: ${botResponse.substring(0, 100)}...`);
 
     return {
       success: true,
@@ -178,9 +261,9 @@ async function processChatMessage(messageText, userId, conversationHistory = [])
  */
 async function processImageMessage(imageUrl, userId) {
   try {
-    const response = `شكراً لإرسال الصورة! 📸
+    const response = `شكراً لإرسال صورة الحمولة! 📸
 
-تم استلام صورة الحمولة بنجاح. سيقوم أحد ممثلي خدمة العملاء بمراجعتها والتواصل معك قريباً لتقديم عرض سعر دقيق.
+تم استلام الصورة بنجاح. سيقوم أحد ممثلي خدمة العملاء بمراجعة صورة حمولتك والتواصل معك قريباً لتقديم عرض سعر دقيق.
 
 هل لديك أي معلومات إضافية عن الحمولة؟ (الوزن، الأبعاد، المدينة المطلوبة، إلخ)`;
 
@@ -215,6 +298,7 @@ async function isBotEnabledForCompany(companyId) {
 module.exports = {
   callDeepSeekChat,
   searchAvailableFleets,
+  getAllAvailableFleets,
   getPricingInfo,
   processChatMessage,
   processImageMessage,

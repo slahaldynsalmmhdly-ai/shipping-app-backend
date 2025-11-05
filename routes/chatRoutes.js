@@ -446,7 +446,8 @@ router.post("/conversations/:conversationId/messages", protect, async (req, res)
         const botResult = await processChatMessage(
           content.trim(),
           req.user.id,
-          conversationHistory
+          conversationHistory,
+          otherParticipantId // تمرير معرف الشركة
         );
 
         if (botResult.success && botResult.response) {
