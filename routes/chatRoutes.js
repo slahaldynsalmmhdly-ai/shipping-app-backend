@@ -109,47 +109,93 @@ const uploadDocument = multer({
 // @access  Private
 	router.get("/conversations", protect, async (req, res) => {
 	  try {
+	    const Vehicle = require("../models/Vehicle"); // Import Vehicle model
+	    const isValidObjectId = (id) => {
+	      if (!id) return false;
+	      return id.match(/^[0-9a-fA-F]{24}$/);
+	    };
+
 	    const conversations = await Conversation.find({
 	      participants: req.user.id,
 	    })
-	      .populate("participants", "name avatar userType isOnline lastSeen")
 	      .populate({
 	        path: "lastMessage",
 	        select: "content messageType mediaUrl createdAt sender",
 	      })
-	      .sort({ lastMessageTime: -1 });
+	      .sort({ lastMessageTime: -1 })
+	      .lean(); // Use lean() for better performance and to avoid Mongoose casting issues
+
+	    // Array to hold the IDs of the participants that are not the current user
+	    const otherParticipantIds = conversations.map(conv => 
+	      conv.participants.find(p => p.toString() !== req.user.id)
+	    ).filter(id => id);
+
+	    // Separate valid ObjectIds (Users) from fleetAccountIds (Vehicles)
+	    const userIds = otherParticipantIds.filter(id => isValidObjectId(id));
+	    const vehicleIds = otherParticipantIds.filter(id => !isValidObjectId(id));
+
+	    // Fetch User details
+	    const User = require("../models/User"); // Import User model
+	    const users = await User.find({ _id: { $in: userIds } }).select("name avatar userType isOnline lastSeen").lean();
+	    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+
+	    // Fetch Vehicle details (using fleetAccountId)
+	    const vehicles = await Vehicle.find({ fleetAccountId: { $in: vehicleIds } }).select("fleetAccountId driverName imageUrls").lean();
+	    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.fleetAccountId, vehicle]));
 
 	    // Format conversations for frontend
-    const formattedConversations = conversations.map((conv) => {
-      const otherParticipant = conv.participants.find(
-        (p) => p._id.toString() !== req.user.id
-      );
+	    const formattedConversations = conversations.map((conv) => {
+	      const otherParticipantId = conv.participants.find(p => p.toString() !== req.user.id);
+	      let otherParticipant = null;
 
-      return {
-        _id: conv._id,
-        participant: {
-          _id: otherParticipant._id,
-          name: otherParticipant.name,
-          avatar: otherParticipant.avatar,
-          userType: otherParticipant.userType,
-          isOnline: otherParticipant.isOnline || false,
-          lastSeen: otherParticipant.lastSeen || otherParticipant.updatedAt,
-        },
-        lastMessage: conv.lastMessage
-          ? {
-              content: conv.lastMessage.content,
-              messageType: conv.lastMessage.messageType,
-              mediaUrl: conv.lastMessage.mediaUrl,
-              createdAt: conv.lastMessage.createdAt,
-              isSender: conv.lastMessage.sender.toString() === req.user.id,
-            }
-          : null,
-        unreadCount: conv.unreadCount.get(req.user.id) || 0,
-        lastMessageTime: conv.lastMessageTime,
-      };
-    });
+	      if (isValidObjectId(otherParticipantId)) {
+	        // Participant is a User
+	        otherParticipant = userMap.get(otherParticipantId.toString());
+	      } else {
+	        // Participant is a Vehicle (Driver)
+	        const vehicle = vehicleMap.get(otherParticipantId);
+	        if (vehicle) {
+	          otherParticipant = {
+	            _id: vehicle.fleetAccountId,
+	            name: vehicle.driverName,
+	            avatar: vehicle.imageUrls?.[0] || null,
+	            userType: 'driver',
+	            isOnline: false, // Assuming drivers are not tracked as online in User model
+	            lastSeen: new Date(),
+	          };
+	        }
+	      }
 
-    res.json(formattedConversations);
+	      // Skip conversation if participant details could not be found (e.g., deleted user/vehicle)
+	      if (!otherParticipant) {
+	        return null;
+	      }
+
+	      return {
+	        _id: conv._id,
+	        participant: {
+	          _id: otherParticipant._id,
+	          name: otherParticipant.name,
+	          avatar: otherParticipant.avatar,
+	          userType: otherParticipant.userType,
+	          isOnline: otherParticipant.isOnline || false,
+	          lastSeen: otherParticipant.lastSeen || otherParticipant.updatedAt,
+	        },
+	        lastMessage: conv.lastMessage
+	          ? {
+	              content: conv.lastMessage.content,
+	              messageType: conv.lastMessage.messageType,
+	              mediaUrl: conv.lastMessage.mediaUrl,
+	              createdAt: conv.lastMessage.createdAt,
+	              isSender: conv.lastMessage.sender.toString() === req.user.id,
+	            }
+	          : null,
+	        unreadCount: conv.unreadCount.get(req.user.id) || 0,
+	        lastMessageTime: conv.lastMessageTime,
+	      };
+	    }).filter(conv => conv !== null); // Filter out conversations with missing participants
+
+	    res.json(formattedConversations);
 	    } catch (err) {
 	      console.error("Error in GET /conversations:", err);
 	      // Check for CastError specifically on the participants field
