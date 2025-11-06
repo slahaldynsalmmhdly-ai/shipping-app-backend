@@ -150,10 +150,14 @@ router.get("/conversations", protect, async (req, res) => {
     });
 
     res.json(formattedConversations);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
-  }
+    } catch (err) {
+      console.error("Error in chatRoutes:", err);
+      // Check for specific Mongoose errors or return a generic 500
+      if (err.name === 'CastError') {
+        return res.status(400).json({ msg: "Invalid ID format" });
+      }
+      res.status(500).json({ msg: "Server Error" });
+    }
 });
 
 // @desc    Get total unread messages count for the logged-in user
@@ -210,6 +214,8 @@ router.post("/conversations", protect, async (req, res) => {
           isVehicle: true, // Flag to indicate it's a vehicle entity
         };
       } else {
+        // Log the error before returning 404
+        console.error(`Participant not found for ID: ${participantId}`);
         return res.status(404).json({ msg: "User or Driver not found" });
       }
     }
@@ -750,8 +756,12 @@ router.post(
         }
       }
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server Error");
+      console.error("Error in chatRoutes:", err);
+      // Check for specific Mongoose errors or return a generic 500
+      if (err.name === 'CastError') {
+        return res.status(400).json({ msg: "Invalid ID format" });
+      }
+      res.status(500).json({ msg: "Server Error" });
     }
   }
 );
@@ -832,8 +842,12 @@ router.post(
 
       res.status(201).json(formattedMessage);
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server Error");
+      console.error("Error in chatRoutes:", err);
+      // Check for specific Mongoose errors or return a generic 500
+      if (err.name === 'CastError') {
+        return res.status(400).json({ msg: "Invalid ID format" });
+      }
+      res.status(500).json({ msg: "Server Error" });
     }
   }
 );
@@ -1378,8 +1392,12 @@ router.post(
 
       res.status(201).json(formattedMessage);
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server Error");
+      console.error("Error in chatRoutes:", err);
+      // Check for specific Mongoose errors or return a generic 500
+      if (err.name === 'CastError') {
+        return res.status(400).json({ msg: "Invalid ID format" });
+      }
+      res.status(500).json({ msg: "Server Error" });
     }
   }
 );
