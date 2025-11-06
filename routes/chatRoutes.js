@@ -196,7 +196,18 @@ router.post("/conversations", protect, async (req, res) => {
     }
 
     // Check if participant exists in User model
-    let participant = await User.findById(participantId);
+    let participant = null;
+    
+    // Helper function to check if a string is a valid MongoDB ObjectId
+    const isValidObjectId = (id) => {
+      if (!id) return false;
+      // A valid ObjectId is a 24-character hex string
+      return id.match(/^[0-9a-fA-F]{24}$/);
+    };
+
+    if (isValidObjectId(participantId)) {
+      participant = await User.findById(participantId);
+    }
 
     // If not found, check if it's a Vehicle (Driver) using fleetAccountId
     if (!participant) {
