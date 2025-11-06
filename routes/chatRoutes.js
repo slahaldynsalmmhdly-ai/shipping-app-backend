@@ -191,15 +191,36 @@ router.post("/conversations", protect, async (req, res) => {
       return res.status(400).json({ msg: "Participant ID is required" });
     }
 
-    // Check if participant exists
-    const participant = await User.findById(participantId);
+    // Check if participant exists in User model
+    let participant = await User.findById(participantId);
+
+    // If not found, check if it's a Vehicle (Driver) using fleetAccountId
     if (!participant) {
-      return res.status(404).json({ msg: "User not found" });
+      const Vehicle = require("../models/Vehicle"); // Import Vehicle model
+      const vehicle = await Vehicle.findOne({ fleetAccountId: participantId });
+
+      if (vehicle) {
+        // Create a temporary participant object from the vehicle data
+        // This is a workaround to allow conversation with a Vehicle entity
+        participant = {
+          _id: vehicle.fleetAccountId, // Use fleetAccountId as the participant ID
+          name: vehicle.driverName,
+          avatar: vehicle.imageUrls?.[0] || null,
+          userType: 'driver', // Assuming 'driver' is a valid userType for chat
+          isVehicle: true, // Flag to indicate it's a vehicle entity
+        };
+      } else {
+        return res.status(404).json({ msg: "User or Driver not found" });
+      }
     }
+
+    // If the participant is a Vehicle entity, we need to handle the conversation logic differently
+    // The conversation will be between req.user.id (Company) and the Vehicle's fleetAccountId
+    const actualParticipantId = participant.isVehicle ? participant._id : participantId;
 
     // Check if conversation already exists
     let conversation = await Conversation.findOne({
-      participants: { $all: [req.user.id, participantId] },
+      participants: { $all: [req.user.id, actualParticipantId] },
     })
       .populate("participants", "name avatar userType")
       .populate({
@@ -210,12 +231,30 @@ router.post("/conversations", protect, async (req, res) => {
     if (!conversation) {
       // Create new conversation
       conversation = await Conversation.create({
-        participants: [req.user.id, participantId],
+        participants: [req.user.id, actualParticipantId],
         unreadCount: new Map([
           [req.user.id, 0],
-          [participantId, 0],
+          [actualParticipantId, 0],
         ]),
       });
+
+      // For Vehicle entities, we cannot populate the participant, so we return the conversation object directly
+      if (participant.isVehicle) {
+        // Manually format the conversation for the frontend
+        const formattedConversation = {
+          _id: conversation._id,
+          participant: {
+            _id: participant._id,
+            name: participant.name,
+            avatar: participant.avatar,
+            userType: participant.userType,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+          lastMessageTime: conversation.lastMessageTime,
+        };
+        return res.json(formattedConversation);
+      }
 
       conversation = await Conversation.findById(conversation._id)
         .populate("participants", "name avatar userType")
@@ -226,6 +265,32 @@ router.post("/conversations", protect, async (req, res) => {
     }
 
     // Format conversation for frontend
+    // If the participant is a Vehicle entity, we need to manually format the response
+    if (participant.isVehicle) {
+      const formattedConversation = {
+        _id: conversation._id,
+        participant: {
+          _id: participant._id,
+          name: participant.name,
+          avatar: participant.avatar,
+          userType: participant.userType,
+        },
+        lastMessage: conversation.lastMessage
+          ? {
+              content: conversation.lastMessage.content,
+              messageType: conversation.lastMessage.messageType,
+              mediaUrl: conversation.lastMessage.mediaUrl,
+              createdAt: conversation.lastMessage.createdAt,
+              isSender: conversation.lastMessage.sender.toString() === req.user.id,
+            }
+          : null,
+        unreadCount: conversation.unreadCount.get(req.user.id) || 0,
+        lastMessageTime: conversation.lastMessageTime,
+      };
+      return res.json(formattedConversation);
+    }
+
+    // Format conversation for frontend (for regular User entities)
     const otherParticipant = conversation.participants.find(
       (p) => p._id.toString() !== req.user.id
     );
