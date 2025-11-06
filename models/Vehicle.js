@@ -160,9 +160,6 @@ const VehicleSchema = new mongoose.Schema({
     default: false,
   },
   
-    type: Date,
-  },
-  
   // حقول قديمة للتوافق (اختيارية)
   vehicleName: {
     type: String,
