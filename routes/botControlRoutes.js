@@ -37,6 +37,9 @@ router.put('/:conversationId/pause', protect, restrictTo('company'), async (req,
 
   } catch (error) {
     console.error('❌ Error pausing bot:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'صيغة معرف المحادثة غير صالحة' });
+    }
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في إيقاف البوت'
@@ -78,6 +81,9 @@ router.put('/:conversationId/resume', protect, restrictTo('company'), async (req
 
   } catch (error) {
     console.error('❌ Error resuming bot:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'صيغة معرف المحادثة غير صالحة' });
+    }
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في استئناف البوت'
@@ -113,6 +119,9 @@ router.get('/:conversationId/status', protect, restrictTo('company'), async (req
 
   } catch (error) {
     console.error('❌ Error getting bot status:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'صيغة معرف المحادثة غير صالحة' });
+    }
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في جلب حالة البوت'
