@@ -107,19 +107,19 @@ const uploadDocument = multer({
 // @desc    Get all conversations for the logged-in user
 // @route   GET /api/v1/chat/conversations
 // @access  Private
-router.get("/conversations", protect, async (req, res) => {
-  try {
-    const conversations = await Conversation.find({
-      participants: req.user.id,
-    })
-      .populate("participants", "name avatar userType isOnline lastSeen")
-      .populate({
-        path: "lastMessage",
-        select: "content messageType mediaUrl createdAt sender",
-      })
-      .sort({ lastMessageTime: -1 });
+	router.get("/conversations", protect, async (req, res) => {
+	  try {
+	    const conversations = await Conversation.find({
+	      participants: req.user.id,
+	    })
+	      .populate("participants", "name avatar userType isOnline lastSeen")
+	      .populate({
+	        path: "lastMessage",
+	        select: "content messageType mediaUrl createdAt sender",
+	      })
+	      .sort({ lastMessageTime: -1 });
 
-    // Format conversations for frontend
+	    // Format conversations for frontend
     const formattedConversations = conversations.map((conv) => {
       const otherParticipant = conv.participants.find(
         (p) => p._id.toString() !== req.user.id
@@ -150,15 +150,27 @@ router.get("/conversations", protect, async (req, res) => {
     });
 
     res.json(formattedConversations);
-    } catch (err) {
-      console.error("Error in chatRoutes:", err);
-      // Check for specific Mongoose errors or return a generic 500
-      if (err.name === 'CastError') {
-        return res.status(400).json({ msg: "Invalid ID format" });
-      }
-      res.status(500).json({ msg: "Server Error" });
-    }
-});
+	    } catch (err) {
+	      console.error("Error in GET /conversations:", err);
+	      // Check for CastError specifically on the participants field
+	      if (err.name === 'CastError' && err.path === 'participants') {
+	        // This indicates a non-ObjectId value (like fleetAccountId) is stored in the participants array.
+	        // We cannot fix the data here, but we can return an empty array or a specific error to the frontend.
+	        // Since the frontend expects a list of conversations, returning an empty array is safer than crashing.
+	        // However, to debug, we will return a specific error.
+	        return res.status(500).json({ 
+	          msg: "Database Error: Invalid participant ID format found in conversation data. Please contact support.",
+	          details: err.message
+	        });
+	      }
+	      
+	      // Check for other specific Mongoose errors or return a generic 500
+	      if (err.name === 'CastError') {
+	        return res.status(400).json({ msg: "Invalid ID format" });
+	      }
+	      res.status(500).json({ msg: "Server Error" });
+	    }
+	});
 
 // @desc    Get total unread messages count for the logged-in user
 // @route   GET /api/v1/chat/unread-count
