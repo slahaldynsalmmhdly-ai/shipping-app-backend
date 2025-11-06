@@ -147,7 +147,7 @@ router.get(
 
         const vehicles = await Vehicle.find({
             user: req.user._id
-        });
+        }).select('+fleetAccountId'); // التأكد من جلب fleetAccountId
         res.json({
             success: true,
             data: vehicles
