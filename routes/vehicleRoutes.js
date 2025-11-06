@@ -290,6 +290,30 @@ router.delete(
     })
 );
 
+// @desc    Get all online vehicles for the logged-in company user
+// @route   GET /api/vehicles/online-drivers
+// @access  Private (Company only)
+router.get(
+    "/online-drivers",
+    protect,
+    asyncHandler(async (req, res) => {
+        if (req.user.userType !== "company") {
+            res.status(403);
+            throw new Error("Not authorized, only companies can view their fleet");
+        }
+
+        const onlineVehicles = await Vehicle.find({
+            user: req.user._id,
+            isOnline: true
+        }).select('driverName vehicleName imageUrl fleetAccountId'); // جلب الحقول الضرورية فقط
+
+        res.json({
+            success: true,
+            data: onlineVehicles
+        });
+    })
+);
+
 // @desc    Get all vehicles for a specific user (for public profile view)
 // @route   GET /api/vehicles/user/:userId
 // @access  Public

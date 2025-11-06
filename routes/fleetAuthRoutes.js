@@ -48,8 +48,9 @@ router.post(
       throw new Error("رقم الأسطول أو كلمة السر غير صحيحة");
     }
 
-    // تحديث آخر تسجيل دخول
+    // تحديث آخر تسجيل دخول وحالة الاتصال
     vehicle.lastLogin = new Date();
+    vehicle.isOnline = true; // تعيين حالة الاتصال إلى متصل
     await vehicle.save();
 
     // إنشاء JWT Token
@@ -81,6 +82,47 @@ router.post(
         }
       }
     });
+  })
+);
+
+// @desc    Fleet logout (تسجيل خروج الأسطول)
+// @route   POST /api/fleet/logout
+// @access  Private (Fleet only)
+router.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    // يجب أن يتم التحقق من الـ token هنا
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401);
+      throw new Error("غير مصرح، لا يوجد token");
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      if (decoded.type !== 'fleet') {
+        res.status(403);
+        throw new Error("غير مصرح، هذا ليس حساب أسطول");
+      }
+
+      const vehicle = await Vehicle.findById(decoded.id);
+
+      if (vehicle) {
+        vehicle.isOnline = false; // تعيين حالة الاتصال إلى غير متصل
+        await vehicle.save();
+      }
+
+      res.json({
+        success: true,
+        message: "تم تسجيل الخروج بنجاح"
+      });
+    } catch (error) {
+      res.status(401);
+      throw new Error("غير مصرح، token غير صالح");
+    }
   })
 );
 

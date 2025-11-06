@@ -155,6 +155,13 @@ const VehicleSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
   },
+  isOnline: {
+    type: Boolean,
+    default: false,
+  },
+  
+    type: Date,
+  },
   
   // حقول قديمة للتوافق (اختيارية)
   vehicleName: {
