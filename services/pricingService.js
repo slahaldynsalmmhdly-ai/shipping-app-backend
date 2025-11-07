@@ -76,20 +76,29 @@ function calculatePrice(params) {
 
   totalPrice *= specialHandlingFactor;
 
-  // حساب الخصم
+  // حساب الخصم بناءً على نوع الحمولة (ثقيلة أو خفيفة)
   let discount = 0;
   let discountPercentage = 0;
   
+  // تحديد إذا كانت الحمولة ثقيلة أو خفيفة
+  const heavyCargoTypes = ['رمل', 'حديد', 'أسمنت', 'طوب', 'بلوك', 'حصى', 'خرسانة', 'مقطورة'];
+  const isHeavyCargo = heavyCargoTypes.includes(cargoType);
+  
   if (cargoTypeInfo.discount_eligible) {
-    // تحديد مستوى الخصم بناءً على المسافة
-    if (distance >= 500) {
-      discountPercentage = cargoData.pricing_rules.discount_tiers.bulk_discount;
-    } else if (distance >= 300) {
-      discountPercentage = cargoData.pricing_rules.discount_tiers.large_discount;
-    } else if (distance >= 150) {
-      discountPercentage = cargoData.pricing_rules.discount_tiers.medium_discount;
-    } else if (distance >= 50) {
-      discountPercentage = cargoData.pricing_rules.discount_tiers.small_discount;
+    if (isHeavyCargo) {
+      // حمولة ثقيلة: خصم 15%
+      discountPercentage = 0.15;
+    } else {
+      // حمولة خفيفة: خصم حسب النوع
+      if (cargoType === 'أثاث') {
+        discountPercentage = 0.10;
+      } else if (cargoType === 'مواد غذائية') {
+        discountPercentage = 0.05;
+      } else if (cargoType === 'إلكترونيات' || cargoType === 'أجهزة كهربائية') {
+        discountPercentage = 0.07;
+      } else {
+        discountPercentage = 0.05; // خصم افتراضي للحمولات الخفيفة الأخرى
+      }
     }
     
     discount = totalPrice * discountPercentage;
