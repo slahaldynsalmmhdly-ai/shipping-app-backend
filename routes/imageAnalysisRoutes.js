@@ -66,35 +66,17 @@ router.post('/', upload.single('image'), async (req, res) => {
     // تحليل الصورة باستخدام CLIP و BLIP
     const analysisResult = await analyzeImage(imagePath);
     
-    if (!analysisResult || analysisResult.status !== 'success') {
+    if (!analysisResult || !analysisResult.success) {
       throw new Error('فشل تحليل الصورة');
     }
     
-    // مطابقة النتائج مع أنواع الحمولات
-    const matchResult = matchCargoType(
-      analysisResult.clip_tags,
-      analysisResult.blip_description
-    );
-    
-    // الحصول على معلومات نوع الحمولة
-    const cargoTypeInfo = cargoKeywords.cargo_types.find(
-      ct => ct.type === matchResult.cargo_type
-    );
-    
-    // إعداد الاستجابة
+    // إعداد الاستجابة مباشرة من نتيجة التحليل
     const response = {
       success: true,
-      cargo_type: matchResult.cargo_type,
-      description: analysisResult.blip_description,
+      cargo_type: analysisResult.cargo_type,
+      description: analysisResult.description,
       clip_tags: analysisResult.clip_tags,
-      confidence: matchResult.confidence,
-      cargo_info: {
-        type: cargoTypeInfo.type,
-        description: cargoTypeInfo.description,
-        base_price_factor: cargoTypeInfo.base_price_factor,
-        discount_eligible: cargoTypeInfo.discount_eligible
-      },
-      all_scores: matchResult.all_scores
+      confidence: analysisResult.confidence
     };
     
     // حذف الصورة المؤقتة
@@ -153,35 +135,17 @@ router.post('/base64', async (req, res) => {
     // تحليل الصورة باستخدام CLIP و BLIP
     const analysisResult = await analyzeImage(imagePath);
     
-    if (!analysisResult || analysisResult.status !== 'success') {
+    if (!analysisResult || !analysisResult.success) {
       throw new Error('فشل تحليل الصورة');
     }
     
-    // مطابقة النتائج مع أنواع الحمولات
-    const matchResult = matchCargoType(
-      analysisResult.clip_tags,
-      analysisResult.blip_description
-    );
-    
-    // الحصول على معلومات نوع الحمولة
-    const cargoTypeInfo = cargoKeywords.cargo_types.find(
-      ct => ct.type === matchResult.cargo_type
-    );
-    
-    // إعداد الاستجابة
+    // إعداد الاستجابة مباشرة من نتيجة التحليل
     const response = {
       success: true,
-      cargo_type: matchResult.cargo_type,
-      description: analysisResult.blip_description,
+      cargo_type: analysisResult.cargo_type,
+      description: analysisResult.description,
       clip_tags: analysisResult.clip_tags,
-      confidence: matchResult.confidence,
-      cargo_info: {
-        type: cargoTypeInfo.type,
-        description: cargoTypeInfo.description,
-        base_price_factor: cargoTypeInfo.base_price_factor,
-        discount_eligible: cargoTypeInfo.discount_eligible
-      },
-      all_scores: matchResult.all_scores
+      confidence: analysisResult.confidence
     };
     
     // حذف الصورة المؤقتة
