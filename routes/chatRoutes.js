@@ -9,7 +9,8 @@ const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const { processChatMessage, processImageMessage, isBotEnabledForCompany, sendWelcomeMessage } = require('../utils/aiBotService');
+const { processUserMessage, processImageAnalysis, calculatePriceWithAI } = require('../services/aiChatService');
+const { isBotEnabledForCompany, sendWelcomeMessage } = require('../utils/aiBotService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -704,11 +705,9 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
         }
 
         // معالجة الرسالة بالبوت
-        const botResult = await processChatMessage(
+        const botResult = await processUserMessage(
           content.trim(),
-          req.user.id,
-          conversationHistory,
-          otherParticipantId // تمرير معرف الشركة
+          conversationHistory
         );
 
         if (botResult.success && botResult.response) {
@@ -873,22 +872,61 @@ router.post(
           const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
           
           if (isBotEnabled) {
-            const botResult = await processImageMessage(req.file.path, req.user.id);
+            try {
+              // تحليل الصورة باستخدام API الجديد
+              const { analyzeImage } = require('../services/imageAnalysisService');
+              const analysisResult = await analyzeImage(req.file.path);
+              
+              if (analysisResult.success) {
+                // معالجة نتيجة التحليل بواسطة AI
+                const recentMessages = await Message.find({ conversation: conversationId })
+                  .sort({ createdAt: -1 })
+                  .limit(10)
+                  .populate('sender', 'name');
+                
+                const conversationHistory = recentMessages.reverse().map(msg => ({
+                  role: msg.sender._id.toString() === req.user.id ? 'user' : 'assistant',
+                  content: msg.content || '[صورة]'
+                }));
+                
+                const botResult = await processImageAnalysis(analysisResult, conversationHistory);
+                
+                if (botResult.success && botResult.response) {
+                  const botMessage = await Message.create({
+                    conversation: conversationId,
+                    sender: otherParticipantId,
+                    messageType: "text",
+                    content: botResult.response,
+                    readBy: [otherParticipantId],
+                  });
 
-            if (botResult.success && botResult.response) {
-              const botMessage = await Message.create({
-                conversation: conversationId,
-                sender: otherParticipantId,
-                messageType: "text",
-                content: botResult.response,
-                readBy: [otherParticipantId],
-              });
-
-              conversation.lastMessage = botMessage._id;
-              conversation.lastMessageTime = botMessage.createdAt;
-              const currentCount = conversation.unreadCount.get(req.user.id) || 0;
-              conversation.unreadCount.set(req.user.id, currentCount + 1);
-              await conversation.save();
+                  conversation.lastMessage = botMessage._id;
+                  conversation.lastMessageTime = botMessage.createdAt;
+                  const currentCount = conversation.unreadCount.get(req.user.id) || 0;
+                  conversation.unreadCount.set(req.user.id, currentCount + 1);
+                  await conversation.save();
+                  
+                  // إرسال رسالة البوت عبر Socket.IO
+                  if (io) {
+                    await botMessage.populate('sender', 'name avatar');
+                    const botFormattedMessage = {
+                      _id: botMessage._id,
+                      sender: {
+                        _id: botMessage.sender._id,
+                        name: botMessage.sender.name,
+                        avatar: botMessage.sender.avatar,
+                      },
+                      messageType: botMessage.messageType,
+                      content: botMessage.content,
+                      isSender: false,
+                      createdAt: botMessage.createdAt,
+                    };
+                    io.to(conversationId).emit('message:new', botFormattedMessage);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('خطأ في تحليل الصورة:', error.message);
             }
           }
         }
