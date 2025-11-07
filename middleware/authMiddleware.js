@@ -70,17 +70,22 @@ const protectUnified = asyncHandler(async (req, res, next) => {
         const vehicleId = decoded.vehicleId || decoded.id; // Use vehicleId if available, fallback to id
         const vehicle = await Vehicle.findById(vehicleId)
           .select("-fleetPassword")
-          .populate('user', 'name email companyName avatar');
+          .populate('user', 'name email companyName avatar')
+          .populate('driverUser', 'name email avatar');
 
         if (!vehicle) {
           return res.status(401).json({ message: "Not authorized, driver not found" });
         }
 
-        // Set req.user with vehicle data
-        // Use _id as the primary identifier for MongoDB compatibility
+        // Set req.user with driverUser data for proper message handling
+        // Use driverUser._id as the primary identifier for MongoDB compatibility
+        if (!vehicle.driverUser || !vehicle.driverUser._id) {
+          return res.status(500).json({ message: "Driver user account not found. Please contact support." });
+        }
+
         req.user = {
-          _id: vehicle._id,
-          id: vehicle._id.toString(), // MongoDB ObjectId as string
+          _id: vehicle.driverUser._id,
+          id: vehicle.driverUser._id.toString(), // MongoDB ObjectId as string
           fleetAccountId: vehicle.fleetAccountId,
           name: vehicle.driverName,
           userType: 'driver',
