@@ -2,9 +2,10 @@ const axios = require('axios');
 const NodeGeocoder = require('node-geocoder');
 
 // إعداد Geocoder لتحويل أسماء المدن إلى إحداثيات
-// يستخدم Nominatim (OpenStreetMap) - مجاني 100%
+// يستخدم LocationIQ - مجاني 5000 طلب/يوم
 const geocoder = NodeGeocoder({
-  provider: 'openstreetmap',
+  provider: 'locationiq',
+  apiKey: process.env.LOCATIONIQ_API_KEY || 'pk.ab46a4d29ad870e2b9a79705088e9826',
   httpAdapter: 'https',
   formatter: null
 });
