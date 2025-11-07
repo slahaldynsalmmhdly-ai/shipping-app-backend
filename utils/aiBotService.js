@@ -1,4 +1,11 @@
 const axios = require('axios');
+const OpenAI = require('openai');
+
+// إنشاء عميل Groq (متوافق مع OpenAI SDK)
+const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || 'your-groq-api-key-here',
+  baseURL: 'https://api.groq.com/openai/v1'
+});
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -6,36 +13,20 @@ const EmptyTruckAd = require('../models/EmptyTruckAd');
 const ShipmentAd = require('../models/ShipmentAd');
 
 /**
- * استدعاء DeepSeek API للحصول على رد ذكي
+ * استدعاء Groq API للحصول على رد ذكي (مجاني!)
  */
-async function callDeepSeekChat(messages) {
+async function callGroqChat(messages) {
   try {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    
-    if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
-      throw new Error('DEEPSEEK_API_KEY is not configured properly');
-    }
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 150, // ردود قصيرة ومركزة (1-3 جمل)
+    });
 
-    const response = await axios.post(
-      'https://api.deepseek.com/v1/chat/completions',
-      {
-        model: 'deepseek-chat',
-        messages: messages,
-        temperature: 0.8, // أعلى قليلاً للردود الطبيعية
-        max_tokens: 100,  // ردود قصيرة ومركزة
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }
-    );
-
-    return response.data.choices[0].message.content;
+    return completion.choices[0].message.content;
   } catch (error) {
-    console.error('❌ Error calling DeepSeek API:', error.response?.data || error.message);
+    console.error('❌ Error calling Groq API:', error.message);
     throw error;
   }
 }
@@ -541,7 +532,7 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
       { role: 'user', content: messageText }
     ];
 
-    const botResponse = await callDeepSeekChat(messages);
+    const botResponse = await callGroqChat(messages);
     
     console.log(`✅ رد البوت: ${botResponse}`);
     console.log(`🖼️ عدد الصور المرفقة: ${imageUrls.length}`);
@@ -668,7 +659,7 @@ async function isBotEnabledForCompany(companyId) {
 }
 
 module.exports = {
-  callDeepSeekChat,
+  callGroqChat,
   searchAvailableFleets,
   getAllAvailableFleets,
   getCompanyInfo,  // ✅ إضافة دالة جلب معلومات الشركة
