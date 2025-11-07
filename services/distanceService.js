@@ -1,41 +1,59 @@
 const axios = require('axios');
-const NodeGeocoder = require('node-geocoder');
-
-// إعداد Geocoder لتحويل أسماء المدن إلى إحداثيات
-// يستخدم LocationIQ - مجاني 5000 طلب/يوم
-const geocoder = NodeGeocoder({
-  provider: 'locationiq',
-  apiKey: process.env.LOCATIONIQ_API_KEY || 'pk.ab46a4d29ad870e2b9a79705088e9826',
-  httpAdapter: 'https',
-  formatter: null
-});
 
 /**
- * تحويل اسم المدينة إلى إحداثيات (latitude, longitude)
+ * تحويل اسم المدينة إلى إحداثيات باستخدام Nominatim (OpenStreetMap)
+ * مجاني 100% بدون API Key
  * @param {string} cityName - اسم المدينة (بالعربي أو الإنجليزي)
  * @returns {Promise<Object>} - {lat, lon, formattedAddress}
  */
 async function geocodeCity(cityName) {
   try {
-    // إضافة ", Saudi Arabia" للبحث الدقيق
+    // إضافة ", Saudi Arabia" للبحث الدقيق إذا لم يكن موجوداً
     const searchQuery = cityName.includes(',') ? cityName : `${cityName}, Saudi Arabia`;
-    const results = await geocoder.geocode(searchQuery);
     
-    if (!results || results.length === 0) {
+    // استخدام Nominatim API (مجاني ودقيق)
+    const nominatimUrl = 'https://nominatim.openstreetmap.org/search';
+    const response = await axios.get(nominatimUrl, {
+      params: {
+        q: searchQuery,
+        format: 'json',
+        limit: 1,
+        'accept-language': 'ar,en' // دعم العربية والإنجليزية
+      },
+      headers: {
+        'User-Agent': 'ShippingApp/1.0' // مطلوب من Nominatim
+      },
+      timeout: 10000
+    });
+    
+    if (!response.data || response.data.length === 0) {
       throw new Error(`لم يتم العثور على المدينة: ${cityName}`);
     }
     
-    const location = results[0];
+    const location = response.data[0];
+    
+    // استخراج اسم المدينة والدولة من display_name
+    const displayParts = location.display_name.split(',');
+    const city = displayParts[0]?.trim() || cityName;
+    const country = displayParts[displayParts.length - 1]?.trim() || 'غير محدد';
+    
+    console.log(`✅ تم تحديد موقع "${cityName}":`, {
+      city: city,
+      country: country,
+      lat: parseFloat(location.lat),
+      lon: parseFloat(location.lon),
+      display_name: location.display_name
+    });
     
     return {
-      lat: location.latitude,
-      lon: location.longitude,
-      formattedAddress: location.formattedAddress,
-      city: location.city || location.county || cityName,
-      country: location.country || 'غير محدد'
+      lat: parseFloat(location.lat),
+      lon: parseFloat(location.lon),
+      formattedAddress: location.display_name,
+      city: city,
+      country: country
     };
   } catch (error) {
-    console.error(`خطأ في geocoding للمدينة ${cityName}:`, error.message);
+    console.error(`❌ خطأ في geocoding للمدينة ${cityName}:`, error.message);
     throw new Error(`فشل في تحديد موقع المدينة: ${cityName}`);
   }
 }
@@ -51,8 +69,9 @@ async function geocodeCity(cityName) {
  */
 async function calculateRouteDistance(lat1, lon1, lat2, lon2) {
   try {
+    console.log(`🗺️ حساب المسار من (${lat1}, ${lon1}) إلى (${lat2}, ${lon2})...`);
+    
     // استخدام OSRM Demo Server (مجاني)
-    // يمكن استبداله بخادم خاص للإنتاج
     const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
     
     const response = await axios.get(osrmUrl, {
@@ -67,6 +86,8 @@ async function calculateRouteDistance(lat1, lon1, lat2, lon2) {
     const distanceMeters = route.distance;
     const durationSeconds = route.duration;
     
+    console.log(`✅ OSRM: المسافة = ${Math.round(distanceMeters / 1000)} كم, الوقت = ${(durationSeconds / 3600).toFixed(2)} ساعة`);
+    
     return {
       distance_km: Math.round(distanceMeters / 1000), // تحويل من متر إلى كيلومتر
       distance_meters: distanceMeters,
@@ -75,14 +96,16 @@ async function calculateRouteDistance(lat1, lon1, lat2, lon2) {
       method: 'osrm_driving'
     };
   } catch (error) {
-    console.error('خطأ في OSRM API:', error.message);
+    console.error('❌ خطأ في OSRM API:', error.message);
     
     // في حالة فشل OSRM، استخدم حساب المسافة المباشرة (Haversine)
-    console.log('استخدام حساب المسافة المباشرة كبديل...');
+    console.log('⚠️ استخدام حساب المسافة المباشرة كبديل...');
     const directDistance = calculateHaversineDistance(lat1, lon1, lat2, lon2);
     
     // تقدير المسافة على الطرق = المسافة المباشرة × 1.3 (عامل تقريبي)
     const estimatedRoadDistance = Math.round(directDistance * 1.3);
+    
+    console.log(`✅ Haversine: المسافة المباشرة = ${directDistance} كم, المسافة المقدرة على الطرق = ${estimatedRoadDistance} كم`);
     
     return {
       distance_km: estimatedRoadDistance,
@@ -136,16 +159,16 @@ function toRadians(degrees) {
  */
 async function calculateDistanceBetweenCities(fromCity, toCity) {
   try {
-    console.log(`حساب المسافة من "${fromCity}" إلى "${toCity}"...`);
+    console.log(`\n🚀 حساب المسافة من "${fromCity}" إلى "${toCity}"...`);
     
     // تحويل أسماء المدن إلى إحداثيات
-    const [fromLocation, toLocation] = await Promise.all([
-      geocodeCity(fromCity),
-      geocodeCity(toCity)
-    ]);
+    // إضافة تأخير صغير بين الطلبات (احترام Rate Limiting)
+    const fromLocation = await geocodeCity(fromCity);
+    await sleep(1100); // انتظار 1.1 ثانية (Nominatim يطلب طلب واحد في الثانية)
+    const toLocation = await geocodeCity(toCity);
     
-    console.log(`من: ${fromLocation.formattedAddress}`);
-    console.log(`إلى: ${toLocation.formattedAddress}`);
+    console.log(`📍 من: ${fromLocation.formattedAddress}`);
+    console.log(`📍 إلى: ${toLocation.formattedAddress}`);
     
     // حساب المسافة على الطرق
     const routeInfo = await calculateRouteDistance(
@@ -154,6 +177,8 @@ async function calculateDistanceBetweenCities(fromCity, toCity) {
       toLocation.lat,
       toLocation.lon
     );
+    
+    console.log(`\n✅ النتيجة النهائية: ${routeInfo.distance_km} كم (${routeInfo.duration_hours} ساعة)\n`);
     
     return {
       success: true,
@@ -190,7 +215,7 @@ async function calculateDistanceBetweenCities(fromCity, toCity) {
       calculated_at: new Date().toISOString()
     };
   } catch (error) {
-    console.error('خطأ في حساب المسافة بين المدن:', error);
+    console.error('❌ خطأ في حساب المسافة بين المدن:', error);
     throw error;
   }
 }
@@ -238,6 +263,14 @@ function extractCitiesFromText(text) {
   }
   
   return null;
+}
+
+/**
+ * دالة مساعدة للانتظار (Sleep)
+ * @param {number} ms - الوقت بالميلي ثانية
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 module.exports = {
