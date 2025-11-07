@@ -287,12 +287,42 @@ router.post("/conversations", protectUnified, async (req, res) => {
         isAccountActive: true
       }).populate("driverUser", "_id name avatar");
 
-      if (vehicle && vehicle.driverUser) {
-        // Use the driver's User account
-        participant = await User.findById(vehicle.driverUser._id);
-        if (!participant) {
-          console.error(`Driver User not found for vehicle: ${participantId}`);
-          return res.status(404).json({ msg: "Driver account not found" });
+      if (vehicle) {
+        // Check if driver has a User account
+        if (vehicle.driverUser) {
+          // Use existing driver User account
+          participant = await User.findById(vehicle.driverUser._id);
+          if (!participant) {
+            console.error(`Driver User not found for vehicle: ${participantId}`);
+            return res.status(404).json({ msg: "Driver account not found" });
+          }
+        } else {
+          // Auto-create User account for old drivers who don't have one
+          console.log(`Auto-creating User account for driver: ${participantId}`);
+          const driverEmail = `${vehicle.fleetAccountId}@driver.local`;
+          
+          // Re-fetch vehicle with password to create User
+          const vehicleWithPassword = await Vehicle.findOne({ fleetAccountId: participantId }).select('+fleetPassword');
+          
+          if (!vehicleWithPassword || !vehicleWithPassword.fleetPassword) {
+            console.error(`Cannot create User for driver without password: ${participantId}`);
+            return res.status(400).json({ msg: "Driver account not properly configured" });
+          }
+          
+          const driverUser = await User.create({
+            email: driverEmail,
+            password: vehicleWithPassword.fleetPassword, // Already hashed
+            name: vehicle.driverName,
+            userType: "driver",
+            avatar: vehicle.imageUrls?.[0] || "",
+          });
+          
+          // Link User to Vehicle
+          vehicleWithPassword.driverUser = driverUser._id;
+          await vehicleWithPassword.save();
+          
+          participant = driverUser;
+          console.log(`Successfully created User account for driver: ${participantId}`);
         }
       } else {
         // Log the error before returning 404
