@@ -150,7 +150,7 @@ router.get(
             user: req.user._id,
             fleetAccountId: { $exists: true, $ne: null },
             isAccountActive: true
-        }).select('+fleetAccountId').populate('driverUser', '_id name avatar'); // التأكد من جلب fleetAccountId و driverUser
+        }).select('+fleetAccountId +imageUrls').populate('driverUser', '_id name avatar'); // التأكد من جلب fleetAccountId و imageUrls و driverUser
         res.json({
             success: true,
             data: vehicles
