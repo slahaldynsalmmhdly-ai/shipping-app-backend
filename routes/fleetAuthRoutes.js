@@ -322,6 +322,16 @@ router.post(
       throw new Error("كلمة السر غير صحيحة");
     }
 
+    // إلغاء طلب إعادة التعيين عند تسجيل الدخول بنجاح
+    if (vehicle.passwordResetRequired) {
+      vehicle.passwordResetRequired = false;
+      vehicle.newPasswordSet = null;
+      vehicle.passwordResetAttempts = 0;
+      vehicle.passwordResetLockedUntil = null;
+      vehicle.passwordResetTimestamp = null;
+      await vehicle.save();
+    }
+
     // إنشاء token جديد
     const User = require("../models/User");
     let driverUser = await User.findById(vehicle.driverUser);
