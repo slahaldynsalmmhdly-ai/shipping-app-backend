@@ -145,8 +145,12 @@ router.get(
             throw new Error("Not authorized, only companies can view their fleet");
         }
 
+        // Only return vehicles where the driver has logged in at least once
         const vehicles = await Vehicle.find({
-            user: req.user._id
+            user: req.user._id,
+            fleetAccountId: { $exists: true, $ne: null },
+            lastLogin: { $exists: true, $ne: null },
+            isAccountActive: true
         }).select('+fleetAccountId'); // التأكد من جلب fleetAccountId
         res.json({
             success: true,

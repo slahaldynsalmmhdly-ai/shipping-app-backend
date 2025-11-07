@@ -141,8 +141,13 @@ const uploadDocument = multer({
 	    const users = await User.find({ _id: { $in: userIds } }).select("name avatar userType isOnline lastSeen").lean();
 	    const userMap = new Map(users.map(user => [user._id.toString(), user]));
 
-	    // Fetch Vehicle details (using fleetAccountId)
-	    const vehicles = await Vehicle.find({ fleetAccountId: { $in: vehicleIds } }).select("fleetAccountId driverName imageUrls").lean();
+    // Fetch Vehicle details (using fleetAccountId)
+    // Only include vehicles where the driver has logged in at least once
+    const vehicles = await Vehicle.find({ 
+      fleetAccountId: { $in: vehicleIds },
+      lastLogin: { $exists: true, $ne: null },
+      isAccountActive: true
+    }).select("fleetAccountId driverName imageUrls").lean();
 	    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.fleetAccountId, vehicle]));
 
 	    // Format conversations for frontend
@@ -273,7 +278,12 @@ router.post("/conversations", protectUnified, async (req, res) => {
     // If not found, check if it's a Vehicle (Driver) using fleetAccountId
     if (!participant) {
       const Vehicle = require("../models/Vehicle"); // Import Vehicle model
-      const vehicle = await Vehicle.findOne({ fleetAccountId: participantId });
+      // Only allow chat with drivers who have logged in at least once
+      const vehicle = await Vehicle.findOne({ 
+        fleetAccountId: participantId,
+        lastLogin: { $exists: true, $ne: null },
+        isAccountActive: true
+      });
 
       if (vehicle) {
         // Create a temporary participant object from the vehicle data
