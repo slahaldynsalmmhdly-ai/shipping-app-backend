@@ -214,7 +214,7 @@ async function searchCompanyPosts(companyId) {
 }
 
 /**
- * تحليل حالة المحادثة - هل العميل جاهز للحجز؟
+ * تحليل حالة المحادثة - لمعرفة ما الذي جمعناه من العميل وجمع البيانات الفعلية
  */
 function analyzeConversationState(conversationHistory) {
   const state = {
@@ -223,47 +223,102 @@ function analyzeConversationState(conversationHistory) {
     hasPhone: false,
     hasAddress: false,
     hasPickupTime: false,
+    hasName: false,
     askedAboutPrice: false,
     agreedToPrice: false,
-    readyToBook: false
+    confirmedBooking: false,
+    readyToBook: false,
+    // ✅ البيانات الفعلية المجموعة
+    customerName: null,
+    customerPhone: null,
+    location: null,
+    address: null,
+    city: null,
+    pickupTime: null,
+    cargoImage: null,
+    notes: null
   };
 
   conversationHistory.forEach(msg => {
-    const text = msg.content?.toLowerCase() || '';
+    const text = msg.content || '';
+    const lowerText = text.toLowerCase();
     
-    // تحقق من الموقع
-    if (text.includes('موقع') || text.includes('مكان') || text.includes('عنوان')) {
+    // ✅ جمع رابط الموقع (Google Maps)
+    const locationMatch = text.match(/(https?:\/\/[^\s]+maps[^\s]+)|(https?:\/\/maps\.[^\s]+)|(https?:\/\/goo\.gl\/[^\s]+)/);
+    if (locationMatch) {
+      state.location = locationMatch[0];
       state.hasLocation = true;
     }
     
-    // تحقق من الصورة
-    if (text.includes('صور') || text.includes('صورة')) {
-      state.hasImage = true;
-    }
-    
-    // تحقق من الرقم
-    if (/\d{10}/.test(text) || text.includes('رقم')) {
+    // ✅ جمع رقم الهاتف (سعودي 05XXXXXXXX أو دولي)
+    const phoneMatch = text.match(/\b(05\d{8}|\+966\d{9}|00966\d{9}|\d{10})\b/);
+    if (phoneMatch) {
+      state.customerPhone = phoneMatch[0];
       state.hasPhone = true;
     }
     
-    // تحقق من وقت الاستلام
-    if (text.includes('وقت') || text.includes('متى') || text.includes('الساعة')) {
-      state.hasPickupTime = true;
+    // ✅ جمع العنوان (إذا ذكر "عنوان" أو "حي")
+    if (lowerText.includes('عنوان') || lowerText.includes('حي') || lowerText.includes('شارع')) {
+      // استخراج العنوان من الرسالة
+      const addressMatch = text.match(/عنوان[:\s]*(.+)|(حي [\u0621-\u064a\s]+)|(شارع [\u0621-\u064a\s]+)/);
+      if (addressMatch) {
+        state.address = (addressMatch[1] || addressMatch[2] || addressMatch[3]).trim();
+        state.hasAddress = true;
+      }
+    }
+    
+    // ✅ جمع المدينة
+    const saudiCities = ['الرياض', 'جدة', 'الدمام', 'مكة', 'المدينة', 'الطائف', 'تبوك', 'أبها', 'الخبر', 'بريدة', 'الأحساء', 'القصيم', 'حائل', 'جيزان', 'نجران', 'الباحة', 'عرعر', 'سكاكا', 'القطيف', 'الجبيل'];
+    for (const city of saudiCities) {
+      if (lowerText.includes(city)) {
+        state.city = city;
+        break;
+      }
+    }
+    
+    // ✅ جمع الاسم (إذا قال "اسمي" أو "أنا")
+    if (lowerText.includes('اسمي') || lowerText.includes('أنا')) {
+      const nameMatch = text.match(/اسمي[:\s]+([\u0621-\u064a\s]+)|\u0623نا[:\s]+([\u0621-\u064a\s]+)/);
+      if (nameMatch) {
+        state.customerName = (nameMatch[1] || nameMatch[2]).trim();
+        state.hasName = true;
+      }
+    }
+    
+    // ✅ جمع موعد الحضور
+    if (lowerText.includes('غداً') || lowerText.includes('بعد غد') || lowerText.includes('اليوم') || lowerText.includes('الساعة')) {
+      // استخراج الوقت
+      const timeMatch = text.match(/(غداً?|بعد غد|اليوم).+?(الساعة \d+|\d+ صباحاً?|\d+ مساءً?)?/);
+      if (timeMatch) {
+        state.pickupTime = timeMatch[0].trim();
+        state.hasPickupTime = true;
+      }
+    }
+    
+    // ✅ جمع صورة الحمولة (إذا أرسل صورة)
+    if (msg.imageUrls && msg.imageUrls.length > 0 && msg.role === 'user') {
+      state.cargoImage = msg.imageUrls[0];
+      state.hasImage = true;
     }
     
     // تحقق من السعر
-    if (text.includes('سعر') || text.includes('كم') || text.includes('بكم')) {
+    if (lowerText.includes('سعر') || lowerText.includes('كم') || lowerText.includes('بكم')) {
       state.askedAboutPrice = true;
     }
     
     // تحقق من الموافقة
-    if (text.includes('تمام') || text.includes('موافق') || text.includes('ماشي') || text.includes('اوكي')) {
+    if (lowerText.includes('تمام') || lowerText.includes('موافق') || lowerText.includes('ماشي') || lowerText.includes('اوكي')) {
       state.agreedToPrice = true;
+    }
+    
+    // ✅ تحقق من تأكيد الحجز
+    if (lowerText.includes('أكد') || lowerText.includes('احجز') || lowerText.includes('أرسل للسائق') || lowerText.includes('تواصل مع السائق')) {
+      state.confirmedBooking = true;
     }
   });
 
-  // العميل جاهز للحجز إذا كان عنده موقع وصورة ووافق على السعر
-  state.readyToBook = state.hasLocation && state.hasImage && state.agreedToPrice;
+  // ✅ العميل جاهز للحجز إذا كان عنده البيانات الأساسية
+  state.readyToBook = state.hasPhone && (state.hasLocation || state.hasAddress) && state.city && state.agreedToPrice;
 
   return state;
 }
@@ -382,6 +437,7 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
 - **إذا قال السعر غالي**: راوغه شوي، قل "هذا السعر المعتاد" أو "جودة عالية"
 - **إذا أصر على التخفيض**: هنا اعرض الخصم بذكاء
 - **اجمع المعلومات بالتدريج**: موقع، صورة، رقم، عنوان، وقت الاستلام
+- **إذا جمعت كل البيانات**: اسأل العميل "تمام، تبي أرسل طلبك للسائق الحين؟"
 - **إذا ما عندك معلومات**: قل للعميل "ما عندي هالمعلومة، تبي أحولك لموظف؟"
 
 ✅ أمثلة على الردود الصحيحة:
@@ -483,6 +539,44 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
       }
     }
 
+    // ✅ التحقق من الإرسال التلقائي للسائق
+    let autoSentToDriver = false;
+    let driverInfo = null;
+    
+    if (conversationState.confirmedBooking && conversationState.readyToBook && conversationState.city) {
+      console.log('✅ العميل أكد الحجز! جاري الإرسال للسائق...');
+      
+      const { findSuitableDriver } = require('./find-suitable-driver');
+      const { sendBookingToDriver } = require('./auto-send-to-driver');
+      
+      // تحديد السائق المناسب
+      const driver = await findSuitableDriver(conversationState.city, companyId);
+      
+      if (driver) {
+        // إرسال الطلب للسائق
+        const bookingData = {
+          customerName: conversationState.customerName || 'العميل',
+          customerPhone: conversationState.customerPhone,
+          location: conversationState.location,
+          address: conversationState.address,
+          city: conversationState.city,
+          pickupTime: conversationState.pickupTime,
+          cargoImage: conversationState.cargoImage,
+          notes: conversationState.notes
+        };
+        
+        const sendResult = await sendBookingToDriver(bookingData, driver.driverId, companyId, null);
+        
+        if (sendResult.success) {
+          autoSentToDriver = true;
+          driverInfo = driver;
+          console.log('✅ تم إرسال الطلب للسائق بنجاح!');
+        }
+      } else {
+        console.log('❌ لم يتم العثور على سائق متاح');
+      }
+    }
+    
     // التحقق من طلب التحويل للموظف
     const shouldTransfer = 
       botResponse.includes('موظف بشري') || 
@@ -490,12 +584,20 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
       botResponse.includes('أحولك') ||
       (!realData && (lowerMessage.includes('متى') || lowerMessage.includes('كم') || lowerMessage.includes('وين')));
 
+    // ✅ إضافة رسالة تأكيد إذا تم الإرسال للسائق
+    let finalResponse = botResponse;
+    if (autoSentToDriver && driverInfo) {
+      finalResponse += `\n\n✅ **تم إرسال طلبك للسائق ${driverInfo.driverName} بنجاح!**\nسيتواصل معك قريباً على رقمك: ${conversationState.customerPhone} 🚚`;
+    }
+    
     return {
       success: true,
-      response: botResponse,
+      response: finalResponse,
       shouldTransferToHuman: shouldTransfer,
       imageUrls: imageUrls.length > 0 ? imageUrls : null,
-      conversationState: conversationState
+      conversationState: conversationState,
+      autoSentToDriver: autoSentToDriver,  // ✅ معلومة الإرسال التلقائي
+      driverInfo: driverInfo
     };
 
   } catch (error) {
