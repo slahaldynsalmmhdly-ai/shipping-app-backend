@@ -177,6 +177,56 @@ router.get(
   }
 );
 
+// @desc    Update user password
+// @route   PUT /api/v1/auth/update-password
+// @access  Private
+router.put(
+  "/update-password",
+  asyncHandler(async (req, res) => {
+    const { protect } = require("../middleware/authMiddleware");
+    
+    // Apply protect middleware manually
+    await new Promise((resolve, reject) => {
+      protect(req, res, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400);
+      throw new Error("يجب إدخال كلمة السر الحالية والجديدة");
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400);
+      throw new Error("يجب أن تتكون كلمة السر الجديدة من 6 أحرف على الأقل");
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      res.status(404);
+      throw new Error("المستخدم غير موجود");
+    }
+
+    // Check if current password is correct
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      res.status(401);
+      throw new Error("كلمة السر الحالية غير صحيحة");
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "تم تحديث كلمة السر بنجاح" });
+  })
+);
+
 // @desc    Logout user and update online status
 // @route   POST /api/v1/auth/logout
 // @access  Private
