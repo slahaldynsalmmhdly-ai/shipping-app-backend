@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const {
   processUserMessage,
-  processImageAnalysis,
   calculatePriceWithAI
 } = require('../services/aiChatService');
 
@@ -37,36 +36,7 @@ router.post('/message', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/v1/chat/process-image
- * @desc    معالجة نتيجة تحليل الصورة مع البوت
- * @access  Public
- */
-router.post('/process-image', async (req, res) => {
-  try {
-    const { analysisResult, conversationHistory } = req.body;
-    
-    if (!analysisResult) {
-      return res.status(400).json({
-        success: false,
-        message: 'يجب إرسال نتيجة التحليل (analysisResult)'
-      });
-    }
-    
-    // معالجة نتيجة التحليل مع الذكاء الاصطناعي
-    const result = await processImageAnalysis(analysisResult, conversationHistory || []);
-    
-    res.status(200).json(result);
-    
-  } catch (error) {
-    console.error('خطأ في معالجة تحليل الصورة:', error);
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ أثناء معالجة تحليل الصورة',
-      error: error.message
-    });
-  }
-});
+// تم حذف ميزة معالجة الصور - لم تعد مطلوبة
 
 /**
  * @route   POST /api/v1/chat/calculate-price
@@ -94,6 +64,45 @@ router.post('/calculate-price', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء حساب السعر',
+      error: error.message
+    });
+  }
+});
+
+module.exports = router;
+
+/**
+ * @route   POST /api/v1/chat/create-booking
+ * @desc    إنشاء حجز من خلال البوت الذكي
+ * @access  Public
+ */
+router.post('/create-booking', async (req, res) => {
+  try {
+    const { bookingInfo, conversationHistory } = req.body;
+    
+    if (!bookingInfo) {
+      return res.status(400).json({
+        success: false,
+        message: 'يجب إرسال معلومات الحجز (bookingInfo)'
+      });
+    }
+    
+    const { processBookingRequest } = require('../services/aiChatService');
+    
+    // معالجة طلب الحجز مع الذكاء الاصطناعي
+    const result = await processBookingRequest(bookingInfo, conversationHistory || []);
+    
+    if (result.success) {
+      res.status(201).json(result);
+    } else {
+      res.status(400).json(result);
+    }
+    
+  } catch (error) {
+    console.error('خطأ في معالجة طلب الحجز:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء معالجة طلب الحجز',
       error: error.message
     });
   }

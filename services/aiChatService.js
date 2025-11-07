@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { extractCitiesFromText, calculateDistanceBetweenCities } = require('./distanceService');
+const { extractTruckSearchQuery, searchTrucks } = require('./truckSearchService');
 
 // إنشاء عميل Groq (متوافق مع OpenAI SDK)
 const groq = new OpenAI({
@@ -13,7 +14,7 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي لتطبيق شحن ونقل ا�
 معلومات عنك:
 - تم تطويرك بواسطة: صلاح مهدلي
 - الشركة: تطبيق الشحن والنقل
-- وظيفتك: مساعدة العملاء في حساب أسعار الشحن
+- وظيفتك: مساعدة العملاء في البحث عن الشاحنات وحساب أسعار الشحن
 
 قواعد صارمة يجب اتباعها:
 
@@ -23,9 +24,10 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي لتطبيق شحن ونقل ا�
    - كن مختصراً ولطيفاً
 
 2. التحيات والمحادثة:
-   - رد على التحيات بشكل طبيعي (السلام عليكم، مرحباً، كيف الحال)
-   - كن ودوداً ومحترماً
-   - تصرف كإنسان طبيعي
+   - رد على السلام بـ "وعليكم السلام ورحمة الله وبركاته" أو "وعليكم السلام"
+   - رد على "مرحباً" بـ "مرحباً بك! كيف يمكنني مساعدتك؟"
+   - رد على "كيف الحال" بـ "الحمد لله، وأنت كيف حالك؟"
+   - كن ودوداً ومحترماً وطبيعياً
 
 3. المعلومات المحظورة:
    - لا تعطي أسعار من عندك أبداً
@@ -33,23 +35,28 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي لتطبيق شحن ونقل ا�
    - لا تخترع معلومات
    - إذا لم تعرف شيئاً، اطلب من المستخدم توضيحه
 
-4. طلب المعلومات:
-   - إذا سأل عن السعر: اطلب منه صورة الحمولة أو اسم المدينتين
+4. البحث عن الشاحنات:
+   - عند البحث عن شاحنات، استخدم البيانات الحقيقية فقط
+   - اذكر الموقع الحالي للشاحنة والوجهات المتاحة
+   - إذا لم توجد شاحنات، اعتذر بلطف
+
+5. طلب المعلومات:
+   - إذا سأل عن السعر: اطلب منه اسم المدينتين (من أين إلى أين)
    - إذا سأل عن الخصم: اطلب منه المسافة أولاً
    - كن واضحاً في طلباتك
 
-5. أمثلة على الردود الصحيحة:
+6. أمثلة على الردود الصحيحة:
    - "وعليكم السلام! كيف يمكنني مساعدتك؟"
    - "الحمد لله، شكراً لسؤالك. كيف يمكنني خدمتك؟"
-   - "لحساب السعر، أرسل لي صورة الحمولة أو أخبرني من أين إلى أين؟"
+   - "لحساب السعر، أخبرني من أين إلى أين؟"
    - "تم تطويري بواسطة المطور صلاح مهدلي"
 
-6. أمثلة على الردود الخاطئة (لا تفعلها):
+7. أمثلة على الردود الخاطئة (لا تفعلها):
    - ❌ "السعر من الرياض إلى جدة هو 5000 ريال" (لا تخترع أسعار)
    - ❌ "المسافة بين الرياض وجدة 950 كم" (لا تخترع مسافات)
    - ❌ "يمكنك الحصول على خصم 20%" (لا تعطي خصومات من عندك)
 
-7. عند استلام بيانات من الأدوات:
+8. عند استلام بيانات من الأدوات:
    - استخدم البيانات الحقيقية فقط
    - لا تضيف معلومات من عندك
    - رد بشكل طبيعي وبسيط
@@ -64,24 +71,43 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي لتطبيق شحن ونقل ا�
  */
 async function processUserMessage(userMessage, conversationHistory = []) {
   try {
-    // التحقق من وجود مدن في الرسالة
-    const cities = extractCitiesFromText(userMessage);
     let toolResults = null;
     
-    // إذا وجدنا مدن، احسب المسافة تلقائياً
-    if (cities) {
+    // 1. التحقق من البحث عن شاحنات
+    const truckQuery = extractTruckSearchQuery(userMessage);
+    if (truckQuery) {
       try {
-        console.log(`تم اكتشاف مدن: ${cities.from} → ${cities.to}`);
-        const distanceResult = await calculateDistanceBetweenCities(cities.from, cities.to);
+        console.log('تم اكتشاف طلب بحث عن شاحنات:', truckQuery);
+        const searchResult = await searchTrucks(truckQuery);
         
-        if (distanceResult.success) {
+        if (searchResult.success) {
           toolResults = {
-            type: 'distance_calculated',
-            data: distanceResult
+            type: 'truck_search',
+            data: searchResult
           };
         }
       } catch (error) {
-        console.error('خطأ في حساب المسافة:', error.message);
+        console.error('خطأ في البحث عن الشاحنات:', error.message);
+      }
+    }
+    
+    // 2. التحقق من وجود مدن في الرسالة (لحساب المسافة)
+    if (!toolResults) {
+      const cities = extractCitiesFromText(userMessage);
+      if (cities) {
+        try {
+          console.log(`تم اكتشاف مدن: ${cities.from} → ${cities.to}`);
+          const distanceResult = await calculateDistanceBetweenCities(cities.from, cities.to);
+          
+          if (distanceResult.success) {
+            toolResults = {
+              type: 'distance_calculated',
+              data: distanceResult
+            };
+          }
+        } catch (error) {
+          console.error('خطأ في حساب المسافة:', error.message);
+        }
       }
     }
     
@@ -103,7 +129,7 @@ async function processUserMessage(userMessage, conversationHistory = []) {
       model: 'llama-3.3-70b-versatile', // نموذج ذكي ومجاني
       messages: messages,
       temperature: 0.7,
-      max_tokens: 200, // حد أقصى للردود القصيرة
+      max_tokens: 300, // زيادة الحد لعرض نتائج الشاحنات
       presence_penalty: 0.6,
       frequency_penalty: 0.3
     });
@@ -134,61 +160,40 @@ async function processUserMessage(userMessage, conversationHistory = []) {
 }
 
 /**
- * معالجة نتيجة تحليل الصورة
- * @param {Object} analysisResult - نتيجة تحليل الصورة
- * @param {Array} conversationHistory - تاريخ المحادثة
- * @returns {Promise<Object>} - رد البوت
- */
-async function processImageAnalysis(analysisResult, conversationHistory = []) {
-  try {
-    // تنسيق نتيجة التحليل
-    const toolMessage = `تم تحليل الصورة بنجاح:
-- نوع الحمولة: ${analysisResult.cargo_type}
-- الوصف: ${analysisResult.description}
-- نسبة الثقة: ${Math.round(analysisResult.confidence * 100)}%
-
-الآن أخبر المستخدم بالنتيجة بشكل قصير وودود، واطلب منه المسافة (من أين إلى أين) لحساب السعر.`;
-    
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...conversationHistory,
-      { role: 'system', content: toolMessage }
-    ];
-    
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 150
-    });
-    
-    const aiResponse = completion.choices[0].message.content;
-    
-    return {
-      success: true,
-      response: aiResponse,
-      analysisResult: analysisResult,
-      conversationHistory: [
-        ...conversationHistory,
-        { role: 'system', content: `تم تحليل صورة: ${analysisResult.cargo_type}` },
-        { role: 'assistant', content: aiResponse }
-      ]
-    };
-    
-  } catch (error) {
-    console.error('خطأ في معالجة تحليل الصورة:', error);
-    return {
-      success: false,
-      response: 'تم تحليل الصورة، لكن حدث خطأ في المعالجة. يرجى المحاولة مرة أخرى.',
-      error: error.message
-    };
-  }
-}
-
-/**
  * تنسيق نتائج الأدوات للذكاء الاصطناعي
  */
 function formatToolResultForAI(toolResults) {
+  if (toolResults.type === 'truck_search') {
+    const data = toolResults.data;
+    
+    if (data.count === 0) {
+      return `لم يتم العثور على شاحنات ${data.searchDescription || ''}.
+
+أخبر المستخدم بلطف أنه لا توجد شاحنات متاحة حالياً، واقترح عليه المحاولة لاحقاً أو البحث في مدن أخرى.`;
+    }
+    
+    let trucksInfo = `تم العثور على ${data.count} شاحنة ${data.searchDescription || ''}:\n\n`;
+    
+    data.trucks.slice(0, 3).forEach((truck, index) => {
+      trucksInfo += `${index + 1}. شاحنة ${truck.truckType}\n`;
+      trucksInfo += `   - الموقع الحالي: ${truck.currentLocation}\n`;
+      trucksInfo += `   - الوجهات: ${truck.preferredDestination}\n`;
+      trucksInfo += `   - متاحة من: ${new Date(truck.availabilityDate).toLocaleDateString('ar-SA')}\n`;
+      if (truck.companyName) {
+        trucksInfo += `   - الشركة: ${truck.companyName}\n`;
+      }
+      trucksInfo += `\n`;
+    });
+    
+    if (data.count > 3) {
+      trucksInfo += `وهناك ${data.count - 3} شاحنة أخرى متاحة.\n`;
+    }
+    
+    trucksInfo += `\nأخبر المستخدم بالنتائج بشكل مختصر وواضح. اذكر الموقع الحالي والوجهات المتاحة.`;
+    
+    return trucksInfo;
+  }
+  
   if (toolResults.type === 'distance_calculated') {
     const data = toolResults.data;
     return `تم حساب المسافة بنجاح:
@@ -313,8 +318,95 @@ async function sendWelcomeMessage(companyId) {
 
 module.exports = {
   processUserMessage,
-  processImageAnalysis,
   calculatePriceWithAI,
+  isBotEnabledForCompany,
+  sendWelcomeMessage
+};
+
+/**
+ * معالجة طلب حجز شاحنة من المستخدم
+ * @param {Object} bookingInfo - معلومات الحجز
+ * @param {Array} conversationHistory - تاريخ المحادثة
+ * @returns {Promise<Object>} - رد البوت مع تأكيد الحجز
+ */
+async function processBookingRequest(bookingInfo, conversationHistory = []) {
+  try {
+    const { createBooking } = require('./bookingService');
+    
+    // إنشاء الحجز
+    const result = await createBooking(bookingInfo);
+    
+    if (!result.success) {
+      return {
+        success: false,
+        response: `عذراً، حدث خطأ في إنشاء الحجز: ${result.message}`,
+        error: result.message
+      };
+    }
+    
+    // تنسيق النتيجة للذكاء الاصطناعي
+    const toolMessage = `تم إنشاء طلب الحجز بنجاح! 🎉
+
+معلومات الحجز:
+- رقم الطلب: ${result.booking._id}
+- العميل: ${result.booking.customerName}
+- الهاتف: ${result.booking.customerPhone}
+- من: ${result.booking.fromCity}
+- إلى: ${result.booking.toCity}
+- المسافة: ${result.booking.distance} كم
+- السعر المتفق عليه: ${result.booking.agreedPrice} ${result.booking.currency}
+- موعد الاستلام: ${new Date(result.booking.requestedPickupDate).toLocaleDateString('ar-SA')}
+
+معلومات السائق:
+- الاسم: ${result.driver.name}
+${result.driver.companyName ? `- الشركة: ${result.driver.companyName}` : ''}
+- الهاتف: ${result.driver.phone}
+
+تم إرسال الطلب للسائق وسيتواصل معك قريباً!
+
+أخبر المستخدم بالنتيجة بشكل مختصر وودود، واذكر أن السائق سيتواصل معه قريباً.`;
+    
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversationHistory,
+      { role: 'system', content: toolMessage }
+    ];
+    
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 200
+    });
+    
+    const aiResponse = completion.choices[0].message.content;
+    
+    return {
+      success: true,
+      response: aiResponse,
+      booking: result.booking,
+      driver: result.driver,
+      conversationHistory: [
+        ...conversationHistory,
+        { role: 'system', content: `تم إنشاء حجز: ${result.booking._id}` },
+        { role: 'assistant', content: aiResponse }
+      ]
+    };
+    
+  } catch (error) {
+    console.error('خطأ في معالجة طلب الحجز:', error);
+    return {
+      success: false,
+      response: 'عذراً، حدث خطأ أثناء إنشاء الحجز. يرجى المحاولة مرة أخرى.',
+      error: error.message
+    };
+  }
+}
+
+module.exports = {
+  processUserMessage,
+  calculatePriceWithAI,
+  processBookingRequest,
   isBotEnabledForCompany,
   sendWelcomeMessage
 };
