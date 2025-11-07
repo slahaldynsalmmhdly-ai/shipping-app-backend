@@ -34,8 +34,8 @@ function extractTruckSearchQuery(userMessage) {
   
   // البحث عن أنماط مختلفة
   
-  // نمط 1: "شاحنة من X إلى Y" أو "من X إلى Y"
-  const pattern1 = /(?:شاحن[ةه]|truck)?\s*(?:من|from)\s+([^\s]+)\s+(?:إلى|الى|إلي|to)\s+([^\s]+)/i;
+  // نمط 1: "شاحنة من X إلى Y" أو "من X إلى Y" أو "احجز لي من X إلى Y"
+  const pattern1 = /(?:احجز|احجزي|ابغى|أبغى|اريد|شاحن[ةه]|مركب[ةه]|truck)?\s*(?:لي)?\s*(?:شاحن[ةه]|مركب[ةه]|truck)?\s*(?:من|from)\s+([^\s]+)\s+(?:إلى|الى|إلي|to)\s+([^\s]+)/i;
   const match1 = message.match(pattern1);
   if (match1) {
     return {
@@ -210,10 +210,12 @@ async function searchTrucks(searchQuery) {
  */
 function normalizeArabicCity(city) {
   return city
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/[ىي]/g, 'ي')
-    .replace(/ة/g, 'ه')
-    .replace(/[ًٌٍَُِّْ]/g, '');
+    .replace(/[أإآء]/g, 'ا') // أ إ آ ء -> ا
+    .replace(/[ىي]/g, 'ي') // ى ي -> ي
+    .replace(/ة/g, 'ه') // ة -> ه
+    .replace(/[\u064b\u064c\u064d\u064e\u064f\u0650\u0651\u0652]/g, '') // إزالة التشكيل
+    .trim()
+    .toLowerCase();
 }
 
 module.exports = {
