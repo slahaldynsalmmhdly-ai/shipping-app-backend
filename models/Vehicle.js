@@ -159,6 +159,11 @@ const VehicleSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  driverUser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
   
   // حقول قديمة للتوافق (اختيارية)
   vehicleName: {

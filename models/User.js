@@ -18,7 +18,7 @@ const UserSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ["individual", "company"],
+    enum: ["individual", "company", "driver"],
     required: true,
   },
   googleId: {

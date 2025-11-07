@@ -48,6 +48,30 @@ router.post(
       throw new Error("رقم الأسطول أو كلمة السر غير صحيحة");
     }
 
+    // إنشاء أو جلب حساب User للسائق
+    const User = require("../models/User");
+    let driverUser = null;
+    
+    if (vehicle.driverUser) {
+      // السائق لديه حساب مسبقاً
+      driverUser = await User.findById(vehicle.driverUser);
+    }
+    
+    if (!driverUser) {
+      // إنشاء حساب User جديد للسائق
+      const driverEmail = `${vehicle.fleetAccountId}@driver.local`;
+      driverUser = await User.create({
+        email: driverEmail,
+        password: vehicle.fleetPassword, // نفس كلمة السر (مشفرة مسبقاً)
+        name: vehicle.driverName,
+        userType: "driver",
+        avatar: vehicle.imageUrls?.[0] || "",
+      });
+      
+      // ربط User بـ Vehicle
+      vehicle.driverUser = driverUser._id;
+    }
+    
     // تحديث آخر تسجيل دخول وحالة الاتصال
     vehicle.lastLogin = new Date();
     vehicle.isOnline = true; // تعيين حالة الاتصال إلى متصل
@@ -56,10 +80,11 @@ router.post(
     // إنشاء JWT Token
     const token = jwt.sign(
       { 
-        id: vehicle._id, 
+        id: driverUser._id, // استخدام User._id بدلاً من vehicle._id
         type: 'fleet',
         fleetId: vehicle.fleetAccountId,
-        companyId: vehicle.user._id
+        companyId: vehicle.user._id,
+        vehicleId: vehicle._id
       },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }

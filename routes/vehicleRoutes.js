@@ -151,7 +151,7 @@ router.get(
             fleetAccountId: { $exists: true, $ne: null },
             lastLogin: { $exists: true, $ne: null },
             isAccountActive: true
-        }).select('+fleetAccountId'); // التأكد من جلب fleetAccountId
+        }).select('+fleetAccountId').populate('driverUser', '_id name avatar'); // التأكد من جلب fleetAccountId و driverUser
         res.json({
             success: true,
             data: vehicles

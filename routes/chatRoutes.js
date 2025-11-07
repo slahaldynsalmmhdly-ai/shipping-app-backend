@@ -147,31 +147,33 @@ const uploadDocument = multer({
       fleetAccountId: { $in: vehicleIds },
       lastLogin: { $exists: true, $ne: null },
       isAccountActive: true
-    }).select("fleetAccountId driverName imageUrls").lean();
-	    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.fleetAccountId, vehicle]));
+    }).select("fleetAccountId driverName imageUrls driverUser").populate("driverUser", "_id name avatar isOnline lastSeen").lean();
+	    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.driverUser?._id?.toString() || vehicle.fleetAccountId, vehicle]));
 
 	    // Format conversations for frontend
 	    const formattedConversations = conversations.map((conv) => {
 	      const otherParticipantId = conv.participants.find(p => p.toString() !== req.user.id);
 	      let otherParticipant = null;
 
-	      if (isValidObjectId(otherParticipantId)) {
-	        // Participant is a User
-	        otherParticipant = userMap.get(otherParticipantId.toString());
-	      } else {
-	        // Participant is a Vehicle (Driver)
-	        const vehicle = vehicleMap.get(otherParticipantId);
-	        if (vehicle) {
-	          otherParticipant = {
-	            _id: vehicle.fleetAccountId,
-	            name: vehicle.driverName,
-	            avatar: vehicle.imageUrls?.[0] || null,
-	            userType: 'driver',
-	            isOnline: false, // Assuming drivers are not tracked as online in User model
-	            lastSeen: new Date(),
-	          };
-	        }
-	      }
+      if (isValidObjectId(otherParticipantId)) {
+        // Try to find in User map first
+        otherParticipant = userMap.get(otherParticipantId.toString());
+        
+        // If not found in users, check vehicles (for drivers)
+        if (!otherParticipant) {
+          const vehicle = vehicleMap.get(otherParticipantId.toString());
+          if (vehicle && vehicle.driverUser) {
+            otherParticipant = {
+              _id: vehicle.driverUser._id,
+              name: vehicle.driverUser.name || vehicle.driverName,
+              avatar: vehicle.driverUser.avatar || vehicle.imageUrls?.[0] || null,
+              userType: 'driver',
+              isOnline: vehicle.driverUser.isOnline || false,
+              lastSeen: vehicle.driverUser.lastSeen || new Date(),
+            };
+          }
+        }
+      }
 
 	      // Skip conversation if participant details could not be found (e.g., deleted user/vehicle)
 	      if (!otherParticipant) {
@@ -283,18 +285,15 @@ router.post("/conversations", protectUnified, async (req, res) => {
         fleetAccountId: participantId,
         lastLogin: { $exists: true, $ne: null },
         isAccountActive: true
-      });
+      }).populate("driverUser", "_id name avatar");
 
-      if (vehicle) {
-        // Create a temporary participant object from the vehicle data
-        // This is a workaround to allow conversation with a Vehicle entity
-        participant = {
-          _id: vehicle.fleetAccountId, // Use fleetAccountId as the participant ID
-          name: vehicle.driverName,
-          avatar: vehicle.imageUrls?.[0] || null,
-          userType: 'driver', // Assuming 'driver' is a valid userType for chat
-          isVehicle: true, // Flag to indicate it's a vehicle entity
-        };
+      if (vehicle && vehicle.driverUser) {
+        // Use the driver's User account
+        participant = await User.findById(vehicle.driverUser._id);
+        if (!participant) {
+          console.error(`Driver User not found for vehicle: ${participantId}`);
+          return res.status(404).json({ msg: "Driver account not found" });
+        }
       } else {
         // Log the error before returning 404
         console.error(`Participant not found for ID: ${participantId}`);
@@ -302,9 +301,8 @@ router.post("/conversations", protectUnified, async (req, res) => {
       }
     }
 
-    // If the participant is a Vehicle entity, we need to handle the conversation logic differently
-    // The conversation will be between req.user.id (Company) and the Vehicle's fleetAccountId
-    const actualParticipantId = participant.isVehicle ? participant._id : participantId;
+    // Use the actual User ObjectId for the conversation
+    const actualParticipantId = participant._id;
 
     // Check if conversation already exists
     let conversation = await Conversation.findOne({
