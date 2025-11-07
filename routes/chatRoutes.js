@@ -695,8 +695,9 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
           const botMessage = await Message.create({
             conversation: conversationId,
             sender: otherParticipantId,
-            messageType: "text",
+            messageType: (botResult.imageUrls && botResult.imageUrls.length > 0) ? "image" : "text",
             content: botResult.response,
+            imageUrls: botResult.imageUrls || [],  // ✅ إضافة الصور
             readBy: [otherParticipantId],
           });
 
@@ -723,6 +724,7 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
             },
             messageType: botMessage.messageType,
             content: botMessage.content,
+            imageUrls: botMessage.imageUrls || [],  // ✅ إضافة الصور للرسالة الفورية
             isRead: false,
             reading_id: null,
             isSender: false,

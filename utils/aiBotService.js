@@ -41,6 +41,29 @@ async function callDeepSeekChat(messages) {
 }
 
 /**
+ * جلب معلومات الشركة من الملف الشخصي
+ */
+async function getCompanyInfo(companyId) {
+  try {
+    const company = await User.findById(companyId).select('companyName name phone address city country location description');
+    if (!company) return null;
+
+    return {
+      name: company.companyName || company.name,
+      phone: company.phone || null,
+      address: company.address || null,
+      city: company.city || null,
+      country: company.country || null,
+      location: company.location || null,
+      description: company.description || null
+    };
+  } catch (error) {
+    console.error('❌ خطأ في جلب معلومات الشركة:', error);
+    return null;
+  }
+}
+
+/**
  * البحث عن الأساطيل المتاحة مع الأسعار والخصومات والصور
  */
 async function searchAvailableFleets(city, companyId) {
@@ -327,6 +350,21 @@ async function processChatMessage(messageText, userId, conversationHistory = [],
       }
     }
 
+    // ✅ إذا سأل عن معلومات الشركة
+    if (lowerMessage.includes('موقع') || lowerMessage.includes('عنوان') || lowerMessage.includes('مدينة') || 
+        lowerMessage.includes('رقم') || lowerMessage.includes('هاتف') || lowerMessage.includes('تواصل') || 
+        lowerMessage.includes('وين مقر') || lowerMessage.includes('مقركم')) {
+      const companyInfo = await getCompanyInfo(companyId);
+      if (companyInfo) {
+        realData += '\n\n[معلومات الشركة]:\n';
+        if (companyInfo.name) realData += `الاسم: ${companyInfo.name}\n`;
+        if (companyInfo.phone) realData += `رقم الهاتف: ${companyInfo.phone}\n`;
+        if (companyInfo.address) realData += `العنوان: ${companyInfo.address}\n`;
+        if (companyInfo.city) realData += `المدينة: ${companyInfo.city}\n`;
+        if (companyInfo.location) realData += `رابط الموقع: ${companyInfo.location}\n`;
+      }
+    }
+
     // System context - احترافي وذكي
     let systemContext = `أنت موظف مبيعات محترف في شركة شحن سعودية. تتحدث بشكل طبيعي جداً كأنك شخص حقيقي.
 
@@ -524,6 +562,7 @@ module.exports = {
   callDeepSeekChat,
   searchAvailableFleets,
   getAllAvailableFleets,
+  getCompanyInfo,  // ✅ إضافة دالة جلب معلومات الشركة
   processChatMessage,
   sendWelcomeMessage,
   processImageMessage,
