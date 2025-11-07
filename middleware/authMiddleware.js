@@ -66,8 +66,9 @@ const protectUnified = asyncHandler(async (req, res, next) => {
 
       // Check if this is a fleet driver token
       if (decoded.type === 'fleet') {
-        // Get vehicle/driver from the token
-        const vehicle = await Vehicle.findById(decoded.id)
+        // Get vehicle/driver from the token using vehicleId
+        const vehicleId = decoded.vehicleId || decoded.id; // Use vehicleId if available, fallback to id
+        const vehicle = await Vehicle.findById(vehicleId)
           .select("-fleetPassword")
           .populate('user', 'name email companyName avatar');
 
