@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
+const { protect, protectUnified } = require("../middleware/authMiddleware");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
@@ -107,7 +107,7 @@ const uploadDocument = multer({
 // @desc    Get all conversations for the logged-in user
 // @route   GET /api/v1/chat/conversations
 // @access  Private
-	router.get("/conversations", protect, async (req, res) => {
+	router.get("/conversations", protectUnified, async (req, res) => {
 	  try {
 	    const Vehicle = require("../models/Vehicle"); // Import Vehicle model
 	    const isValidObjectId = (id) => {
@@ -221,7 +221,7 @@ const uploadDocument = multer({
 // @desc    Get total unread messages count for the logged-in user
 // @route   GET /api/v1/chat/unread-count
 // @access  Private
-router.get("/unread-count", protect, async (req, res) => {
+router.get("/unread-count", protectUnified, async (req, res) => {
   try {
     // Get all conversations for the user
     const conversations = await Conversation.find({
@@ -245,7 +245,7 @@ router.get("/unread-count", protect, async (req, res) => {
 // @desc    Get or create a conversation with another user
 // @route   POST /api/v1/chat/conversations
 // @access  Private
-router.post("/conversations", protect, async (req, res) => {
+router.post("/conversations", protectUnified, async (req, res) => {
   try {
     const { participantId } = req.body;
 
@@ -401,7 +401,7 @@ router.post("/conversations", protect, async (req, res) => {
 // @desc    Get messages for a specific conversation
 // @route   GET /api/v1/chat/conversations/:conversationId/messages
 // @access  Private
-router.get("/conversations/:conversationId/messages", protect, async (req, res) => {
+router.get("/conversations/:conversationId/messages", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { page = 1, limit = 50 } = req.query;
@@ -496,7 +496,7 @@ router.get("/conversations/:conversationId/messages", protect, async (req, res) 
 // @desc    Send a text message
 // @route   POST /api/v1/chat/conversations/:conversationId/messages
 // @access  Private
-router.post("/conversations/:conversationId/messages", protect, async (req, res) => {
+router.post("/conversations/:conversationId/messages", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { content } = req.body;
@@ -924,7 +924,7 @@ router.post(
 // @desc    Delete a message for the current user
 // @route   DELETE /api/v1/chat/messages/:messageId
 // @access  Private
-router.delete("/messages/:messageId", protect, async (req, res) => {
+router.delete("/messages/:messageId", protectUnified, async (req, res) => {
   try {
     const { messageId } = req.params;
 
@@ -949,7 +949,7 @@ router.delete("/messages/:messageId", protect, async (req, res) => {
 // @desc    Mark conversation as read
 // @route   PUT /api/v1/chat/conversations/:conversationId/read
 // @access  Private
-router.put("/conversations/:conversationId/read", protect, async (req, res) => {
+router.put("/conversations/:conversationId/read", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
 
@@ -988,7 +988,7 @@ router.put("/conversations/:conversationId/read", protect, async (req, res) => {
 // @desc    Get conversation statistics
 // @route   GET /api/v1/chat/conversations/:conversationId/stats
 // @access  Private
-router.get("/conversations/:conversationId/stats", protect, async (req, res) => {
+router.get("/conversations/:conversationId/stats", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
 
@@ -1041,7 +1041,7 @@ router.get("/conversations/:conversationId/stats", protect, async (req, res) => 
 // @desc    Get shared media in conversation
 // @route   GET /api/v1/chat/conversations/:conversationId/media
 // @access  Private
-router.get("/conversations/:conversationId/media", protect, async (req, res) => {
+router.get("/conversations/:conversationId/media", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { page = 1, limit = 50 } = req.query;
@@ -1106,7 +1106,7 @@ router.get("/conversations/:conversationId/media", protect, async (req, res) => 
 // @desc    Get user profile with conversation stats
 // @route   GET /api/v1/chat/profile/:userId
 // @access  Private
-router.get("/profile/:userId", protect, async (req, res) => {
+router.get("/profile/:userId", protectUnified, async (req, res) => {
   try {
     const { userId } = req.params;
     const { conversationId } = req.query;
@@ -1204,7 +1204,7 @@ router.get("/profile/:userId", protect, async (req, res) => {
 // @desc    Edit a message (within 30 seconds)
 // @route   PUT /api/v1/chat/messages/:messageId
 // @access  Private
-router.put("/messages/:messageId", protect, async (req, res) => {
+router.put("/messages/:messageId", protectUnified, async (req, res) => {
   try {
     const { messageId } = req.params;
     const { content } = req.body;
@@ -1256,7 +1256,7 @@ router.put("/messages/:messageId", protect, async (req, res) => {
 // @desc    Delete message for everyone (within 24 hours)
 // @route   DELETE /api/v1/chat/messages/:messageId/everyone
 // @access  Private
-router.delete("/messages/:messageId/everyone", protect, async (req, res) => {
+router.delete("/messages/:messageId/everyone", protectUnified, async (req, res) => {
   try {
     const { messageId } = req.params;
 
@@ -1299,7 +1299,7 @@ router.delete("/messages/:messageId/everyone", protect, async (req, res) => {
 // @desc    Block a user
 // @route   POST /api/v1/chat/block/:userId
 // @access  Private
-router.post("/block/:userId", protect, async (req, res) => {
+router.post("/block/:userId", protectUnified, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.id;
@@ -1332,7 +1332,7 @@ router.post("/block/:userId", protect, async (req, res) => {
 // @desc    Unblock a user
 // @route   POST /api/v1/chat/unblock/:userId
 // @access  Private
-router.post("/unblock/:userId", protect, async (req, res) => {
+router.post("/unblock/:userId", protectUnified, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.id;
@@ -1363,7 +1363,7 @@ router.post("/unblock/:userId", protect, async (req, res) => {
 // @desc    Check if user is blocked
 // @route   GET /api/v1/chat/block-status/:userId
 // @access  Private
-router.get("/block-status/:userId", protect, async (req, res) => {
+router.get("/block-status/:userId", protectUnified, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.id;
@@ -1474,7 +1474,7 @@ router.post(
 // @desc    Send a location message
 // @route   POST /api/v1/chat/conversations/:conversationId/location
 // @access  Private
-router.post("/conversations/:conversationId/location", protect, async (req, res) => {
+router.post("/conversations/:conversationId/location", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { latitude, longitude, address } = req.body;
@@ -1549,7 +1549,7 @@ router.post("/conversations/:conversationId/location", protect, async (req, res)
 // @desc    Send a contact message
 // @route   POST /api/v1/chat/conversations/:conversationId/contact
 // @access  Private
-router.post("/conversations/:conversationId/contact", protect, async (req, res) => {
+router.post("/conversations/:conversationId/contact", protectUnified, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { name, phone, email } = req.body;

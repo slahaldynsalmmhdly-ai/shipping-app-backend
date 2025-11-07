@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("express-async-handler");
 const User = require("../models/User");
+const Vehicle = require("../models/Vehicle");
 
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -48,5 +49,65 @@ const restrictTo = (...userTypes) => {
   };
 };
 
-module.exports = { protect, restrictTo };
+// Unified middleware that supports both regular users and fleet drivers
+const protectUnified = asyncHandler(async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    try {
+      // Get token from header
+      token = req.headers.authorization.split(" ")[1];
+
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Check if this is a fleet driver token
+      if (decoded.type === 'fleet') {
+        // Get vehicle/driver from the token
+        const vehicle = await Vehicle.findById(decoded.id)
+          .select("-fleetPassword")
+          .populate('user', 'name email companyName avatar');
+
+        if (!vehicle) {
+          return res.status(401).json({ message: "Not authorized, driver not found" });
+        }
+
+        // Set req.user with vehicle data
+        // IMPORTANT: Use fleetAccountId as the user id for chat compatibility
+        req.user = {
+          id: vehicle.fleetAccountId, // Use fleetAccountId instead of _id
+          _id: vehicle._id,
+          fleetAccountId: vehicle.fleetAccountId,
+          name: vehicle.driverName,
+          userType: 'driver',
+          avatar: vehicle.imageUrls?.[0] || null,
+          company: vehicle.user,
+          isFleet: true
+        };
+      } else {
+        // Regular user token
+        req.user = await User.findById(decoded.id).select("-password");
+
+        if (!req.user) {
+          return res.status(401).json({ message: "Not authorized, user not found" });
+        }
+
+        // Ensure id field exists for compatibility
+        req.user.id = req.user._id.toString();
+      }
+
+      next();
+    } catch (error) {
+      console.error(error);
+      return res.status(401).json({ message: "Not authorized, token failed" });
+    }
+  } else {
+    return res.status(401).json({ message: "Not authorized, no token" });
+  }
+});
+
+module.exports = { protect, restrictTo, protectUnified };
 
