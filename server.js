@@ -30,6 +30,7 @@ const botSettingsRoutes = require("./routes/botSettingsRoutes"); // Added botSet
 const botControlRoutes = require("./routes/botControlRoutes"); // Added botControlRoutes
 const imageAnalysisRoutes = require("./routes/imageAnalysisRoutes"); // Added imageAnalysisRoutes
 const pricingRoutes = require("./routes/pricingRoutes"); // Added pricingRoutes
+const distanceRoutes = require("./routes/distanceRoutes"); // Added distanceRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -112,6 +113,7 @@ app.use("/api/v1/bot", botSettingsRoutes); // Mount bot settings routes
 app.use("/api/v1/bot-control", botControlRoutes); // Mount bot control routes
 app.use("/api/v1/analyze-image", imageAnalysisRoutes); // Mount image analysis routes
 app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
+app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
 
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {
