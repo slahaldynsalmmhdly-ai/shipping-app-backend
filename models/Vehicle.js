@@ -170,7 +170,7 @@ const VehicleSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  tempPassword: {
+  newPasswordSet: {
     type: String,
     select: false,
   },
@@ -179,6 +179,10 @@ const VehicleSchema = new mongoose.Schema({
     default: 0,
   },
   passwordResetLockedUntil: {
+    type: Date,
+    default: null,
+  },
+  passwordResetTimestamp: {
     type: Date,
     default: null,
   },

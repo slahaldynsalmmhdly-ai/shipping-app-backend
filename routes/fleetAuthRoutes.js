@@ -260,22 +260,23 @@ router.post(
       throw new Error("رقم الأسطول غير موجود");
     }
 
-    // تشفير كلمة السر المؤقتة
+    // تشفير كلمة السر الجديدة
     const salt = await bcrypt.genSalt(10);
-    const hashedTempPassword = await bcrypt.hash(newPassword, salt);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
-    // وضع علامة إعادة تعيين كلمة السر
-    vehicle.tempPassword = hashedTempPassword;
+    // حفظ كلمة السر الجديدة ووضع علامة إعادة التعيين
+    vehicle.newPasswordSet = hashedNewPassword;
     vehicle.passwordResetRequired = true;
     vehicle.passwordResetAttempts = 0;
     vehicle.passwordResetLockedUntil = null;
+    vehicle.passwordResetTimestamp = new Date();
 
     await vehicle.save();
 
     res.json({
       success: true,
-      message: "تم إرسال طلب إعادة تعيين كلمة السر. سيتم إجبار السائق على تغيير كلمة السر عند تسجيل الدخول.",
-      tempPassword: newPassword,
+      message: "تم تغيير كلمة السر. سيتم إجبار السائق على إدخال كلمة السر الجديدة فوراً.",
+      newPassword: newPassword,
       fleet: {
         id: vehicle._id,
         fleetId: vehicle.fleetAccountId,
@@ -406,16 +407,11 @@ router.get(
 router.post(
   "/reset-password",
   asyncHandler(async (req, res) => {
-    const { fleetId, tempPassword, newPassword, confirmPassword } = req.body;
+    const { fleetId, newPassword } = req.body;
 
-    if (!fleetId || !tempPassword || !newPassword || !confirmPassword) {
+    if (!fleetId || !newPassword) {
       res.status(400);
-      throw new Error("يرجى ملء جميع الحقول");
-    }
-
-    if (newPassword !== confirmPassword) {
-      res.status(400);
-      throw new Error("كلمتا السر الجديدتان غير متطابقتين");
+      throw new Error("يرجى إدخال رقم الأسطول وكلمة السر الجديدة");
     }
 
     if (newPassword.length < 6) {
@@ -425,7 +421,7 @@ router.post(
 
     // البحث عن الأسطول
     const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId })
-      .select('+tempPassword +fleetPassword')
+      .select('+newPasswordSet +fleetPassword')
       .populate('user', 'name companyName');
 
     if (!vehicle) {
@@ -445,16 +441,16 @@ router.post(
       throw new Error(`تم قفل الحساب مؤقتاً لمدة ${remainingMinutes} دقيقة بسبب المحاولات الفاشلة المتكررة`);
     }
 
-    // التحقق من كلمة السر المؤقتة
-    const isTempPasswordMatch = await bcrypt.compare(tempPassword, vehicle.tempPassword);
+    // التحقق من كلمة السر الجديدة
+    const isNewPasswordMatch = await bcrypt.compare(newPassword, vehicle.newPasswordSet);
 
-    if (!isTempPasswordMatch) {
+    if (!isNewPasswordMatch) {
       // زيادة عداد المحاولات
       vehicle.passwordResetAttempts += 1;
 
       // إذا وصلت 5 محاولات، قفل الحساب لمدة 30 دقيقة
       if (vehicle.passwordResetAttempts >= 5) {
-        vehicle.passwordResetLockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 دقيقة
+        vehicle.passwordResetLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
         await vehicle.save();
         res.status(403);
         throw new Error("تم قفل الحساب مؤقتاً لمدة 30 دقيقة بسبب المحاولات الفاشلة المتكررة");
@@ -463,19 +459,16 @@ router.post(
       await vehicle.save();
       const remainingAttempts = 5 - vehicle.passwordResetAttempts;
       res.status(401);
-      throw new Error(`كلمة السر المؤقتة غير صحيحة. المحاولات المتبقية: ${remainingAttempts}`);
+      throw new Error(`كلمة السر غير صحيحة. المحاولات المتبقية: ${remainingAttempts}`);
     }
 
-    // تشفير كلمة السر الجديدة
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    // تحديث كلمة السر في Vehicle
-    vehicle.fleetPassword = hashedPassword;
+    // تحديث كلمة السر فيVehicle
+    vehicle.fleetPassword = vehicle.newPasswordSet;
     vehicle.passwordResetRequired = false;
-    vehicle.tempPassword = null;
+    vehicle.newPasswordSet = null;
     vehicle.passwordResetAttempts = 0;
     vehicle.passwordResetLockedUntil = null;
+    vehicle.passwordResetTimestamp = null;
 
     // تحديث كلمة السر في User (إذا كان موجوداً)
     if (vehicle.driverUser) {
@@ -523,6 +516,38 @@ router.post(
         plateNumber: vehicle.plateNumber,
         companyName: vehicle.user.name || vehicle.user.companyName,
       }
+    });
+  })
+);
+
+
+// @desc    Poll for password reset status (للتحقق الدوري)
+// @route   POST /api/fleet/poll-reset-status
+// @access  Private (Fleet only - requires token)
+router.post(
+  "/poll-reset-status",
+  asyncHandler(async (req, res) => {
+    const { fleetId } = req.body;
+
+    if (!fleetId) {
+      res.status(400);
+      throw new Error("يرجى إدخال رقم الأسطول");
+    }
+
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId });
+
+    if (!vehicle) {
+      res.status(404);
+      throw new Error("رقم الأسطول غير موجود");
+    }
+
+    res.json({
+      success: true,
+      passwordResetRequired: vehicle.passwordResetRequired,
+      passwordResetTimestamp: vehicle.passwordResetTimestamp,
+      attempts: vehicle.passwordResetAttempts,
+      maxAttempts: 5,
+      locked: vehicle.passwordResetLockedUntil && vehicle.passwordResetLockedUntil > new Date()
     });
   })
 );
