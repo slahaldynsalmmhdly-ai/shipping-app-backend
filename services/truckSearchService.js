@@ -103,8 +103,8 @@ async function searchTrucks(searchQuery) {
     }
     
     let query = {
-      isPublished: true,
-      availabilityDate: { $gte: new Date() } // الشاحنات المتاحة فقط
+      // لا نفلتر حسب isPublished أو availabilityDate
+      // نبحث عن جميع الشاحنات المتاحة
     };
     
     let trucks = [];
