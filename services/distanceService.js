@@ -17,7 +17,9 @@ const geocoder = NodeGeocoder({
  */
 async function geocodeCity(cityName) {
   try {
-    const results = await geocoder.geocode(cityName);
+    // إضافة ", Saudi Arabia" للبحث الدقيق
+    const searchQuery = cityName.includes(',') ? cityName : `${cityName}, Saudi Arabia`;
+    const results = await geocoder.geocode(searchQuery);
     
     if (!results || results.length === 0) {
       throw new Error(`لم يتم العثور على المدينة: ${cityName}`);
