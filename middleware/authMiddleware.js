@@ -76,15 +76,16 @@ const protectUnified = asyncHandler(async (req, res, next) => {
         }
 
         // Set req.user with vehicle data
-        // IMPORTANT: Use fleetAccountId as the user id for chat compatibility
+        // Use _id as the primary identifier for MongoDB compatibility
         req.user = {
-          id: vehicle.fleetAccountId, // Use fleetAccountId instead of _id
           _id: vehicle._id,
+          id: vehicle._id.toString(), // MongoDB ObjectId as string
           fleetAccountId: vehicle.fleetAccountId,
           name: vehicle.driverName,
           userType: 'driver',
           avatar: vehicle.imageUrls?.[0] || null,
           company: vehicle.user,
+          vehicleId: vehicle._id,
           isFleet: true
         };
       } else {
