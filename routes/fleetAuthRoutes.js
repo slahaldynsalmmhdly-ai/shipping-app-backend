@@ -76,6 +76,7 @@ router.post(
         licensePlate: vehicle.licensePlate,
         imageUrl: vehicle.imageUrl,
         company: {
+          _id: vehicle.user._id,
           id: vehicle.user._id,
           name: vehicle.user.companyName || vehicle.user.name,
           avatar: vehicle.user.avatar,
@@ -172,6 +173,7 @@ router.get(
           currentLocation: vehicle.currentLocation,
           status: vehicle.status,
           company: {
+            _id: vehicle.user._id,
             id: vehicle.user._id,
             name: vehicle.user.companyName || vehicle.user.name,
             avatar: vehicle.user.avatar,
