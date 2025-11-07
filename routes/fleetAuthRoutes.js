@@ -551,3 +551,40 @@ router.post(
     });
   })
 );
+
+
+// @desc    Cancel password reset request (للطوارئ - إلغاء طلب إعادة التعيين)
+// @route   POST /api/fleet/cancel-reset
+// @access  Public
+router.post(
+  "/cancel-reset",
+  asyncHandler(async (req, res) => {
+    const { fleetId } = req.body;
+
+    if (!fleetId) {
+      res.status(400);
+      throw new Error("يرجى إدخال رقم الأسطول");
+    }
+
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId });
+
+    if (!vehicle) {
+      res.status(404);
+      throw new Error("رقم الأسطول غير موجود");
+    }
+
+    // إلغاء طلب إعادة التعيين
+    vehicle.passwordResetRequired = false;
+    vehicle.newPasswordSet = null;
+    vehicle.passwordResetAttempts = 0;
+    vehicle.passwordResetLockedUntil = null;
+    vehicle.passwordResetTimestamp = null;
+
+    await vehicle.save();
+
+    res.json({
+      success: true,
+      message: "تم إلغاء طلب إعادة تعيين كلمة السر بنجاح"
+    });
+  })
+);
