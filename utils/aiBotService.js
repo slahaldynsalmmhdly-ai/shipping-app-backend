@@ -499,21 +499,13 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
       systemContext += `\n\n⚠️ لا توجد بيانات متاحة حالياً. قل للعميل: "ما عندي هالمعلومة حالياً، تبي أحولك لموظف بشري؟"`;
     }
 
-    const messages = [
-      { role: 'system', content: systemContext },
-      ...conversationHistory.slice(-8), // سياق أطول للمحادثة
-      { role: 'user', content: messageText }
-    ];
-
-    const botResponse = await callDeepSeekChat(messages);
-    
-    console.log(`✅ رد البوت: ${botResponse}`);
-
-    // التحقق من طلب الصور
+    // ✅ التحقق من طلب الصور قبل استدعاء DeepSeek
     const requestsImage = lowerMessage.includes('صور') || lowerMessage.includes('صورة') || lowerMessage.includes('شوف') || lowerMessage.includes('ارسل') || lowerMessage.includes('بعث');
     let imageUrls = [];
     
     if (requestsImage) {
+      console.log('🔍 العميل يطلب صور، جاري البحث...');
+      
       // محاولة 1: البحث حسب المدينة إذا كانت موجودة
       if (foundCity) {
         const fleets = await searchAvailableFleets(foundCity, companyId);
@@ -521,6 +513,7 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
           const fleetWithImages = fleets.find(f => f.hasImages);
           if (fleetWithImages) {
             imageUrls = fleetWithImages.imageUrls;
+            console.log(`✅ تم العثور على ${imageUrls.length} صورة للمدينة ${foundCity}`);
           }
         }
       }
@@ -535,9 +528,23 @@ ${!conversationState.hasImage && conversationState.agreedToPrice ? '⚠️ اط�
         
         if (anyVehicle && anyVehicle.imageUrls) {
           imageUrls = anyVehicle.imageUrls;
+          console.log(`✅ تم العثور على ${imageUrls.length} صورة من أي مركبة متاحة`);
+        } else {
+          console.log('❌ لم يتم العثور على صور');
         }
       }
     }
+
+    const messages = [
+      { role: 'system', content: systemContext },
+      ...conversationHistory.slice(-8), // سياق أطول للمحادثة
+      { role: 'user', content: messageText }
+    ];
+
+    const botResponse = await callDeepSeekChat(messages);
+    
+    console.log(`✅ رد البوت: ${botResponse}`);
+    console.log(`🖼️ عدد الصور المرفقة: ${imageUrls.length}`);
 
     // ✅ التحقق من الإرسال التلقائي للسائق
     let autoSentToDriver = false;

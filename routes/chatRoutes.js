@@ -712,6 +712,9 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
         );
 
         if (botResult.success && botResult.response) {
+          console.log('🔍 botResult.imageUrls:', botResult.imageUrls);
+          console.log('🔍 عدد الصور:', botResult.imageUrls ? botResult.imageUrls.length : 0);
+          
           // إنشاء رد البوت
           const botMessage = await Message.create({
             conversation: conversationId,
@@ -721,6 +724,8 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
             imageUrls: botResult.imageUrls || [],  // ✅ إضافة الصور
             readBy: [otherParticipantId],
           });
+          
+          console.log('✅ تم إنشاء رسالة البوت مع imageUrls:', botMessage.imageUrls);
 
           // تحديث المحادثة
           conversation.lastMessage = botMessage._id;
