@@ -192,7 +192,7 @@ const uploadDocument = multer({
 	              isSender: conv.lastMessage.sender.toString() === req.user.id,
 	            }
 	          : null,
-	        unreadCount: conv.unreadCount.get(req.user.id) || 0,
+	        unreadCount: conv.unreadCount?.[req.user.id] || 0,
 	        lastMessageTime: conv.lastMessageTime,
 	      };
 	    }).filter(conv => conv !== null); // Filter out conversations with missing participants
