@@ -110,10 +110,12 @@ const uploadDocument = multer({
 	router.get("/conversations", protectUnified, async (req, res) => {
 	  try {
 	    const Vehicle = require("../models/Vehicle"); // Import Vehicle model
-	    const isValidObjectId = (id) => {
-	      if (!id) return false;
-	      return id.match(/^[0-9a-fA-F]{24}$/);
-	    };
+    const isValidObjectId = (id) => {
+      if (!id) return false;
+      // Convert to string first to handle both ObjectId and string types
+      const idStr = typeof id === 'string' ? id : id.toString();
+      return /^[0-9a-fA-F]{24}$/.test(idStr);
+    };
 
 	    const conversations = await Conversation.find({
 	      participants: req.user.id,
@@ -259,8 +261,9 @@ router.post("/conversations", protectUnified, async (req, res) => {
     // Helper function to check if a string is a valid MongoDB ObjectId
     const isValidObjectId = (id) => {
       if (!id) return false;
-      // A valid ObjectId is a 24-character hex string
-      return id.match(/^[0-9a-fA-F]{24}$/);
+      // Convert to string first to handle both ObjectId and string types
+      const idStr = typeof id === 'string' ? id : id.toString();
+      return /^[0-9a-fA-F]{24}$/.test(idStr);
     };
 
     if (isValidObjectId(participantId)) {
