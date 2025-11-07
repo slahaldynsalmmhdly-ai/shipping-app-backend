@@ -483,11 +483,11 @@ router.post(
     // تحديث كلمة السر في User (إذا كان موجوداً)
     if (vehicle.driverUser) {
       const User = require("../models/User");
-      const driverUser = await User.findById(vehicle.driverUser);
-      if (driverUser) {
-        driverUser.password = hashedPassword;
-        await driverUser.save();
-      }
+      // استخدام updateOne لتجنب تشغيل pre-save hook الذي سيشفر كلمة السر مرة أخرى
+      await User.updateOne(
+        { _id: vehicle.driverUser },
+        { $set: { password: vehicle.fleetPassword } }
+      );
     }
 
     await vehicle.save();
