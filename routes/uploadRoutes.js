@@ -110,6 +110,7 @@ router.post("/single", protect, (req, res) => {
           .then(dimensions => {
             res.json({
               message: "File uploaded successfully",
+              url: req.file.path,  // ✅ إضافة url للتوافق مع الواجهة الأمامية
               filePath: req.file.path,
               fileType: fileType,
               optimized: optimizedUrls,
@@ -125,6 +126,7 @@ router.post("/single", protect, (req, res) => {
             // نرجع البيانات بدون الأبعاد في حالة الفشل
             res.json({
               message: "File uploaded successfully",
+              url: req.file.path,  // ✅ إضافة url للتوافق مع الواجهة الأمامية
               filePath: req.file.path,
               fileType: fileType,
               optimized: optimizedUrls,
@@ -135,6 +137,7 @@ router.post("/single", protect, (req, res) => {
       } else {
         res.json({
           message: "File uploaded successfully",
+          url: req.file.path,  // ✅ إضافة url للتوافق مع الواجهة الأمامية
           filePath: req.file.path,
           fileType: fileType,
           optimized: optimizedUrls
