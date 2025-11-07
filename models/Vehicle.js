@@ -165,6 +165,24 @@ const VehicleSchema = new mongoose.Schema({
     default: null,
   },
   
+  // حقول إعادة تعيين كلمة السر
+  passwordResetRequired: {
+    type: Boolean,
+    default: false,
+  },
+  tempPassword: {
+    type: String,
+    select: false,
+  },
+  passwordResetAttempts: {
+    type: Number,
+    default: 0,
+  },
+  passwordResetLockedUntil: {
+    type: Date,
+    default: null,
+  },
+  
   // حقول قديمة للتوافق (اختيارية)
   vehicleName: {
     type: String,

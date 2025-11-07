@@ -260,55 +260,26 @@ router.post(
       throw new Error("رقم الأسطول غير موجود");
     }
 
-    // تشفير كلمة السر الجديدة
+    // تشفير كلمة السر المؤقتة
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const hashedTempPassword = await bcrypt.hash(newPassword, salt);
 
-    // تحديث كلمة السر في Vehicle
-    vehicle.fleetPassword = hashedPassword;
-    
-    // تحديث كلمة السر في User (إذا كان موجوداً)
-    if (vehicle.driverUser) {
-      const User = require("../models/User");
-      const driverUser = await User.findById(vehicle.driverUser);
-      if (driverUser) {
-        driverUser.password = hashedPassword;
-        await driverUser.save();
-      }
-    }
+    // وضع علامة إعادة تعيين كلمة السر
+    vehicle.tempPassword = hashedTempPassword;
+    vehicle.passwordResetRequired = true;
+    vehicle.passwordResetAttempts = 0;
+    vehicle.passwordResetLockedUntil = null;
 
     await vehicle.save();
 
-    // إنشاء token جديد
-    const User = require("../models/User");
-    let driverUser = await User.findById(vehicle.driverUser);
-    
-    if (!driverUser) {
-      res.status(500);
-      throw new Error("خطأ في النظام: لم يتم العثور على حساب المستخدم");
-    }
-
-    const token = jwt.sign(
-      { 
-        id: driverUser._id,
-        type: 'fleet',
-        fleetId: vehicle.fleetAccountId,
-        companyId: vehicle.user._id,
-        vehicleId: vehicle._id
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "30d" }
-    );
-
     res.json({
       success: true,
-      message: "تم تغيير كلمة السر بنجاح",
-      token,
+      message: "تم إرسال طلب إعادة تعيين كلمة السر. سيتم إجبار السائق على تغيير كلمة السر عند تسجيل الدخول.",
+      tempPassword: newPassword,
       fleet: {
         id: vehicle._id,
         fleetId: vehicle.fleetAccountId,
         driverName: vehicle.driverName,
-        vehicleName: vehicle.vehicleName,
       }
     });
   })
@@ -385,6 +356,172 @@ router.post(
           name: vehicle.user.companyName || vehicle.user.name,
           avatar: vehicle.user.avatar,
         }
+      }
+    });
+  })
+);
+
+
+// @desc    Check if password reset is required
+// @route   GET /api/fleet/check-reset-status/:fleetId
+// @access  Public
+router.get(
+  "/check-reset-status/:fleetId",
+  asyncHandler(async (req, res) => {
+    const { fleetId } = req.params;
+
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId });
+
+    if (!vehicle) {
+      res.status(404);
+      throw new Error("رقم الأسطول غير موجود");
+    }
+
+    // التحقق من القفل المؤقت
+    if (vehicle.passwordResetLockedUntil && vehicle.passwordResetLockedUntil > new Date()) {
+      const remainingMinutes = Math.ceil((vehicle.passwordResetLockedUntil - new Date()) / 60000);
+      return res.json({
+        success: true,
+        passwordResetRequired: vehicle.passwordResetRequired,
+        locked: true,
+        lockedUntil: vehicle.passwordResetLockedUntil,
+        remainingMinutes,
+        message: `تم قفل الحساب مؤقتاً لمدة ${remainingMinutes} دقيقة بسبب المحاولات الفاشلة المتكررة`
+      });
+    }
+
+    res.json({
+      success: true,
+      passwordResetRequired: vehicle.passwordResetRequired,
+      attempts: vehicle.passwordResetAttempts,
+      maxAttempts: 5,
+      locked: false
+    });
+  })
+);
+
+// @desc    Reset password with temp password
+// @route   POST /api/fleet/reset-password
+// @access  Public
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { fleetId, tempPassword, newPassword, confirmPassword } = req.body;
+
+    if (!fleetId || !tempPassword || !newPassword || !confirmPassword) {
+      res.status(400);
+      throw new Error("يرجى ملء جميع الحقول");
+    }
+
+    if (newPassword !== confirmPassword) {
+      res.status(400);
+      throw new Error("كلمتا السر الجديدتان غير متطابقتين");
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400);
+      throw new Error("كلمة السر يجب أن تكون 6 أحرف على الأقل");
+    }
+
+    // البحث عن الأسطول
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId })
+      .select('+tempPassword +fleetPassword')
+      .populate('user', 'name companyName');
+
+    if (!vehicle) {
+      res.status(404);
+      throw new Error("رقم الأسطول غير موجود");
+    }
+
+    if (!vehicle.passwordResetRequired) {
+      res.status(400);
+      throw new Error("لا يوجد طلب إعادة تعيين كلمة سر لهذا الحساب");
+    }
+
+    // التحقق من القفل المؤقت
+    if (vehicle.passwordResetLockedUntil && vehicle.passwordResetLockedUntil > new Date()) {
+      const remainingMinutes = Math.ceil((vehicle.passwordResetLockedUntil - new Date()) / 60000);
+      res.status(403);
+      throw new Error(`تم قفل الحساب مؤقتاً لمدة ${remainingMinutes} دقيقة بسبب المحاولات الفاشلة المتكررة`);
+    }
+
+    // التحقق من كلمة السر المؤقتة
+    const isTempPasswordMatch = await bcrypt.compare(tempPassword, vehicle.tempPassword);
+
+    if (!isTempPasswordMatch) {
+      // زيادة عداد المحاولات
+      vehicle.passwordResetAttempts += 1;
+
+      // إذا وصلت 5 محاولات، قفل الحساب لمدة 30 دقيقة
+      if (vehicle.passwordResetAttempts >= 5) {
+        vehicle.passwordResetLockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 دقيقة
+        await vehicle.save();
+        res.status(403);
+        throw new Error("تم قفل الحساب مؤقتاً لمدة 30 دقيقة بسبب المحاولات الفاشلة المتكررة");
+      }
+
+      await vehicle.save();
+      const remainingAttempts = 5 - vehicle.passwordResetAttempts;
+      res.status(401);
+      throw new Error(`كلمة السر المؤقتة غير صحيحة. المحاولات المتبقية: ${remainingAttempts}`);
+    }
+
+    // تشفير كلمة السر الجديدة
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // تحديث كلمة السر في Vehicle
+    vehicle.fleetPassword = hashedPassword;
+    vehicle.passwordResetRequired = false;
+    vehicle.tempPassword = null;
+    vehicle.passwordResetAttempts = 0;
+    vehicle.passwordResetLockedUntil = null;
+
+    // تحديث كلمة السر في User (إذا كان موجوداً)
+    if (vehicle.driverUser) {
+      const User = require("../models/User");
+      const driverUser = await User.findById(vehicle.driverUser);
+      if (driverUser) {
+        driverUser.password = hashedPassword;
+        await driverUser.save();
+      }
+    }
+
+    await vehicle.save();
+
+    // إنشاء token جديد
+    const User = require("../models/User");
+    let driverUser = await User.findById(vehicle.driverUser);
+
+    if (!driverUser) {
+      res.status(500);
+      throw new Error("خطأ في النظام: لم يتم العثور على حساب المستخدم");
+    }
+
+    const token = jwt.sign(
+      {
+        id: driverUser._id,
+        type: 'fleet',
+        fleetId: vehicle.fleetAccountId,
+        companyId: vehicle.user._id,
+        vehicleId: vehicle._id
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      success: true,
+      message: "تم تغيير كلمة السر بنجاح",
+      token,
+      user: {
+        _id: driverUser._id,
+        name: driverUser.name,
+        fleetId: vehicle.fleetAccountId,
+        driverName: vehicle.driverName,
+        vehicleType: vehicle.vehicleType,
+        plateNumber: vehicle.plateNumber,
+        companyName: vehicle.user.name || vehicle.user.companyName,
       }
     });
   })
