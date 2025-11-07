@@ -660,8 +660,29 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
             const currentCount = conversation.unreadCount.get(req.user.id) || 0;
             conversation.unreadCount.set(req.user.id, currentCount + 1);
             await conversation.save();
+            
+            // ✅ إرسال رسالة الترحيب عبر Socket.IO
+            await welcomeMessage.populate('sender', 'name avatar');
+            const welcomeFormattedMessage = {
+              _id: welcomeMessage._id,
+              sender: {
+                _id: welcomeMessage.sender._id,
+                name: welcomeMessage.sender.name,
+                avatar: welcomeMessage.sender.avatar,
+              },
+              messageType: welcomeMessage.messageType,
+              content: welcomeMessage.content,
+              isRead: false,
+              reading_id: null,
+              isSender: false,
+              createdAt: welcomeMessage.createdAt,
+            };
+            
+            if (io) {
+              io.to(conversationId).emit('message:new', welcomeFormattedMessage);
+            }
           }
-          return; // لا ترد على أول رسالة، فقط أرسل الترحيب
+          return; // ✅ لا ترد على أول رسالة، فقط أرسل الترحيب
         }
         
         // جمع آخر رسائل المحادثة للسياق
