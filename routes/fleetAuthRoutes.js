@@ -90,6 +90,21 @@ router.post(
       { expiresIn: "30d" }
     );
 
+    // Log for debugging
+    console.log('Fleet login successful:', {
+      vehicleId: vehicle._id,
+      fleetId: vehicle.fleetAccountId,
+      hasUser: !!vehicle.user,
+      userId: vehicle.user?._id,
+      userName: vehicle.user?.name || vehicle.user?.companyName
+    });
+
+    // Check if user exists
+    if (!vehicle.user || !vehicle.user._id) {
+      res.status(500);
+      throw new Error("خطأ في البيانات: لم يتم العثور على معلومات الشركة المرتبطة بهذا الأسطول");
+    }
+
     res.json({
       success: true,
       token,
