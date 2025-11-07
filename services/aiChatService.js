@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const { extractCitiesFromText, calculateDistanceBetweenCities } = require('./distanceService');
 const { extractTruckSearchQuery, searchTrucks } = require('./truckSearchService');
+const { extractPriceQuery, searchPrice } = require('./priceService');
 
 // إنشاء عميل Groq (متوافق مع OpenAI SDK)
 const groq = new OpenAI({
@@ -99,7 +100,27 @@ async function processUserMessage(userMessage, conversationHistory = []) {
       }
     }
     
-    // 2. التحقق من وجود مدن في الرسالة (لحساب المسافة)
+    // 2. التحقق من السؤال عن السعر
+    if (!toolResults) {
+      const priceQuery = extractPriceQuery(userMessage);
+      if (priceQuery) {
+        try {
+          console.log('تم اكتشاف طلب سعر:', priceQuery);
+          const priceResult = await searchPrice(priceQuery);
+          
+          if (priceResult.success) {
+            toolResults = {
+              type: 'price_found',
+              data: priceResult
+            };
+          }
+        } catch (error) {
+          console.error('خطأ في البحث عن السعر:', error.message);
+        }
+      }
+    }
+    
+    // 3. التحقق من وجود مدن في الرسالة (لحساب المسافة)
     if (!toolResults) {
       const cities = extractCitiesFromText(userMessage);
       if (cities) {
@@ -202,17 +223,26 @@ function formatToolResultForAI(toolResults) {
     return trucksInfo;
   }
   
+  if (toolResults.type === 'price_found') {
+    const data = toolResults.data;
+    return `تم العثور على السعر في قاعدة البيانات:
+- من: ${data.from}
+- إلى: ${data.to}
+- السعر: ${data.price} ريال
+- نوع الشاحنة: ${data.truckType}
+
+الآن أخبر المستخدم بالسعر بشكل قصير ومباشر. إذا سأل عن الخصم، اسأله عن نوع البضاعة.`;
+  }
+  
   if (toolResults.type === 'distance_calculated') {
     const data = toolResults.data;
-    const price = Math.round(data.distance.kilometers * 4.5);
     return `تم حساب المسافة بنجاح:
 - من: ${data.from.city}
 - إلى: ${data.to.city}
 - المسافة: ${data.distance.kilometers} كم
 - الوقت المتوقع: ${data.duration.hours.toFixed(1)} ساعة
-- السعر المبدئي: ${price} ريال
 
-الآن أخبر المستخدم بالنتيجة بشكل قصير ومباشر. إذا سأل عن الخصم، اسأله عن نوع البضاعة.`;
+الآن أخبر المستخدم بالنتيجة بشكل قصير ومباشر.`;
   }
   
   return '';

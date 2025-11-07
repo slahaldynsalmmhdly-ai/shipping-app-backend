@@ -26,6 +26,19 @@ const EmptyTruckAdSchema = mongoose.Schema(
     additionalNotes: {
       type: String,
     },
+    // أسعار الوجهات (مدينة + سعر)
+    destinationPrices: [
+      {
+        city: {
+          type: String,
+          required: true
+        },
+        price: {
+          type: Number,
+          required: true
+        }
+      }
+    ],
     media: [
       {
         url: { type: String, required: true },
