@@ -230,3 +230,162 @@ router.get(
 );
 
 module.exports = router;
+
+// @desc    Change fleet password (تغيير كلمة سر السائق)
+// @route   POST /api/fleet/change-password
+// @access  Private (Fleet only)
+router.post(
+  "/change-password",
+  asyncHandler(async (req, res) => {
+    const { fleetId, newPassword } = req.body;
+
+    if (!fleetId || !newPassword) {
+      res.status(400);
+      throw new Error("يرجى إدخال رقم الأسطول وكلمة السر الجديدة");
+    }
+
+    // التحقق من طول كلمة السر
+    if (newPassword.length < 6) {
+      res.status(400);
+      throw new Error("كلمة السر يجب أن تكون 6 أحرف على الأقل");
+    }
+
+    // البحث عن الأسطول
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId })
+      .select('+fleetPassword')
+      .populate('user', 'name companyName');
+
+    if (!vehicle) {
+      res.status(404);
+      throw new Error("رقم الأسطول غير موجود");
+    }
+
+    // تشفير كلمة السر الجديدة
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // تحديث كلمة السر في Vehicle
+    vehicle.fleetPassword = hashedPassword;
+    
+    // تحديث كلمة السر في User (إذا كان موجوداً)
+    if (vehicle.driverUser) {
+      const User = require("../models/User");
+      const driverUser = await User.findById(vehicle.driverUser);
+      if (driverUser) {
+        driverUser.password = hashedPassword;
+        await driverUser.save();
+      }
+    }
+
+    await vehicle.save();
+
+    // إنشاء token جديد
+    const User = require("../models/User");
+    let driverUser = await User.findById(vehicle.driverUser);
+    
+    if (!driverUser) {
+      res.status(500);
+      throw new Error("خطأ في النظام: لم يتم العثور على حساب المستخدم");
+    }
+
+    const token = jwt.sign(
+      { 
+        id: driverUser._id,
+        type: 'fleet',
+        fleetId: vehicle.fleetAccountId,
+        companyId: vehicle.user._id,
+        vehicleId: vehicle._id
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      success: true,
+      message: "تم تغيير كلمة السر بنجاح",
+      token,
+      fleet: {
+        id: vehicle._id,
+        fleetId: vehicle.fleetAccountId,
+        driverName: vehicle.driverName,
+        vehicleName: vehicle.vehicleName,
+      }
+    });
+  })
+);
+
+// @desc    Verify fleet password (التحقق من كلمة سر السائق)
+// @route   POST /api/fleet/verify-password
+// @access  Public
+router.post(
+  "/verify-password",
+  asyncHandler(async (req, res) => {
+    const { fleetId, password } = req.body;
+
+    if (!fleetId || !password) {
+      res.status(400);
+      throw new Error("يرجى إدخال رقم الأسطول وكلمة السر");
+    }
+
+    // البحث عن الأسطول
+    const vehicle = await Vehicle.findOne({ fleetAccountId: fleetId })
+      .select('+fleetPassword')
+      .populate('user', 'name companyName avatar');
+
+    if (!vehicle) {
+      res.status(401);
+      throw new Error("رقم الأسطول أو كلمة السر غير صحيحة");
+    }
+
+    if (!vehicle.fleetPassword) {
+      res.status(403);
+      throw new Error("هذا الأسطول لا يملك حساباً");
+    }
+
+    // التحقق من كلمة السر
+    const isPasswordMatch = await bcrypt.compare(password, vehicle.fleetPassword);
+
+    if (!isPasswordMatch) {
+      res.status(401);
+      throw new Error("كلمة السر غير صحيحة");
+    }
+
+    // إنشاء token جديد
+    const User = require("../models/User");
+    let driverUser = await User.findById(vehicle.driverUser);
+    
+    if (!driverUser) {
+      res.status(500);
+      throw new Error("خطأ في النظام");
+    }
+
+    const token = jwt.sign(
+      { 
+        id: driverUser._id,
+        type: 'fleet',
+        fleetId: vehicle.fleetAccountId,
+        companyId: vehicle.user._id,
+        vehicleId: vehicle._id
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      success: true,
+      message: "تم التحقق بنجاح",
+      token,
+      fleet: {
+        id: vehicle._id,
+        fleetId: vehicle.fleetAccountId,
+        driverName: vehicle.driverName,
+        vehicleName: vehicle.vehicleName,
+        company: {
+          _id: vehicle.user._id,
+          name: vehicle.user.companyName || vehicle.user.name,
+          avatar: vehicle.user.avatar,
+        }
+      }
+    });
+  })
+);
