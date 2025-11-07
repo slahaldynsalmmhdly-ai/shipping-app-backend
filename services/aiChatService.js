@@ -267,8 +267,54 @@ ${pricing.discount_percentage > 0 ? `- الخصم (${pricing.discount_percentage
   }
 }
 
+/**
+ * التحقق من تفعيل البوت للشركة
+ * @param {string} companyId - معرف الشركة
+ * @returns {Promise<boolean>} - true إذا كان البوت مفعّل
+ */
+async function isBotEnabledForCompany(companyId) {
+  try {
+    const User = require('../models/User');
+    const company = await User.findById(companyId);
+    return company?.botEnabled === true;
+  } catch (error) {
+    console.error('خطأ في التحقق من تفعيل البوت:', error);
+    return false;
+  }
+}
+
+/**
+ * إرسال رسالة ترحيب للمستخدم الجديد
+ * @param {string} companyId - معرف الشركة
+ * @returns {Promise<Object>} - {success, response}
+ */
+async function sendWelcomeMessage(companyId) {
+  try {
+    const User = require('../models/User');
+    const company = await User.findById(companyId).select('companyName name');
+    const companyName = company?.companyName || company?.name || 'شركتنا';
+
+    return {
+      success: true,
+      response: `مرحباً بك في ${companyName}! 👋
+
+كيف أقدر أساعدك اليوم؟ 😊`
+    };
+  } catch (error) {
+    console.error('خطأ في إرسال رسالة الترحيب:', error);
+    return {
+      success: true,
+      response: `مرحباً بك! 👋
+
+كيف أقدر أساعدك اليوم؟ 😊`
+    };
+  }
+}
+
 module.exports = {
   processUserMessage,
   processImageAnalysis,
-  calculatePriceWithAI
+  calculatePriceWithAI,
+  isBotEnabledForCompany,
+  sendWelcomeMessage
 };

@@ -9,8 +9,7 @@ const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const { processUserMessage, processImageAnalysis, calculatePriceWithAI } = require('../services/aiChatService');
-const { isBotEnabledForCompany, sendWelcomeMessage } = require('../utils/aiBotService');
+const { processUserMessage, processImageAnalysis, calculatePriceWithAI, isBotEnabledForCompany, sendWelcomeMessage } = require('../services/aiChatService');
 
 // Configure Cloudinary
 cloudinary.config({
