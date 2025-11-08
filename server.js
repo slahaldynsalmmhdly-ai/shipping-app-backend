@@ -117,10 +117,15 @@ app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
 app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
 app.use("/api/v1/chat", aiChatRoutes); // Mount AI chat routes
 
+// PeerJS Server Setup (must be before 404 handler)
+const { ExpressPeerServer } = require('peer');
+
 // Health check / Ping endpoint to keep server awake
 app.get("/api/v1/ping", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is awake", timestamp: new Date().toISOString() });
 });
+
+// Note: PeerJS route will be added after server starts
 
 // Catch-all for 404 Not Found - MUST be after all routes and static files
 app.use((req, res, next) => {
@@ -145,7 +150,6 @@ const server = app.listen(PORT, () => {
 });
 
 // PeerJS Server for Video/Audio Calls
-const { ExpressPeerServer } = require('peer');
 const peerServer = ExpressPeerServer(server, {
   debug: true,
   path: '/',
@@ -156,7 +160,12 @@ const peerServer = ExpressPeerServer(server, {
   concurrent_limit: 5000,
 });
 
-app.use('/peerjs', peerServer);
+// Mount PeerJS server (bypasses Express middleware)
+server.on('upgrade', (request, socket, head) => {
+  if (request.url.startsWith('/peerjs')) {
+    peerServer.handle(request, socket, head);
+  }
+});
 
 peerServer.on('connection', (client) => {
   console.log(`PeerJS client connected: ${client.getId()}`);
