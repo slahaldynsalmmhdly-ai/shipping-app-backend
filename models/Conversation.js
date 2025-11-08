@@ -21,10 +21,7 @@ const ConversationSchema = new mongoose.Schema({
     of: Number,
     default: {},
   },
-  botPaused: {
-    type: Boolean,
-    default: false,
-  },
+  // botPaused field removed - AI Bot features disabled
 }, { timestamps: true });
 
 // Index for faster queries

@@ -9,7 +9,7 @@ const multer = require("multer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const { processUserMessage, processImageAnalysis, calculatePriceWithAI, isBotEnabledForCompany, sendWelcomeMessage } = require('../services/aiChatService');
+// AI Chat Service removed - all bot features disabled
 
 // Configure Cloudinary
 cloudinary.config({
@@ -642,149 +642,7 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
       }
     }
 
-    // التحقق من تفعيل البوت للطرف الآخر (إذا كان شركة)
-    const otherParticipantId = conversation.participants.find(
-      (p) => p.toString() !== req.user.id
-    );
-    
-    if (otherParticipantId) {
-      const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
-      
-      // التحقق من أن الموظف لم يوقف البوت يدوياً
-      if (isBotEnabled && !conversation.botPaused) {
-        // التحقق من عدد الرسائل - إذا كانت أول رسالة، أرسل ترحيب
-        const messageCount = await Message.countDocuments({ conversation: conversationId });
-        
-        if (messageCount === 1) {
-          // أول رسالة - إرسال ترحيب
-          const welcomeMsg = await sendWelcomeMessage(otherParticipantId);
-          if (welcomeMsg.success) {
-            const welcomeMessage = await Message.create({
-              conversation: conversationId,
-              sender: otherParticipantId,
-              messageType: "text",
-              content: welcomeMsg.response,
-              readBy: [otherParticipantId],
-            });
-            conversation.lastMessage = welcomeMessage._id;
-            conversation.lastMessageTime = welcomeMessage.createdAt;
-            const currentCount = conversation.unreadCount.get(req.user.id) || 0;
-            conversation.unreadCount.set(req.user.id, currentCount + 1);
-            await conversation.save();
-            
-            // ✅ إرسال رسالة الترحيب عبر Socket.IO
-            await welcomeMessage.populate('sender', 'name avatar');
-            const welcomeFormattedMessage = {
-              _id: welcomeMessage._id,
-              sender: {
-                _id: welcomeMessage.sender._id,
-                name: welcomeMessage.sender.name,
-                avatar: welcomeMessage.sender.avatar,
-              },
-              messageType: welcomeMessage.messageType,
-              content: welcomeMessage.content,
-              isRead: false,
-              reading_id: null,
-              isSender: false,
-              createdAt: welcomeMessage.createdAt,
-            };
-            
-            if (io && onlineUsers) {
-              // إرسال رسالة الترحيب مباشرة للمستخدم
-              const userSocketId = onlineUsers.get(req.user.id);
-              if (userSocketId) {
-                io.to(userSocketId).emit('message:new', welcomeFormattedMessage);
-              }
-            }
-          }
-          return; // ✅ لا ترد على أول رسالة، فقط أرسل الترحيب
-        }
-        
-        // جمع آخر رسائل المحادثة للسياق
-        const recentMessages = await Message.find({
-          conversation: conversationId,
-        })
-          .sort({ createdAt: -1 })
-          .limit(10)
-          .populate('sender', 'name');
-        
-        const conversationHistory = recentMessages.reverse().map(msg => ({
-          role: msg.sender._id.toString() === req.user.id ? 'user' : 'assistant',
-          content: msg.content || '[صورة]'
-        }));
-
-        // إرسال إشعار أن البوت يكتب
-        if (io) {
-          io.to(conversationId).emit('bot:typing', { isTyping: true });
-        }
-
-        // معالجة الرسالة بالبوت
-        const botResult = await processUserMessage(
-          content.trim(),
-          conversationHistory
-        );
-
-        if (botResult.success && botResult.response) {
-          console.log('🔍 botResult.imageUrls:', botResult.imageUrls);
-          console.log('🔍 عدد الصور:', botResult.imageUrls ? botResult.imageUrls.length : 0);
-          
-          // إنشاء رد البوت
-          const botMessage = await Message.create({
-            conversation: conversationId,
-            sender: otherParticipantId,
-            messageType: (botResult.imageUrls && botResult.imageUrls.length > 0) ? "image" : "text",
-            content: botResult.response,
-            imageUrls: botResult.imageUrls || [],  // ✅ إضافة الصور
-            readBy: [otherParticipantId],
-          });
-          
-          console.log('✅ تم إنشاء رسالة البوت مع imageUrls:', botMessage.imageUrls);
-
-          // تحديث المحادثة
-          conversation.lastMessage = botMessage._id;
-          conversation.lastMessageTime = botMessage.createdAt;
-          const currentCount = conversation.unreadCount.get(req.user.id) || 0;
-          conversation.unreadCount.set(req.user.id, currentCount + 1);
-          await conversation.save();
-
-          // إيقاف إشعار الكتابة
-          if (io) {
-            io.to(conversationId).emit('bot:typing', { isTyping: false });
-          }
-
-          // إرسال رسالة البوت عبر Socket.IO
-          await botMessage.populate('sender', 'name avatar');
-          const botFormattedMessage = {
-            _id: botMessage._id,
-            sender: {
-              _id: botMessage.sender._id,
-              name: botMessage.sender.name,
-              avatar: botMessage.sender.avatar,
-            },
-            messageType: botMessage.messageType,
-            content: botMessage.content,
-            imageUrls: botMessage.imageUrls || [],  // ✅ إضافة الصور للرسالة الفورية
-            isRead: false,
-            reading_id: null,
-            isSender: false,
-            createdAt: botMessage.createdAt,
-          };
-          
-          if (io && onlineUsers) {
-            // إرسال رسالة البوت مباشرة للمستخدم
-            const userSocketId = onlineUsers.get(req.user.id);
-            if (userSocketId) {
-              io.to(userSocketId).emit('message:new', botFormattedMessage);
-            }
-          }
-        } else {
-          // إيقاف إشعار الكتابة في حالة الفشل
-          if (io) {
-            io.to(conversationId).emit('bot:typing', { isTyping: false });
-          }
-        }
-      }
-    }
+    // AI Bot features removed - direct human-to-human chat only
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -880,78 +738,7 @@ router.post(
 
       res.status(201).json(formattedMessage);
 
-      // معالجة الصور بواسطة البوت (إذا كانت صورة)
-      if (detectedMessageType === 'image') {
-        const otherParticipantId = conversation.participants.find(
-          (p) => p.toString() !== req.user.id
-        );
-        
-        if (otherParticipantId) {
-          const isBotEnabled = await isBotEnabledForCompany(otherParticipantId);
-          
-          if (isBotEnabled) {
-            try {
-              // تحليل الصورة باستخدام API الجديد
-              const { analyzeImage } = require('../services/imageAnalysisService');
-              const analysisResult = await analyzeImage(req.file.path);
-              
-              if (analysisResult.success) {
-                // معالجة نتيجة التحليل بواسطة AI
-                const recentMessages = await Message.find({ conversation: conversationId })
-                  .sort({ createdAt: -1 })
-                  .limit(10)
-                  .populate('sender', 'name');
-                
-                const conversationHistory = recentMessages.reverse().map(msg => ({
-                  role: msg.sender._id.toString() === req.user.id ? 'user' : 'assistant',
-                  content: msg.content || '[صورة]'
-                }));
-                
-                const botResult = await processImageAnalysis(analysisResult, conversationHistory);
-                
-                if (botResult.success && botResult.response) {
-                  const botMessage = await Message.create({
-                    conversation: conversationId,
-                    sender: otherParticipantId,
-                    messageType: "text",
-                    content: botResult.response,
-                    readBy: [otherParticipantId],
-                  });
-
-                  conversation.lastMessage = botMessage._id;
-                  conversation.lastMessageTime = botMessage.createdAt;
-                  const currentCount = conversation.unreadCount.get(req.user.id) || 0;
-                  conversation.unreadCount.set(req.user.id, currentCount + 1);
-                  await conversation.save();
-                  
-                  // إرسال رسالة البوت عبر Socket.IO
-                  if (io && onlineUsers) {
-                    await botMessage.populate('sender', 'name avatar');
-                    const botFormattedMessage = {
-                      _id: botMessage._id,
-                      sender: {
-                        _id: botMessage.sender._id,
-                        name: botMessage.sender.name,
-                        avatar: botMessage.sender.avatar,
-                      },
-                      messageType: botMessage.messageType,
-                      content: botMessage.content,
-                      isSender: false,
-                      createdAt: botMessage.createdAt,
-                    };
-                    const userSocketId = onlineUsers.get(req.user.id);
-                    if (userSocketId) {
-                      io.to(userSocketId).emit('message:new', botFormattedMessage);
-                    }
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('خطأ في تحليل الصورة:', error.message);
-            }
-          }
-        }
-      }
+      // AI image analysis removed - direct human-to-human chat only
     } catch (err) {
       console.error("Error in chatRoutes:", err);
       // Check for specific Mongoose errors or return a generic 500
