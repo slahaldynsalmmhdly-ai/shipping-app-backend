@@ -26,12 +26,11 @@ const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
 const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
 const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
 const storyRoutes = require("./routes/storyRoutes"); // Added storyRoutes
-const botSettingsRoutes = require("./routes/botSettingsRoutes"); // Added botSettingsRoutes
-const botControlRoutes = require("./routes/botControlRoutes"); // Added botControlRoutes
+// AI Bot routes removed
 const imageAnalysisRoutes = require("./routes/imageAnalysisRoutes"); // Added imageAnalysisRoutes
 const pricingRoutes = require("./routes/pricingRoutes"); // Added pricingRoutes
 const distanceRoutes = require("./routes/distanceRoutes"); // Added distanceRoutes
-const aiChatRoutes = require("./routes/aiChatRoutes"); // Added aiChatRoutes
+// AI Chat routes removed
 const chatProfileRoutes = require("./routes/chatProfileRoutes"); // Added chatProfileRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
@@ -111,12 +110,11 @@ app.use("/api/v1/feed", feedRoutes); // Mount feed routes
 app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
 app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
 app.use("/api/v1/stories", storyRoutes); // Mount story routes
-app.use("/api/v1/bot", botSettingsRoutes); // Mount bot settings routes
-app.use("/api/v1/bot-control", botControlRoutes); // Mount bot control routes
+// AI Bot routes removed
 app.use("/api/v1/analyze-image", imageAnalysisRoutes); // Mount image analysis routes
 app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
 app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
-app.use("/api/v1/chat", aiChatRoutes); // Mount AI chat routes
+// AI Chat routes removed
 app.use("/api/v1/chat-profile", chatProfileRoutes); // Mount chat profile routes
 
 // PeerJS Server Setup (must be before 404 handler)
@@ -220,11 +218,7 @@ io.on('connection', (socket) => {
     socket.to(conversationId).emit('user:typing', { userId, isTyping });
   });
 
-  // AI Bot typing
-  socket.on('bot:typing', ({ conversationId, isTyping }) => {
-    console.log(`🤖 Bot typing in ${conversationId}: ${isTyping}`);
-    socket.to(conversationId).emit('bot:typing', { isTyping });
-  });
+  // AI Bot events removed
 
   // Join conversation room
   socket.on('conversation:join', (conversationId) => {
