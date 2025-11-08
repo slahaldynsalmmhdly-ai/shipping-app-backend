@@ -603,8 +603,16 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
 
     // إرسال الرسالة عبر Socket.IO
     const io = req.app.get('io');
-    if (io) {
-      io.to(conversationId).emit('message:new', formattedMessage);
+    const onlineUsers = req.app.get('onlineUsers');
+    
+    if (io && onlineUsers) {
+      // إرسال الرسالة مباشرة لجميع المشاركين في المحادثة
+      conversation.participants.forEach(participant => {
+        const participantSocketId = onlineUsers.get(participant._id.toString());
+        if (participantSocketId) {
+          io.to(participantSocketId).emit('message:new', formattedMessage);
+        }
+      });
       
       // تحديث قائمة المحادثات لجميع المشاركين
       const updatedConversation = await Conversation.findById(conversationId)
@@ -619,14 +627,17 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
           );
           
           const unreadCount = updatedConversation.unreadCount.get(participant._id.toString()) || 0;
+          const participantSocketId = onlineUsers.get(participant._id.toString());
           
-          io.to(participant._id.toString()).emit('conversation:updated', {
-            _id: updatedConversation._id,
-            participant: otherParticipant,
-            lastMessage: updatedConversation.lastMessage,
-            unreadCount: unreadCount,
-            updatedAt: updatedConversation.updatedAt
-          });
+          if (participantSocketId) {
+            io.to(participantSocketId).emit('conversation:updated', {
+              _id: updatedConversation._id,
+              participant: otherParticipant,
+              lastMessage: updatedConversation.lastMessage,
+              unreadCount: unreadCount,
+              updatedAt: updatedConversation.updatedAt
+            });
+          }
         });
       }
     }
@@ -678,8 +689,12 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
               createdAt: welcomeMessage.createdAt,
             };
             
-            if (io) {
-              io.to(conversationId).emit('message:new', welcomeFormattedMessage);
+            if (io && onlineUsers) {
+              // إرسال رسالة الترحيب مباشرة للمستخدم
+              const userSocketId = onlineUsers.get(req.user.id);
+              if (userSocketId) {
+                io.to(userSocketId).emit('message:new', welcomeFormattedMessage);
+              }
             }
           }
           return; // ✅ لا ترد على أول رسالة، فقط أرسل الترحيب
@@ -755,8 +770,12 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
             createdAt: botMessage.createdAt,
           };
           
-          if (io) {
-            io.to(conversationId).emit('message:new', botFormattedMessage);
+          if (io && onlineUsers) {
+            // إرسال رسالة البوت مباشرة للمستخدم
+            const userSocketId = onlineUsers.get(req.user.id);
+            if (userSocketId) {
+              io.to(userSocketId).emit('message:new', botFormattedMessage);
+            }
           }
         } else {
           // إيقاف إشعار الكتابة في حالة الفشل
@@ -906,7 +925,7 @@ router.post(
                   await conversation.save();
                   
                   // إرسال رسالة البوت عبر Socket.IO
-                  if (io) {
+                  if (io && onlineUsers) {
                     await botMessage.populate('sender', 'name avatar');
                     const botFormattedMessage = {
                       _id: botMessage._id,
@@ -920,7 +939,10 @@ router.post(
                       isSender: false,
                       createdAt: botMessage.createdAt,
                     };
-                    io.to(conversationId).emit('message:new', botFormattedMessage);
+                    const userSocketId = onlineUsers.get(req.user.id);
+                    if (userSocketId) {
+                      io.to(userSocketId).emit('message:new', botFormattedMessage);
+                    }
                   }
                 }
               }
