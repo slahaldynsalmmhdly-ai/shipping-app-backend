@@ -233,6 +233,82 @@ io.on('connection', (socket) => {
     socket.to(data.conversationId).emit('message:new', data);
   });
 
+  // ==================== VOICE CALL EVENTS ====================
+  
+  // Call initiate - بدء المكالمة
+  socket.on('call:initiate', ({ receiverId, callerInfo, callType }) => {
+    console.log(`📞 Call initiated from ${callerInfo._id} to ${receiverId}`);
+    const receiverSocketId = onlineUsers.get(receiverId);
+    
+    if (receiverSocketId) {
+      // إرسال إشعار بالمكالمة الواردة للمستقبل
+      io.to(receiverSocketId).emit('call:incoming', {
+        caller: callerInfo,
+        callType: callType || 'audio'
+      });
+      console.log(`🔔 Call notification sent to ${receiverId}`);
+    } else {
+      // المستقبل غير متصل
+      socket.emit('call:user-offline', { receiverId });
+      console.log(`❌ Receiver ${receiverId} is offline`);
+    }
+  });
+
+  // Call answer - قبول المكالمة
+  socket.on('call:answer', ({ callerId }) => {
+    console.log(`✅ Call answered by receiver for caller ${callerId}`);
+    const callerSocketId = onlineUsers.get(callerId);
+    
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call:answered', {
+        receiverId: socket.userId
+      });
+      console.log(`📲 Answer notification sent to ${callerId}`);
+    }
+  });
+
+  // Call reject - رفض المكالمة
+  socket.on('call:reject', ({ callerId }) => {
+    console.log(`❌ Call rejected by receiver for caller ${callerId}`);
+    const callerSocketId = onlineUsers.get(callerId);
+    
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call:rejected', {
+        receiverId: socket.userId
+      });
+      console.log(`🚫 Rejection notification sent to ${callerId}`);
+    }
+  });
+
+  // Call end - إنهاء المكالمة
+  socket.on('call:end', ({ targetId, callId, duration }) => {
+    console.log(`📴 Call ended by ${socket.userId} with ${targetId}`);
+    const targetSocketId = onlineUsers.get(targetId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:ended', {
+        userId: socket.userId,
+        callId,
+        duration
+      });
+      console.log(`🔚 End notification sent to ${targetId}`);
+    }
+  });
+
+  // Call busy - المستخدم مشغول
+  socket.on('call:busy', ({ callerId }) => {
+    console.log(`📵 User ${socket.userId} is busy, notifying ${callerId}`);
+    const callerSocketId = onlineUsers.get(callerId);
+    
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call:user-busy', {
+        receiverId: socket.userId
+      });
+    }
+  });
+
+  // ==================== END VOICE CALL EVENTS ====================
+
   // Disconnect
   socket.on('disconnect', () => {
     if (socket.userId) {
