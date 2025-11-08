@@ -32,6 +32,7 @@ const imageAnalysisRoutes = require("./routes/imageAnalysisRoutes"); // Added im
 const pricingRoutes = require("./routes/pricingRoutes"); // Added pricingRoutes
 const distanceRoutes = require("./routes/distanceRoutes"); // Added distanceRoutes
 const aiChatRoutes = require("./routes/aiChatRoutes"); // Added aiChatRoutes
+const chatProfileRoutes = require("./routes/chatProfileRoutes"); // Added chatProfileRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -116,6 +117,7 @@ app.use("/api/v1/analyze-image", imageAnalysisRoutes); // Mount image analysis r
 app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
 app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
 app.use("/api/v1/chat", aiChatRoutes); // Mount AI chat routes
+app.use("/api/v1/chat-profile", chatProfileRoutes); // Mount chat profile routes
 
 // PeerJS Server Setup (must be before 404 handler)
 const { ExpressPeerServer } = require('peer');
