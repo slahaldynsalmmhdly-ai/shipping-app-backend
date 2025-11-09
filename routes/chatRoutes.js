@@ -109,7 +109,6 @@ const uploadDocument = multer({
 // @access  Private
 	router.get("/conversations", protectUnified, async (req, res) => {
 	  try {
-	    const Vehicle = require("../models/Vehicle"); // Import Vehicle model
     const isValidObjectId = (id) => {
       if (!id) return false;
       // Convert to string first to handle both ObjectId and string types
@@ -132,23 +131,18 @@ const uploadDocument = multer({
 	      conv.participants.find(p => p.toString() !== req.user.id)
 	    ).filter(id => id);
 
-	    // Separate valid ObjectIds (Users) from fleetAccountIds (Vehicles)
-	    const userIds = otherParticipantIds.filter(id => isValidObjectId(id));
-	    const vehicleIds = otherParticipantIds.filter(id => !isValidObjectId(id));
+    // Separate valid ObjectIds (Users) - only process valid user IDs
+    const userIds = otherParticipantIds.filter(id => isValidObjectId(id));
 
-	    // Fetch User details
-	    const User = require("../models/User"); // Import User model
-	    const users = await User.find({ _id: { $in: userIds } }).select("name avatar userType isOnline lastSeen").lean();
+    // Fetch User details (exclude drivers - they should only appear in fleet conversations)
+    const User = require("../models/User"); // Import User model
+    const users = await User.find({ 
+      _id: { $in: userIds },
+      userType: { $ne: 'driver' } // Exclude drivers from regular conversations
+    }).select("name avatar userType isOnline lastSeen").lean();
 	    const userMap = new Map(users.map(user => [user._id.toString(), user]));
 
-    // Fetch Vehicle details (using fleetAccountId)
-    // Only include vehicles where the driver has logged in at least once
-    const vehicles = await Vehicle.find({ 
-      fleetAccountId: { $in: vehicleIds },
-      lastLogin: { $exists: true, $ne: null },
-      isAccountActive: true
-    }).select("fleetAccountId driverName imageUrls driverUser").populate("driverUser", "_id name avatar isOnline lastSeen").lean();
-	    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.driverUser?._id?.toString() || vehicle.fleetAccountId, vehicle]));
+    // Note: Vehicle/driver details are not fetched here as they belong to fleet conversations endpoint
 
 	    // Format conversations for frontend
 	    const formattedConversations = conversations.map((conv) => {
@@ -156,23 +150,11 @@ const uploadDocument = multer({
 	      let otherParticipant = null;
 
       if (isValidObjectId(otherParticipantId)) {
-        // Try to find in User map first
+        // Only get non-driver users (customers only)
         otherParticipant = userMap.get(otherParticipantId.toString());
         
-        // If not found in users, check vehicles (for drivers)
-        if (!otherParticipant) {
-          const vehicle = vehicleMap.get(otherParticipantId.toString());
-          if (vehicle && vehicle.driverUser) {
-            otherParticipant = {
-              _id: vehicle.driverUser._id,
-              name: vehicle.driverUser.name || vehicle.driverName,
-              avatar: vehicle.driverUser.avatar || vehicle.imageUrls?.[0] || null,
-              userType: 'driver',
-              isOnline: vehicle.driverUser.isOnline || false,
-              lastSeen: vehicle.driverUser.lastSeen || new Date(),
-            };
-          }
-        }
+        // Skip drivers - they should only appear in fleet conversations endpoint
+        // Removed vehicle/driver lookup to keep this endpoint for customers only
       }
 
 	      // Skip conversation if participant details could not be found (e.g., deleted user/vehicle)
