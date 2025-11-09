@@ -219,8 +219,14 @@ io.on('connection', (socket) => {
       
       console.log(`👤 User ${userId} is now online and joined room ${userId}`);
       
-      // Broadcast to all users that this user is online
-      io.emit('user:online', { userId, isOnline: true });
+      // إرسال قائمة جميع المستخدمين المتصلين للمستخدم الجديد
+      const onlineUsersList = Array.from(onlineUsers.keys()).filter(id => id !== userId);
+      socket.emit('users:online-list', onlineUsersList);
+      console.log(`📝 Sent online users list to ${userId}:`, onlineUsersList);
+      
+      // Broadcast to all OTHER users that this user is online
+      socket.broadcast.emit('user:online', { userId, isOnline: true });
+      console.log(`📡 Broadcasted online status for ${userId}`);
     } catch (error) {
       console.error(`❌ Error in user:join for ${userId}:`, error.message);
     }
