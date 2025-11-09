@@ -261,9 +261,29 @@ io.on('connection', (socket) => {
   // ==================== VOICE CALL EVENTS ====================
   
   // Call initiate - بدء المكالمة
-  socket.on('call:initiate', ({ receiverId, callerInfo, callType }) => {
+  socket.on('call:initiate', async ({ receiverId, callerInfo, callType }) => {
     console.log(`📞 Call initiated from ${callerInfo._id} to ${receiverId}`);
     const receiverSocketId = onlineUsers.get(receiverId);
+    
+    // حفظ سجل المكالمة في قاعدة البيانات
+    try {
+      const CallLog = require('./models/CallLog');
+      const callLog = await CallLog.create({
+        caller: callerInfo._id,
+        receiver: receiverId,
+        callType: callType || 'audio',
+        status: 'connecting',
+        startedAt: new Date()
+      });
+      
+      // حفظ callId للاستخدام لاحقاً
+      if (!socket.activeCalls) socket.activeCalls = {};
+      socket.activeCalls[receiverId] = callLog._id.toString();
+      
+      console.log(`💾 Call log created: ${callLog._id}`);
+    } catch (err) {
+      console.error('Error creating call log:', err);
+    }
     
     if (receiverSocketId) {
       // إرسال إشعار بالمكالمة الواردة للمستقبل
@@ -273,16 +293,42 @@ io.on('connection', (socket) => {
       });
       console.log(`🔔 Call notification sent to ${receiverId}`);
     } else {
-      // المستقبل غير متصل
+      // المستقبل غير متصل - تحديث حالة المكالمة إلى missed
+      try {
+        const CallLog = require('./models/CallLog');
+        if (socket.activeCalls && socket.activeCalls[receiverId]) {
+          await CallLog.findByIdAndUpdate(socket.activeCalls[receiverId], {
+            status: 'missed',
+            endedAt: new Date()
+          });
+        }
+      } catch (err) {
+        console.error('Error updating call log:', err);
+      }
+      
       socket.emit('call:user-offline', { receiverId });
       console.log(`❌ Receiver ${receiverId} is offline`);
     }
   });
 
   // Call answer - قبول المكالمة
-  socket.on('call:answer', ({ callerId }) => {
+  socket.on('call:answer', async ({ callerId }) => {
     console.log(`✅ Call answered by receiver for caller ${callerId}`);
     const callerSocketId = onlineUsers.get(callerId);
+    
+    // تحديث حالة المكالمة إلى answered
+    try {
+      const CallLog = require('./models/CallLog');
+      const callerSocket = io.sockets.sockets.get(callerSocketId);
+      if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
+        await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
+          status: 'answered'
+        });
+        console.log(`💾 Call log updated to answered`);
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
+    }
     
     if (callerSocketId) {
       io.to(callerSocketId).emit('call:answered', {
@@ -293,9 +339,24 @@ io.on('connection', (socket) => {
   });
 
   // Call reject - رفض المكالمة
-  socket.on('call:reject', ({ callerId }) => {
+  socket.on('call:reject', async ({ callerId }) => {
     console.log(`❌ Call rejected by receiver for caller ${callerId}`);
     const callerSocketId = onlineUsers.get(callerId);
+    
+    // تحديث حالة المكالمة إلى rejected
+    try {
+      const CallLog = require('./models/CallLog');
+      const callerSocket = io.sockets.sockets.get(callerSocketId);
+      if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
+        await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
+          status: 'rejected',
+          endedAt: new Date()
+        });
+        console.log(`💾 Call log updated to rejected`);
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
+    }
     
     if (callerSocketId) {
       io.to(callerSocketId).emit('call:rejected', {
@@ -306,9 +367,27 @@ io.on('connection', (socket) => {
   });
 
   // Call end - إنهاء المكالمة
-  socket.on('call:end', ({ targetId, callId, duration }) => {
+  socket.on('call:end', async ({ targetId, callId, duration }) => {
     console.log(`📴 Call ended by ${socket.userId} with ${targetId}`);
     const targetSocketId = onlineUsers.get(targetId);
+    
+    // تحديث حالة المكالمة إلى completed مع المدة
+    try {
+      const CallLog = require('./models/CallLog');
+      
+      // البحث عن سجل المكالمة
+      if (socket.activeCalls && socket.activeCalls[targetId]) {
+        await CallLog.findByIdAndUpdate(socket.activeCalls[targetId], {
+          status: duration > 0 ? 'completed' : 'cancelled',
+          duration: duration || 0,
+          endedAt: new Date()
+        });
+        delete socket.activeCalls[targetId];
+        console.log(`💾 Call log updated to completed with duration ${duration}s`);
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
+    }
     
     if (targetSocketId) {
       io.to(targetSocketId).emit('call:ended', {
