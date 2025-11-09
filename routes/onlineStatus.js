@@ -1,34 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
+const User = require("../models/User");
 
-// In-memory storage for online status
-// Structure: { userId: { lastSeen: timestamp, isOnline: boolean } }
-const onlineStatus = new Map();
+// Note: We now use the onlineUsers Map from Socket.IO (server.js)
+// This ensures consistency between Socket.IO and REST API
 
-// Cleanup old online statuses (mark as offline if no activity for 30 seconds)
-setInterval(() => {
-  const now = Date.now();
-  onlineStatus.forEach((status, userId) => {
-    if (now - status.lastSeen > 30000) {
-      status.isOnline = false;
-    }
-  });
-}, 10000); // Check every 10 seconds
+// Cleanup removed - Socket.IO handles online status now
 
-// @desc    Update user's online status (heartbeat)
+// @desc    Update user's online status (heartbeat) - DEPRECATED
 // @route   POST /api/v1/users/online-status
 // @access  Private
+// Note: This endpoint is deprecated. Use Socket.IO for real-time status.
 router.post("/users/online-status", protect, async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    onlineStatus.set(userId, {
-      lastSeen: Date.now(),
-      isOnline: true
-    });
-
-    res.json({ success: true });
+    res.json({ success: true, message: "Use Socket.IO for online status" });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -41,23 +27,31 @@ router.post("/users/online-status", protect, async (req, res) => {
 router.get("/users/:userId/online-status", protect, async (req, res) => {
   try {
     const { userId } = req.params;
-    const now = Date.now();
     
-    const status = onlineStatus.get(userId);
+    // Get onlineUsers Map from Socket.IO
+    const onlineUsers = req.app.get('onlineUsers');
     
-    if (!status) {
+    if (onlineUsers && onlineUsers.has(userId)) {
+      // User is connected via Socket.IO
       return res.json({
-        isOnline: false,
-        lastSeen: null
+        isOnline: true,
+        lastSeen: new Date()
       });
     }
-
-    // Check if user is still considered online (activity within last 30 seconds)
-    const isOnline = status.isOnline && (now - status.lastSeen < 30000);
-
-    res.json({
-      isOnline,
-      lastSeen: status.lastSeen
+    
+    // Fallback to database
+    const user = await User.findById(userId).select('isOnline lastSeen');
+    if (user) {
+      return res.json({
+        isOnline: user.isOnline || false,
+        lastSeen: user.lastSeen
+      });
+    }
+    
+    // User not found
+    return res.json({
+      isOnline: false,
+      lastSeen: null
     });
   } catch (err) {
     console.error(err.message);
@@ -76,25 +70,33 @@ router.post("/users/online-status/batch", protect, async (req, res) => {
       return res.status(400).json({ message: "userIds must be an array" });
     }
 
-    const now = Date.now();
+    // Get onlineUsers Map from Socket.IO
+    const onlineUsers = req.app.get('onlineUsers');
     const statuses = {};
 
-    userIds.forEach(userId => {
-      const status = onlineStatus.get(userId);
-      
-      if (!status) {
+    for (const userId of userIds) {
+      if (onlineUsers && onlineUsers.has(userId)) {
+        // User is connected via Socket.IO
         statuses[userId] = {
-          isOnline: false,
-          lastSeen: null
+          isOnline: true,
+          lastSeen: new Date()
         };
       } else {
-        const isOnline = status.isOnline && (now - status.lastSeen < 30000);
-        statuses[userId] = {
-          isOnline,
-          lastSeen: status.lastSeen
-        };
+        // Fallback to database
+        const user = await User.findById(userId).select('isOnline lastSeen');
+        if (user) {
+          statuses[userId] = {
+            isOnline: user.isOnline || false,
+            lastSeen: user.lastSeen
+          };
+        } else {
+          statuses[userId] = {
+            isOnline: false,
+            lastSeen: null
+          };
+        }
       }
-    });
+    }
 
     res.json(statuses);
   } catch (err) {
