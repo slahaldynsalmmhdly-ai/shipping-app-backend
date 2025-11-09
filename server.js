@@ -199,17 +199,31 @@ io.on('connection', (socket) => {
   console.log(`✅ Socket connected: ${socket.id}`);
 
   // User joins
-  socket.on('user:join', (userId) => {
-    onlineUsers.set(userId, socket.id);
-    socket.userId = userId;
-    
-    // انضمام المستخدم إلى غرفته الخاصة (لاستقبال conversation:updated)
-    socket.join(userId);
-    
-    console.log(`👤 User ${userId} is now online and joined room ${userId}`);
-    
-    // Broadcast to all users that this user is online
-    io.emit('user:online', { userId, isOnline: true });
+  socket.on('user:join', async (userId) => {
+    try {
+      onlineUsers.set(userId, socket.id);
+      socket.userId = userId;
+      
+      // انضمام المستخدم إلى غرفته الخاصة (لاستقبال conversation:updated)
+      socket.join(userId);
+      
+      // تحديث قاعدة البيانات
+      const User = require('./models/User');
+      const user = await User.findById(userId);
+      if (user) {
+        user.isOnline = true;
+        user.lastSeen = new Date();
+        await user.save();
+        console.log(`✅ Updated DB: User ${userId} is now online`);
+      }
+      
+      console.log(`👤 User ${userId} is now online and joined room ${userId}`);
+      
+      // Broadcast to all users that this user is online
+      io.emit('user:online', { userId, isOnline: true });
+    } catch (error) {
+      console.error(`❌ Error in user:join for ${userId}:`, error.message);
+    }
   });
 
   // User typing
@@ -315,11 +329,26 @@ io.on('connection', (socket) => {
   // ==================== END VOICE CALL EVENTS ====================
 
   // Disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     if (socket.userId) {
-      onlineUsers.delete(socket.userId);
-      console.log(`❌ User ${socket.userId} is now offline`);
-      io.emit('user:online', { userId: socket.userId, isOnline: false });
+      try {
+        onlineUsers.delete(socket.userId);
+        
+        // تحديث قاعدة البيانات
+        const User = require('./models/User');
+        const user = await User.findById(socket.userId);
+        if (user) {
+          user.isOnline = false;
+          user.lastSeen = new Date();
+          await user.save();
+          console.log(`✅ Updated DB: User ${socket.userId} is now offline`);
+        }
+        
+        console.log(`❌ User ${socket.userId} is now offline`);
+        io.emit('user:online', { userId: socket.userId, isOnline: false });
+      } catch (error) {
+        console.error(`❌ Error in disconnect for ${socket.userId}:`, error.message);
+      }
     }
     console.log(`🔌 Socket disconnected: ${socket.id}`);
   });
