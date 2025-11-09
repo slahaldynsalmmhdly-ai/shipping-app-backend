@@ -296,11 +296,22 @@ io.on('connection', (socket) => {
       // المستقبل غير متصل - تحديث حالة المكالمة إلى missed
       try {
         const CallLog = require('./models/CallLog');
+        const { createCallNotification } = require('./utils/notificationHelper');
+        
         if (socket.activeCalls && socket.activeCalls[receiverId]) {
           await CallLog.findByIdAndUpdate(socket.activeCalls[receiverId], {
             status: 'missed',
             endedAt: new Date()
           });
+          
+          // إنشاء إشعار للمكالمة الفائتة في قاعدة البيانات
+          await createCallNotification(
+            callerInfo._id,
+            receiverId,
+            callType || 'audio',
+            socket.activeCalls[receiverId]
+          );
+          console.log(`📬 Missed call notification created for ${receiverId}`);
         }
       } catch (err) {
         console.error('Error updating call log:', err);

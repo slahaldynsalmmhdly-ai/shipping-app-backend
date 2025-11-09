@@ -226,10 +226,50 @@ async function createCommentNotification(senderId, receiverId, itemId, commentId
   }
 }
 
+/**
+ * إنشاء إشعار للمكالمة الفائتة
+ * @param {String} senderId - معرف المستخدم الذي اتصل
+ * @param {String} receiverId - معرف المستخدم الذي فاتته المكالمة
+ * @param {String} callType - نوع المكالمة (audio أو video)
+ * @param {String} callLogId - معرف سجل المكالمة
+ */
+async function createCallNotification(senderId, receiverId, callType, callLogId) {
+  try {
+    if (senderId === receiverId) {
+      return; // لا نرسل إشعار للمستخدم نفسه
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'new_call',
+      sender: senderId,
+      callType: callType,
+      callLogId: callLogId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('new_call', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+    
+    console.log(`✅ تم إنشاء إشعار مكالمة فائتة من ${sender.name} إلى ${receiverId}`);
+    
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار المكالمة:', error);
+  }
+}
+
 module.exports = {
   createFollowingPostNotifications,
   deleteFollowingPostNotifications,
   createLikeNotification,
   createCommentNotification,
+  createCallNotification,
   generateNotificationMessage
 };
