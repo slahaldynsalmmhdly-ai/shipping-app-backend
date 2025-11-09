@@ -227,6 +227,118 @@ const uploadDocument = multer({
 	    }
 	});
 
+// @desc    Get fleet conversations only (drivers)
+// @route   GET /api/v1/chat/conversations/fleet
+// @access  Private
+router.get("/conversations/fleet", protectUnified, async (req, res) => {
+  try {
+    const Vehicle = require("../models/Vehicle");
+    const User = require("../models/User");
+    
+    const isValidObjectId = (id) => {
+      if (!id) return false;
+      const idStr = typeof id === 'string' ? id : id.toString();
+      return /^[0-9a-fA-F]{24}$/.test(idStr);
+    };
+
+    // Get all conversations for the current user
+    const conversations = await Conversation.find({
+      participants: req.user.id,
+    })
+      .populate({
+        path: "lastMessage",
+        select: "content messageType mediaUrl createdAt sender",
+      })
+      .sort({ lastMessageTime: -1 })
+      .lean();
+
+    // Get other participants
+    const otherParticipantIds = conversations.map(conv => 
+      conv.participants.find(p => p.toString() !== req.user.id)
+    ).filter(id => id);
+
+    // Separate valid ObjectIds (Users) from fleetAccountIds (Vehicles)
+    const userIds = otherParticipantIds.filter(id => isValidObjectId(id));
+
+    // Fetch User details and filter only drivers
+    const users = await User.find({ 
+      _id: { $in: userIds },
+      userType: 'driver' // Only get drivers
+    }).select("name avatar userType isOnline lastSeen").lean();
+    
+    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+
+    // Fetch Vehicle details for drivers
+    const driverUserIds = users.map(u => u._id.toString());
+    const vehicles = await Vehicle.find({ 
+      driverUser: { $in: driverUserIds },
+      lastLogin: { $exists: true, $ne: null },
+      isAccountActive: true
+    }).select("fleetAccountId driverName imageUrls driverUser").populate("driverUser", "_id name avatar isOnline lastSeen").lean();
+    
+    const vehicleMap = new Map(vehicles.map(vehicle => [vehicle.driverUser?._id?.toString(), vehicle]));
+
+    // Format conversations for frontend - only include driver conversations
+    const formattedConversations = conversations.map((conv) => {
+      const otherParticipantId = conv.participants.find(p => p.toString() !== req.user.id);
+      let otherParticipant = null;
+
+      if (isValidObjectId(otherParticipantId)) {
+        // Check if this is a driver
+        otherParticipant = userMap.get(otherParticipantId.toString());
+        
+        if (otherParticipant) {
+          // Get vehicle info if available
+          const vehicle = vehicleMap.get(otherParticipantId.toString());
+          if (vehicle) {
+            otherParticipant = {
+              _id: otherParticipant._id,
+              name: otherParticipant.name || vehicle.driverName,
+              avatar: otherParticipant.avatar || vehicle.imageUrls?.[0] || null,
+              userType: 'driver',
+              isOnline: otherParticipant.isOnline || false,
+              lastSeen: otherParticipant.lastSeen || new Date(),
+            };
+          }
+        }
+      }
+
+      // Skip if not a driver conversation
+      if (!otherParticipant) {
+        return null;
+      }
+
+      return {
+        _id: conv._id,
+        participant: {
+          _id: otherParticipant._id,
+          name: otherParticipant.name,
+          avatar: otherParticipant.avatar,
+          userType: otherParticipant.userType,
+          isOnline: otherParticipant.isOnline || false,
+          lastSeen: otherParticipant.lastSeen,
+        },
+        lastMessage: conv.lastMessage
+          ? {
+              content: conv.lastMessage.content,
+              messageType: conv.lastMessage.messageType,
+              mediaUrl: conv.lastMessage.mediaUrl,
+              createdAt: conv.lastMessage.createdAt,
+              isSender: conv.lastMessage.sender.toString() === req.user.id,
+            }
+          : null,
+        unreadCount: conv.unreadCount?.[req.user.id] || 0,
+        lastMessageTime: conv.lastMessageTime,
+      };
+    }).filter(conv => conv !== null);
+
+    res.json(formattedConversations);
+  } catch (err) {
+    console.error("Error in GET /conversations/fleet:", err);
+    res.status(500).json({ msg: "Server Error", details: err.message });
+  }
+});
+
 // @desc    Get total unread messages count for the logged-in user
 // @route   GET /api/v1/chat/unread-count
 // @access  Private
