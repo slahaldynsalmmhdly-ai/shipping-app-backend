@@ -266,6 +266,7 @@ io.on('connection', (socket) => {
     const receiverSocketId = onlineUsers.get(receiverId);
     
     // حفظ سجل المكالمة في قاعدة البيانات
+    let callLogId = null;
     try {
       const CallLog = require('./models/CallLog');
       const callLog = await CallLog.create({
@@ -276,13 +277,16 @@ io.on('connection', (socket) => {
         startedAt: new Date()
       });
       
+      callLogId = callLog._id.toString();
+      
       // حفظ callId للاستخدام لاحقاً
       if (!socket.activeCalls) socket.activeCalls = {};
-      socket.activeCalls[receiverId] = callLog._id.toString();
+      socket.activeCalls[receiverId] = callLogId;
       
-      console.log(`💾 Call log created: ${callLog._id}`);
+      console.log(`💾 Call log created: ${callLogId}`);
     } catch (err) {
       console.error('Error creating call log:', err);
+      return; // الخروج إذا فشل إنشاء CallLog
     }
     
     if (receiverSocketId) {
@@ -298,21 +302,20 @@ io.on('connection', (socket) => {
         const CallLog = require('./models/CallLog');
         const { createCallNotification } = require('./utils/notificationHelper');
         
-        if (socket.activeCalls && socket.activeCalls[receiverId]) {
-          await CallLog.findByIdAndUpdate(socket.activeCalls[receiverId], {
-            status: 'missed',
-            endedAt: new Date()
-          });
-          
-          // إنشاء إشعار للمكالمة الفائتة في قاعدة البيانات
-          await createCallNotification(
-            callerInfo._id,
-            receiverId,
-            callType || 'audio',
-            socket.activeCalls[receiverId]
-          );
-          console.log(`📬 Missed call notification created for ${receiverId}`);
-        }
+        // استخدام callLogId مباشرة بدلاً من socket.activeCalls
+        await CallLog.findByIdAndUpdate(callLogId, {
+          status: 'missed',
+          endedAt: new Date()
+        });
+        
+        // إنشاء إشعار للمكالمة الفائتة في قاعدة البيانات
+        await createCallNotification(
+          callerInfo._id,
+          receiverId,
+          callType || 'audio',
+          callLogId
+        );
+        console.log(`📬 Missed call notification created for ${receiverId}`);
       } catch (err) {
         console.error('Error updating call log:', err);
       }
