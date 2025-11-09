@@ -332,6 +332,54 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ==================== WEBRTC SIGNALING ====================
+  
+  // WebRTC Offer - إرسال offer من المتصل إلى المستقبل
+  socket.on('webrtc:offer', ({ receiverId, offer }) => {
+    console.log(`📡 WebRTC offer from ${socket.userId} to ${receiverId}`);
+    const receiverSocketId = onlineUsers.get(receiverId);
+    
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('webrtc:offer', {
+        callerId: socket.userId,
+        offer: offer
+      });
+      console.log(`✅ Offer sent to ${receiverId}`);
+    } else {
+      console.log(`❌ Receiver ${receiverId} not found`);
+    }
+  });
+
+  // WebRTC Answer - إرسال answer من المستقبل إلى المتصل
+  socket.on('webrtc:answer', ({ callerId, answer }) => {
+    console.log(`📡 WebRTC answer from ${socket.userId} to ${callerId}`);
+    const callerSocketId = onlineUsers.get(callerId);
+    
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('webrtc:answer', {
+        answer: answer
+      });
+      console.log(`✅ Answer sent to ${callerId}`);
+    } else {
+      console.log(`❌ Caller ${callerId} not found`);
+    }
+  });
+
+  // WebRTC ICE Candidate - تبادل ICE candidates
+  socket.on('webrtc:ice-candidate', ({ targetId, candidate }) => {
+    console.log(`🧊 ICE candidate from ${socket.userId} to ${targetId}`);
+    const targetSocketId = onlineUsers.get(targetId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('webrtc:ice-candidate', {
+        candidate: candidate
+      });
+      console.log(`✅ ICE candidate sent to ${targetId}`);
+    } else {
+      console.log(`❌ Target ${targetId} not found`);
+    }
+  });
+  
   // ==================== END VOICE CALL EVENTS ====================
 
   // Disconnect
