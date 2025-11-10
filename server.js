@@ -368,7 +368,8 @@ io.on('connection', (socket) => {
       if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
         await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
           status: 'missed',
-          endedAt: new Date()
+          endedAt: new Date(),
+          isRead: false
         });
         console.log(`💾 Call log updated to missed (rejected)`);
         
@@ -436,7 +437,8 @@ io.on('connection', (socket) => {
       if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
         await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
           status: 'missed',
-          endedAt: new Date()
+          endedAt: new Date(),
+          isRead: false
         });
         console.log(`💾 Call log updated to missed (busy)`);
         
@@ -470,7 +472,8 @@ io.on('connection', (socket) => {
       if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
         await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
           status: 'missed',
-          endedAt: new Date()
+          endedAt: new Date(),
+          isRead: false
         });
         console.log(`💾 Call log updated to missed`);
         
