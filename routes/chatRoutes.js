@@ -1428,6 +1428,27 @@ router.post("/unblock/:userId", protectUnified, async (req, res) => {
           unblockedAt: new Date()
         });
         console.log(`✅ Sent unblock notification to user ${userId}`);
+        
+        // إرسال حالة الاتصال الحقيقية للمستخدم الذي تم رفع الحظر عنه
+        const currentUserOnline = onlineUsers.has(currentUserId);
+        io.to(unblockedUserSocketId).emit('user:online', {
+          userId: currentUserId,
+          isOnline: currentUserOnline,
+          lastSeen: currentUserOnline ? new Date() : (await User.findById(currentUserId).select('lastSeen')).lastSeen
+        });
+        console.log(`✅ Sent real online status to ${userId}`);
+      }
+      
+      // إرسال حالة الاتصال الحقيقية للمستخدم الحاظر عن المستخدم المحظور
+      const currentUserSocketId = onlineUsers.get(currentUserId);
+      if (currentUserSocketId) {
+        const unblockedUserOnline = onlineUsers.has(userId);
+        io.to(currentUserSocketId).emit('user:online', {
+          userId: userId,
+          isOnline: unblockedUserOnline,
+          lastSeen: unblockedUserOnline ? new Date() : (await User.findById(userId).select('lastSeen')).lastSeen
+        });
+        console.log(`✅ Sent real online status to ${currentUserId}`);
       }
     }
 
