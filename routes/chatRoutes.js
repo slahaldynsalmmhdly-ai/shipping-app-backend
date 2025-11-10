@@ -428,6 +428,26 @@ router.post("/conversations", protectUnified, async (req, res) => {
     // Use the actual User ObjectId for the conversation
     const actualParticipantId = participant._id;
 
+
+    // Check if either user has blocked the other
+    const currentUser = await User.findById(req.user.id);
+    
+    const iBlockedThem = currentUser.blockedUsers.some(
+      (id) => id.toString() === actualParticipantId.toString()
+    );
+    const theyBlockedMe = participant.blockedUsers.some(
+      (id) => id.toString() === req.user.id
+    );
+    
+    if (iBlockedThem || theyBlockedMe) {
+      return res.status(403).json({ 
+        msg: "لا يمكن إنشاء محادثة مع هذا المستخدم", 
+        blocked: true,
+        iBlockedThem,
+        theyBlockedMe
+      });
+    }
+
     // Check if conversation already exists
     let conversation = await Conversation.findOne({
       participants: { $all: [req.user.id, actualParticipantId] },
@@ -648,6 +668,31 @@ router.post("/conversations/:conversationId/messages", protectUnified, async (re
 
     if (!conversation.participants.includes(req.user.id)) {
       return res.status(403).json({ msg: "Access denied" });
+    }
+
+
+    // Check if either user has blocked the other
+    const otherParticipantId = conversation.participants.find(
+      (id) => id.toString() !== req.user.id
+    );
+    
+    const currentUser = await User.findById(req.user.id);
+    const otherUser = await User.findById(otherParticipantId);
+    
+    const iBlockedThem = currentUser.blockedUsers.some(
+      (id) => id.toString() === otherParticipantId.toString()
+    );
+    const theyBlockedMe = otherUser.blockedUsers.some(
+      (id) => id.toString() === req.user.id
+    );
+    
+    if (iBlockedThem || theyBlockedMe) {
+      return res.status(403).json({ 
+        msg: "لا يمكن إرسال الرسائل", 
+        blocked: true,
+        iBlockedThem,
+        theyBlockedMe
+      });
     }
 
     // Create message
