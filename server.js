@@ -299,6 +299,7 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const receiverSocketId = onlineUsers.get(receiverId);
 
     // حفظ سجل المكالمة في قاعدة البيانات
     let callLogId = null;
