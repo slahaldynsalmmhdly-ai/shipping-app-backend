@@ -142,6 +142,10 @@ const uploadDocument = multer({
     }).select("name avatar userType isOnline lastSeen").lean();
 	    const userMap = new Map(users.map(user => [user._id.toString(), user]));
 
+    // Get current user's blocked list for hiding online status
+    const currentUser = await User.findById(req.user.id).select("blockedUsers").lean();
+    const blockedUserIds = new Set(currentUser?.blockedUsers?.map(id => id.toString()) || []);
+
     // Note: Vehicle/driver details are not fetched here as they belong to fleet conversations endpoint
 
 	    // Format conversations for frontend
@@ -169,8 +173,8 @@ const uploadDocument = multer({
 	          name: otherParticipant.name,
 	          avatar: otherParticipant.avatar,
 	          userType: otherParticipant.userType,
-	          isOnline: otherParticipant.isOnline || false,
-	          lastSeen: otherParticipant.lastSeen || otherParticipant.updatedAt,
+          isOnline: blockedUserIds.has(otherParticipant._id.toString()) ? false : (otherParticipant.isOnline || false),
+          lastSeen: blockedUserIds.has(otherParticipant._id.toString()) ? null : (otherParticipant.lastSeen || otherParticipant.updatedAt),
 	        },
 	        lastMessage: conv.lastMessage
 	          ? {
@@ -1179,12 +1183,16 @@ router.get("/profile/:userId", protectUnified, async (req, res) => {
         : 0;
     const reviewCount = reviews.length;
 
+    // Check if current user blocked this user (hide online status)
+    const currentUser = await User.findById(req.user.id).select("blockedUsers").lean();
+    const isBlocked = currentUser?.blockedUsers?.some(id => id.toString() === userId);
+
     const userProfile = {
       ...user.toObject(),
       rating,
       reviewCount,
-      isOnline: user.isOnline || false,
-      lastSeen: user.lastSeen || user.updatedAt,
+      isOnline: isBlocked ? false : (user.isOnline || false),
+      lastSeen: isBlocked ? null : (user.lastSeen || user.updatedAt),
     };
 
     // If conversationId is provided, add conversation stats and shared media
