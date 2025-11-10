@@ -1324,12 +1324,7 @@ router.post("/block/:userId", protectUnified, async (req, res) => {
       await user.save();
     }
 
-    // Also add current user to the other user's blockedUsers (mutual block)
-    const otherUser = await User.findById(userId);
-    if (otherUser && !otherUser.blockedUsers.includes(currentUserId)) {
-      otherUser.blockedUsers.push(currentUserId);
-      await otherUser.save();
-    }
+    // No mutual block - only the blocker adds the blocked user to their list
 
     // Send Socket.IO event to blocked user for instant UI update
     const io = req.app.get('io');
@@ -1367,14 +1362,7 @@ router.post("/unblock/:userId", protectUnified, async (req, res) => {
     );
     await user.save();
 
-    // Also remove current user from the other user's blockedUsers (mutual unblock)
-    const otherUser = await User.findById(userId);
-    if (otherUser) {
-      otherUser.blockedUsers = otherUser.blockedUsers.filter(
-        (id) => id.toString() !== currentUserId
-      );
-      await otherUser.save();
-    }
+    // No mutual unblock - only the blocker removes the blocked user from their list
 
     // Send Socket.IO event to unblocked user for instant UI update
     const io = req.app.get('io');
