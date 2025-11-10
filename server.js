@@ -299,8 +299,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    
-    
+
     // حفظ سجل المكالمة في قاعدة البيانات
     let callLogId = null;
     try {
