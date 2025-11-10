@@ -274,7 +274,8 @@ io.on('connection', (socket) => {
         receiver: receiverId,
         callType: callType || 'audio',
         status: 'connecting',
-        startedAt: new Date()
+        startedAt: new Date(),
+        isRead: false
       });
       
       callLogId = callLog._id.toString();
@@ -422,6 +423,34 @@ io.on('connection', (socket) => {
       io.to(callerSocketId).emit('call:user-busy', {
         receiverId: socket.userId
       });
+    }
+  });
+
+  // Call no-answer - لم يتم الرد على المكالمة
+  socket.on('call:no-answer', async ({ callerId }) => {
+    console.log(`⏰ No answer from ${socket.userId} for caller ${callerId}`);
+    const callerSocketId = onlineUsers.get(callerId);
+    
+    // تحديث حالة المكالمة إلى missed
+    try {
+      const CallLog = require('./models/CallLog');
+      const callerSocket = io.sockets.sockets.get(callerSocketId);
+      if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
+        await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
+          status: 'missed',
+          endedAt: new Date()
+        });
+        console.log(`💾 Call log updated to missed`);
+        
+        // إرسال إشعار للمستقبل بأن هناك مكالمة فائتة
+        const receiverSocketId = onlineUsers.get(socket.userId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('call:missed');
+          console.log(`🔔 Missed call notification sent to ${socket.userId}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
     }
   });
 
