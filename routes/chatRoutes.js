@@ -1319,7 +1319,7 @@ router.post("/block/:userId", protectUnified, async (req, res) => {
 
     // Add to blockedUsers if not already blocked
     const user = await User.findById(currentUserId);
-    if (!user.blockedUsers.includes(userId)) {
+    if (!user.blockedUsers.some(id => id.toString() === userId)) {
       user.blockedUsers.push(userId);
       await user.save();
     }
@@ -1397,10 +1397,10 @@ router.get("/block-status/:userId", protectUnified, async (req, res) => {
     const otherUser = await User.findById(userId);
 
     // Check if current user blocked the other user
-    const iBlockedThem = user.blockedUsers.includes(userId);
+    const iBlockedThem = user.blockedUsers.some(id => id.toString() === userId);
     
     // Check if the other user blocked current user
-    const theyBlockedMe = otherUser ? otherUser.blockedUsers.includes(currentUserId) : false;
+    const theyBlockedMe = otherUser ? otherUser.blockedUsers.some(id => id.toString() === currentUserId) : false;
 
     // Determine the block status
     const isBlocked = iBlockedThem || theyBlockedMe;
