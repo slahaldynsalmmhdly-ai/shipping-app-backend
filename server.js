@@ -306,7 +306,8 @@ io.on('connection', (socket) => {
         // استخدام callLogId مباشرة بدلاً من socket.activeCalls
         await CallLog.findByIdAndUpdate(callLogId, {
           status: 'missed',
-          endedAt: new Date()
+          endedAt: new Date(),
+          isRead: false
         });
         
         // إنشاء إشعار للمكالمة الفائتة في قاعدة البيانات
