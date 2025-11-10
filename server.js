@@ -264,7 +264,42 @@ io.on('connection', (socket) => {
   // Call initiate - بدء المكالمة
   socket.on('call:initiate', async ({ receiverId, callerInfo, callType }) => {
     console.log(`📞 Call initiated from ${callerInfo._id} to ${receiverId}`);
-    const receiverSocketId = onlineUsers.get(receiverId);
+    
+    
+    // فحص الحظر قبل بدء المكالمة
+    try {
+      const User = require('./models/User');
+      const caller = await User.findById(callerInfo._id);
+      const receiver = await User.findById(receiverId);
+      
+      if (!caller || !receiver) {
+        socket.emit('call:error', { message: 'المستخدم غير موجود' });
+        console.log(`❌ Call failed: User not found`);
+        return;
+      }
+      
+      const callerBlockedReceiver = caller.blockedUsers.some(
+        id => id.toString() === receiverId
+      );
+      const receiverBlockedCaller = receiver.blockedUsers.some(
+        id => id.toString() === callerInfo._id
+      );
+      
+      if (callerBlockedReceiver || receiverBlockedCaller) {
+        socket.emit('call:blocked', { 
+          message: 'لا يمكن إجراء المكالمة',
+          blocked: true 
+        });
+        console.log(`🚫 Call blocked between ${callerInfo._id} and ${receiverId}`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking block status for call:', error);
+      socket.emit('call:error', { message: 'خطأ في التحقق من حالة الحظر' });
+      return;
+    }
+
+    
     
     // حفظ سجل المكالمة في قاعدة البيانات
     let callLogId = null;
