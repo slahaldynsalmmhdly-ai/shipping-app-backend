@@ -1451,7 +1451,7 @@ router.get("/block-status/:userId", protectUnified, async (req, res) => {
     const isBlocked = iBlockedThem || theyBlockedMe;
     const amITheBlocker = iBlockedThem;
 
-    res.json({ isBlocked, amITheBlocker });
+    res.json({ isBlocked, amITheBlocker, theyBlockedMe });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: "خطأ في الخادم" });
