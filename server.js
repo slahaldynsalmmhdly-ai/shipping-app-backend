@@ -317,6 +317,9 @@ io.on('connection', (socket) => {
           callLogId
         );
         console.log(`📬 Missed call notification created for ${receiverId}`);
+        
+        // ملاحظة: لا يمكن إرسال call:missed للمستقبل لأنه غير متصل
+        // سيتم تحديث badge عند اتصاله من جديد
       } catch (err) {
         console.error('Error updating call log:', err);
       }
@@ -358,16 +361,23 @@ io.on('connection', (socket) => {
     console.log(`❌ Call rejected by receiver for caller ${callerId}`);
     const callerSocketId = onlineUsers.get(callerId);
     
-    // تحديث حالة المكالمة إلى rejected
+    // تحديث حالة المكالمة إلى rejected (تعتبر missed للمستقبل)
     try {
       const CallLog = require('./models/CallLog');
       const callerSocket = io.sockets.sockets.get(callerSocketId);
       if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
         await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
-          status: 'rejected',
+          status: 'missed',
           endedAt: new Date()
         });
-        console.log(`💾 Call log updated to rejected`);
+        console.log(`💾 Call log updated to missed (rejected)`);
+        
+        // إرسال إشعار للمستقبل بأن هناك مكالمة فائتة
+        const receiverSocketId = onlineUsers.get(socket.userId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('call:missed');
+          console.log(`🔔 Missed call notification sent to ${socket.userId}`);
+        }
       }
     } catch (err) {
       console.error('Error updating call log:', err);
@@ -415,9 +425,31 @@ io.on('connection', (socket) => {
   });
 
   // Call busy - المستخدم مشغول
-  socket.on('call:busy', ({ callerId }) => {
+  socket.on('call:busy', async ({ callerId }) => {
     console.log(`📵 User ${socket.userId} is busy, notifying ${callerId}`);
     const callerSocketId = onlineUsers.get(callerId);
+    
+    // تحديث حالة المكالمة إلى missed (المستخدم مشغول)
+    try {
+      const CallLog = require('./models/CallLog');
+      const callerSocket = io.sockets.sockets.get(callerSocketId);
+      if (callerSocket && callerSocket.activeCalls && callerSocket.activeCalls[socket.userId]) {
+        await CallLog.findByIdAndUpdate(callerSocket.activeCalls[socket.userId], {
+          status: 'missed',
+          endedAt: new Date()
+        });
+        console.log(`💾 Call log updated to missed (busy)`);
+        
+        // إرسال إشعار للمستقبل بأن هناك مكالمة فائتة
+        const receiverSocketId = onlineUsers.get(socket.userId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('call:missed');
+          console.log(`🔔 Missed call notification sent to ${socket.userId}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
+    }
     
     if (callerSocketId) {
       io.to(callerSocketId).emit('call:user-busy', {

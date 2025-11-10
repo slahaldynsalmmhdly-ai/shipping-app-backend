@@ -3,26 +3,6 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 const CallLog = require("../models/CallLog");
 
-// @route   GET /api/v1/call-logs
-// @desc    الحصول على سجل المكالمات للمستخدم الحالي
-// @access  Private
-router.get("/", protect, async (req, res) => {
-  try {
-    const callLogs = await CallLog.find({
-      $or: [{ caller: req.user._id }, { receiver: req.user._id }],
-    })
-      .populate("caller", "name avatar")
-      .populate("receiver", "name avatar")
-      .sort({ createdAt: -1 })
-      .limit(100);
-
-    res.json(callLogs);
-  } catch (error) {
-    console.error("Error fetching call logs:", error);
-    res.status(500).json({ message: "فشل في جلب سجل المكالمات" });
-  }
-});
-
 // @route   GET /api/v1/call-logs/missed
 // @desc    الحصول على المكالمات الفائتة فقط
 // @access  Private
@@ -61,6 +41,49 @@ router.get("/unread-count", protect, async (req, res) => {
   }
 });
 
+// @route   PUT /api/v1/call-logs/mark-all-read
+// @desc    تعليم جميع المكالمات الفائتة كمقروءة
+// @access  Private
+router.put("/mark-all-read", protect, async (req, res) => {
+  try {
+    await CallLog.updateMany(
+      {
+        receiver: req.user._id,
+        status: "missed",
+        isRead: false,
+      },
+      {
+        isRead: true,
+      }
+    );
+
+    res.json({ message: "تم تعليم جميع المكالمات كمقروءة" });
+  } catch (error) {
+    console.error("Error marking all calls as read:", error);
+    res.status(500).json({ message: "فشل في تعليم المكالمات كمقروءة" });
+  }
+});
+
+// @route   GET /api/v1/call-logs
+// @desc    الحصول على سجل المكالمات للمستخدم الحالي
+// @access  Private
+router.get("/", protect, async (req, res) => {
+  try {
+    const callLogs = await CallLog.find({
+      $or: [{ caller: req.user._id }, { receiver: req.user._id }],
+    })
+      .populate("caller", "name avatar")
+      .populate("receiver", "name avatar")
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.json(callLogs);
+  } catch (error) {
+    console.error("Error fetching call logs:", error);
+    res.status(500).json({ message: "فشل في جلب سجل المكالمات" });
+  }
+});
+
 // @route   POST /api/v1/call-logs
 // @desc    إنشاء سجل مكالمة جديد
 // @access  Private
@@ -88,6 +111,32 @@ router.post("/", protect, async (req, res) => {
   } catch (error) {
     console.error("Error creating call log:", error);
     res.status(500).json({ message: "فشل في إنشاء سجل المكالمة" });
+  }
+});
+
+// @route   PUT /api/v1/call-logs/:id/mark-read
+// @desc    تعليم المكالمة الفائتة كمقروءة
+// @access  Private
+router.put("/:id/mark-read", protect, async (req, res) => {
+  try {
+    const callLog = await CallLog.findById(req.params.id);
+
+    if (!callLog) {
+      return res.status(404).json({ message: "سجل المكالمة غير موجود" });
+    }
+
+    // التحقق من أن المستخدم هو المستقبل
+    if (callLog.receiver.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "غير مصرح لك بتحديث هذا السجل" });
+    }
+
+    callLog.isRead = true;
+    await callLog.save();
+
+    res.json({ message: "تم تعليم المكالمة كمقروءة" });
+  } catch (error) {
+    console.error("Error marking call as read:", error);
+    res.status(500).json({ message: "فشل في تعليم المكالمة كمقروءة" });
   }
 });
 
@@ -129,55 +178,6 @@ router.put("/:id", protect, async (req, res) => {
   }
 });
 
-// @route   PUT /api/v1/call-logs/:id/mark-read
-// @desc    تعليم المكالمة الفائتة كمقروءة
-// @access  Private
-router.put("/:id/mark-read", protect, async (req, res) => {
-  try {
-    const callLog = await CallLog.findById(req.params.id);
-
-    if (!callLog) {
-      return res.status(404).json({ message: "سجل المكالمة غير موجود" });
-    }
-
-    // التحقق من أن المستخدم هو المستقبل
-    if (callLog.receiver.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "غير مصرح لك بتحديث هذا السجل" });
-    }
-
-    callLog.isRead = true;
-    await callLog.save();
-
-    res.json({ message: "تم تعليم المكالمة كمقروءة" });
-  } catch (error) {
-    console.error("Error marking call as read:", error);
-    res.status(500).json({ message: "فشل في تعليم المكالمة كمقروءة" });
-  }
-});
-
-// @route   PUT /api/v1/call-logs/mark-all-read
-// @desc    تعليم جميع المكالمات الفائتة كمقروءة
-// @access  Private
-router.put("/mark-all-read", protect, async (req, res) => {
-  try {
-    await CallLog.updateMany(
-      {
-        receiver: req.user._id,
-        status: "missed",
-        isRead: false,
-      },
-      {
-        isRead: true,
-      }
-    );
-
-    res.json({ message: "تم تعليم جميع المكالمات كمقروءة" });
-  } catch (error) {
-    console.error("Error marking all calls as read:", error);
-    res.status(500).json({ message: "فشل في تعليم المكالمات كمقروءة" });
-  }
-});
-
 // @route   DELETE /api/v1/call-logs/:id
 // @desc    حذف سجل مكالمة
 // @access  Private
@@ -207,4 +207,3 @@ router.delete("/:id", protect, async (req, res) => {
 });
 
 module.exports = router;
-
