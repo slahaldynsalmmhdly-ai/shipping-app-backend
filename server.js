@@ -191,8 +191,9 @@ const io = new Server(server, {
 // Store online users: { userId: socketId }
 const onlineUsers = new Map();
 
-// Make onlineUsers available globally
+// Make onlineUsers and io available globally
 app.set('onlineUsers', onlineUsers);
+app.set('io', io);
 
 // Socket.IO Connection
 io.on('connection', (socket) => {

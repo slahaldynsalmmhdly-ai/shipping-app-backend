@@ -1331,6 +1331,20 @@ router.post("/block/:userId", protectUnified, async (req, res) => {
       await otherUser.save();
     }
 
+    // Send Socket.IO event to blocked user for instant UI update
+    const io = req.app.get('io');
+    const onlineUsers = req.app.get('onlineUsers');
+    if (io && onlineUsers) {
+      const blockedUserSocketId = onlineUsers.get(userId);
+      if (blockedUserSocketId) {
+        io.to(blockedUserSocketId).emit('user:blocked', {
+          blockerId: currentUserId,
+          blockedAt: new Date()
+        });
+        console.log(`🚫 Sent block notification to user ${userId}`);
+      }
+    }
+
     res.json({ message: "تم حظر المستخدم بنجاح" });
   } catch (err) {
     console.error(err.message);
@@ -1360,6 +1374,20 @@ router.post("/unblock/:userId", protectUnified, async (req, res) => {
         (id) => id.toString() !== currentUserId
       );
       await otherUser.save();
+    }
+
+    // Send Socket.IO event to unblocked user for instant UI update
+    const io = req.app.get('io');
+    const onlineUsers = req.app.get('onlineUsers');
+    if (io && onlineUsers) {
+      const unblockedUserSocketId = onlineUsers.get(userId);
+      if (unblockedUserSocketId) {
+        io.to(unblockedUserSocketId).emit('user:unblocked', {
+          unblockerId: currentUserId,
+          unblockedAt: new Date()
+        });
+        console.log(`✅ Sent unblock notification to user ${userId}`);
+      }
     }
 
     res.json({ message: "تم فك الحظر بنجاح" });
