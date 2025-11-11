@@ -200,7 +200,8 @@ io.on('connection', (socket) => {
   console.log(`✅ Socket connected: ${socket.id}`);
 
   // User joins
-  socket.on('user:join', async (userId) => {
+  socket.on('user:join', async (data) => {
+    const userId = data.userId;
     try {
       onlineUsers.set(userId, socket.id);
       socket.userId = userId;
@@ -263,7 +264,8 @@ io.on('connection', (socket) => {
   const User = require('./models/User'); // تأكد من استيراد موديل المستخدم
 
   // حظر مستخدم
-  socket.on('user:block', async ({ targetUserId, conversationId }) => {
+  socket.on('user:block', async (data) => {
+    const { targetUserId, conversationId } = data;
     try {
       const currentUserId = socket.userId; // تأكد أن socket.userId موجود من user:join
       
@@ -293,7 +295,8 @@ io.on('connection', (socket) => {
   });
 
   // فك الحظر
-  socket.on('user:unblock', async ({ targetUserId, conversationId }) => {
+  socket.on('user:unblock', async (data) => {
+    const { targetUserId, conversationId } = data;
     try {
       const currentUserId = socket.userId;
       
