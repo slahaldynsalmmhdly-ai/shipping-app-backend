@@ -349,113 +349,8 @@ io.on('connection', (socket) => {
   });
 
   // ==================== VOICE CALL EVENTS ====================
-  
-  // Call initiate - بدء المكالمة
-  socket.on('call:initiate', async ({ receiverId, callerInfo, callType }) => {
-    console.log(`📞 Call initiated from ${callerInfo._id} to ${receiverId}`);
-    
-    
-    // فحص الحظر قبل بدء المكالمة
-    try {
-      const User = require('./models/User');
-      const caller = await User.findById(callerInfo._id);
-      const receiver = await User.findById(receiverId);
-      
-      if (!caller || !receiver) {
-        socket.emit('call:error', { message: 'المستخدم غير موجود' });
-        console.log(`❌ Call failed: User not found`);
-        return;
-      }
-      
-      const callerBlockedReceiver = caller.blockedUsers.some(
-        id => id.toString() === receiverId
-      );
-      const receiverBlockedCaller = receiver.blockedUsers.some(
-        id => id.toString() === callerInfo._id
-      );
-      
-      if (callerBlockedReceiver || receiverBlockedCaller) {
-        socket.emit('call:blocked', { 
-          message: 'لا يمكن إجراء المكالمة',
-          blocked: true 
-        });
-        console.log(`🚫 Call blocked between ${callerInfo._id} and ${receiverId}`);
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking block status for call:', error);
-      socket.emit('call:error', { message: 'خطأ في التحقق من حالة الحظر' });
-      return;
-    }
 
-    const receiverSocketId = onlineUsers.get(receiverId);
-
-    // حفظ سجل المكالمة في قاعدة البيانات
-    let callLogId = null;
-    try {
-      const CallLog = require('./models/CallLog');
-      const callLog = await CallLog.create({
-        caller: callerInfo._id,
-        receiver: receiverId,
-        callType: callType || 'audio',
-        status: 'connecting',
-        startedAt: new Date(),
-        isRead: false
-      });
-      
-      callLogId = callLog._id.toString();
-      
-      // حفظ callId للاستخدام لاحقاً
-      if (!socket.activeCalls) socket.activeCalls = {};
-      socket.activeCalls[receiverId] = callLogId;
-      
-      console.log(`💾 Call log created: ${callLogId}`);
-    } catch (err) {
-      console.error('Error creating call log:', err);
-      return; // الخروج إذا فشل إنشاء CallLog
-    }
-    
-    if (receiverSocketId) {
-      // إرسال إشعار بالمكالمة الواردة للمستقبل
-      io.to(receiverSocketId).emit('call:incoming', {
-        caller: callerInfo,
-        callType: callType || 'audio'
-      });
-      console.log(`🔔 Call notification sent to ${receiverId}`);
-    } else {
-      // المستقبل غير متصل - تحديث حالة المكالمة إلى missed
-      try {
-        const CallLog = require('./models/CallLog');
-        const { createCallNotification } = require('./utils/notificationHelper');
-        
-        // استخدام callLogId مباشرة بدلاً من socket.activeCalls
-        await CallLog.findByIdAndUpdate(callLogId, {
-          status: 'missed',
-          endedAt: new Date(),
-          isRead: false
-        });
-        
-        // إنشاء إشعار للمكالمة الفائتة في قاعدة البيانات
-        await createCallNotification(
-          callerInfo._id,
-          receiverId,
-          callType || 'audio',
-          callLogId
-        );
-        console.log(`📬 Missed call notification created for ${receiverId}`);
-        
-        // ملاحظة: لا يمكن إرسال call:missed للمستقبل لأنه غير متصل
-        // سيتم تحديث badge عند اتصاله من جديد
-      } catch (err) {
-        console.error('Error updating call log:', err);
-      }
-      
-      socket.emit('call:user-offline', { receiverId });
-      console.log(`❌ Receiver ${receiverId} is offline`);
-    }
-  });
-
-  // Call answer - قبول المكالمة
+// Call answer - قبول المكالمة
   socket.on('call:answer', async ({ callerId }) => {
     console.log(`✅ Call answered by receiver for caller ${callerId}`);
     const callerSocketId = onlineUsers.get(callerId);
@@ -519,9 +414,11 @@ io.on('connection', (socket) => {
   });
 
   // Call end - إنهاء المكالمة
-  socket.on('call:end', async ({ targetId, callId, duration }) => {
-    console.log(`📴 Call ended by ${socket.userId} with ${targetId}`);
-    const targetSocketId = onlineUsers.get(targetId);
+  socket.on('call:end', async ({ partnerId, targetId, callId, callLogId, duration }) => {
+    const finalTargetId = partnerId || targetId;
+    const finalCallId = callLogId || callId;
+    console.log(`📴 Call ended by ${socket.userId} with ${finalTargetId}`);
+    const targetSocketId = onlineUsers.get(finalTargetId);
     
     // تحديث حالة المكالمة إلى completed مع المدة
     try {
@@ -542,9 +439,9 @@ io.on('connection', (socket) => {
     }
     
     if (targetSocketId) {
-      io.to(targetSocketId).emit('call:ended', {
+      io.to(targetSocketId).emit('call:end', {
         userId: socket.userId,
-        callId,
+        callLogId: finalCallId,
         duration
       });
       console.log(`🔚 End notification sent to ${targetId}`);
@@ -636,7 +533,7 @@ io.on('connection', (socket) => {
         caller: socket.userId,
         receiver: receiverId,
         callType: callType,
-        status: 'ringing',
+        status: 'connecting',
         startedAt: new Date()
       });
       
@@ -667,48 +564,51 @@ io.on('connection', (socket) => {
   // ==================== WEBRTC SIGNALING ====================
   
   // WebRTC Offer - إرسال offer من المتصل إلى المستقبل
-  socket.on('webrtc:offer', ({ receiverId, offer }) => {
-    console.log(`📡 WebRTC offer from ${socket.userId} to ${receiverId}`);
-    const receiverSocketId = onlineUsers.get(receiverId);
+  socket.on('webrtc:offer', ({ partnerId, receiverId, offer }) => {
+    const targetId = partnerId || receiverId;
+    console.log(`📡 WebRTC offer from ${socket.userId} to ${targetId}`);
+    const receiverSocketId = onlineUsers.get(targetId);
     
     if (receiverSocketId) {
       io.to(receiverSocketId).emit('webrtc:offer', {
         callerId: socket.userId,
         offer: offer
       });
-      console.log(`✅ Offer sent to ${receiverId}`);
+      console.log(`✅ Offer sent to ${targetId}`);
     } else {
       console.log(`❌ Receiver ${receiverId} not found`);
     }
   });
 
   // WebRTC Answer - إرسال answer من المستقبل إلى المتصل
-  socket.on('webrtc:answer', ({ callerId, answer }) => {
-    console.log(`📡 WebRTC answer from ${socket.userId} to ${callerId}`);
-    const callerSocketId = onlineUsers.get(callerId);
+  socket.on('webrtc:answer', ({ partnerId, callerId, answer }) => {
+    const targetId = partnerId || callerId;
+    console.log(`📡 WebRTC answer from ${socket.userId} to ${targetId}`);
+    const callerSocketId = onlineUsers.get(targetId);
     
     if (callerSocketId) {
       io.to(callerSocketId).emit('webrtc:answer', {
         answer: answer
       });
-      console.log(`✅ Answer sent to ${callerId}`);
+      console.log(`✅ Answer sent to ${targetId}`);
     } else {
-      console.log(`❌ Caller ${callerId} not found`);
+      console.log(`❌ Caller ${targetId} not found`);
     }
   });
 
   // WebRTC ICE Candidate - تبادل ICE candidates
-  socket.on('webrtc:ice-candidate', ({ targetId, candidate }) => {
-    console.log(`🧊 ICE candidate from ${socket.userId} to ${targetId}`);
-    const targetSocketId = onlineUsers.get(targetId);
+  socket.on('webrtc:ice-candidate', ({ partnerId, targetId, candidate }) => {
+    const finalTargetId = partnerId || targetId;
+    console.log(`🧊 ICE candidate from ${socket.userId} to ${finalTargetId}`);
+    const targetSocketId = onlineUsers.get(finalTargetId);
     
     if (targetSocketId) {
       io.to(targetSocketId).emit('webrtc:ice-candidate', {
         candidate: candidate
       });
-      console.log(`✅ ICE candidate sent to ${targetId}`);
+      console.log(`✅ ICE candidate sent to ${finalTargetId}`);
     } else {
-      console.log(`❌ Target ${targetId} not found`);
+      console.log(`❌ Target ${finalTargetId} not found`);
     }
   });
   
