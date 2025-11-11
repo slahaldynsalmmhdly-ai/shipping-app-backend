@@ -259,6 +259,69 @@ io.on('connection', (socket) => {
     socket.to(data.conversationId).emit('message:new', data);
   });
 
+  // ===== إضافة أحداث الحظر =====
+  const User = require('./models/User'); // تأكد من استيراد موديل المستخدم
+
+  // حظر مستخدم
+  socket.on('user:block', async ({ targetUserId, conversationId }) => {
+    try {
+      const currentUserId = socket.userId; // تأكد أن socket.userId موجود من user:join
+      
+      // 1. تحديث قاعدة البيانات (المستخدم الحالي يحظر الآخر)
+      const user = await User.findById(currentUserId);
+      if (!user.blockedUsers.some(id => id.toString() === targetUserId)) {
+        user.blockedUsers.push(targetUserId);
+        await user.save();
+      }
+      
+      // 2. إرسال إشعار للمستخدم الذي قام بالحظر (تأكيد النجاح)
+      socket.emit('user:block:success', { blockedId: targetUserId, conversationId });
+      
+      // 3. إرسال إشعار للمستخدم المحظور (تحديث فوري)
+      const targetSocketId = onlineUsers.get(targetUserId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('user:blocked', {
+          blockerId: currentUserId,
+          conversationId
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error blocking user via socket:', error);
+      socket.emit('user:block:error', { error: error.message });
+    }
+  });
+
+  // فك الحظر
+  socket.on('user:unblock', async ({ targetUserId, conversationId }) => {
+    try {
+      const currentUserId = socket.userId;
+      
+      // 1. تحديث قاعدة البيانات (المستخدم الحالي يفك الحظر)
+      const user = await User.findById(currentUserId);
+      user.blockedUsers = user.blockedUsers.filter(
+        (id) => id.toString() !== targetUserId
+      );
+      await user.save();
+      
+      // 2. إرسال إشعار للمستخدم الذي قام بفك الحظر (تأكيد النجاح)
+      socket.emit('user:unblock:success', { unblockedId: targetUserId, conversationId });
+      
+      // 3. إرسال إشعار للمستخدم الذي تم فك حظره (تحديث فوري)
+      const targetSocketId = onlineUsers.get(targetUserId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('user:unblocked', {
+          unblockerId: currentUserId,
+          conversationId
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error unblocking user via socket:', error);
+      socket.emit('user:unblock:error', { error: error.message });
+    }
+  });
+
   // ==================== VOICE CALL EVENTS ====================
   
   // Call initiate - بدء المكالمة
