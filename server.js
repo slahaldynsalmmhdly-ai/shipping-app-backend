@@ -229,6 +229,29 @@ io.on('connection', (socket) => {
       // Broadcast to all OTHER users that this user is online
       socket.broadcast.emit('user:online', { userId, isOnline: true });
       console.log(`📡 Broadcasted online status for ${userId}`);
+
+      // ===== إرسال حالة الحظر الأولية لجميع المستخدمين المتصلين =====
+      const onlineUserIds = Array.from(onlineUsers.keys());
+      const usersToCheck = await User.find({ _id: { $in: onlineUserIds } }).select('blockedUsers');
+      const userMap = new Map(usersToCheck.map(u => [u._id.toString(), u.blockedUsers.map(b => b.toString())]));
+
+      // إرسال حالة الحظر للمستخدم الحالي (من حظره)
+      const currentUserBlocked = userMap.get(userId) || [];
+      const blockedByMe = onlineUserIds.filter(id => currentUserBlocked.includes(id));
+      socket.emit('block:initial-status', { blockedByMe });
+      
+      // إرسال حالة الحظر للمستخدمين الآخرين (من حظرهم)
+      for (const otherUserId of onlineUserIds) {
+        if (otherUserId !== userId) {
+          const otherUserBlocked = userMap.get(otherUserId) || [];
+          if (otherUserBlocked.includes(userId)) {
+            // المستخدم الحالي محظور من قبل otherUserId
+            socket.emit('user:blocked', { blockerId: otherUserId, conversationId: null }); // conversationId is null as it's a global status
+          }
+        }
+      }
+      console.log(`📡 Sent initial block status for ${userId}`);
+      
     } catch (error) {
       console.error(`❌ Error in user:join for ${userId}:`, error.message);
     }
