@@ -615,6 +615,55 @@ io.on('connection', (socket) => {
     }
   });
 
+    // Call initiate - بدء المكالمة
+  socket.on('call:initiate', async ({ receiverId, callerInfo, callType }, callback) => {
+    console.log(`📞 Call initiate from ${socket.userId} to ${receiverId}`);
+    
+    // 1. التحقق من حالة المستخدم المستقبل (Busy/Offline)
+    const receiverSocketId = onlineUsers.get(receiverId);
+    if (!receiverSocketId) {
+      // إذا كان غير متصل، يجب إبلاغ المتصل بالفشل
+      return callback({ success: false, error: 'offline' });
+    }
+    
+    // 2. التحقق من حالة المكالمة الحالية للمستقبل (للتأكد من أنه ليس في مكالمة أخرى)
+    // هذا يتطلب تتبع حالة المكالمة، لكن حالياً سنعتمد على وجوده في قائمة المتصلين
+    
+    // 3. إنشاء سجل مكالمة في قاعدة البيانات
+    try {
+      const CallLog = require('./models/CallLog');
+      const newCallLog = await CallLog.create({
+        caller: socket.userId,
+        receiver: receiverId,
+        callType: callType,
+        status: 'ringing',
+        startedAt: new Date()
+      });
+      
+      // 4. إرسال إشعار المكالمة الواردة
+      io.to(receiverSocketId).emit('call:incoming', {
+        callerInfo: callerInfo,
+        callType: callType,
+        callLogId: newCallLog._id.toString()
+      });
+      
+      // 5. إبلاغ المتصل بالنجاح وتمرير callLogId
+      callback({ success: true, callLogId: newCallLog._id.toString() });
+      
+      // 6. تتبع المكالمة النشطة للمتصل
+      if (!socket.activeCalls) {
+        socket.activeCalls = {};
+      }
+      socket.activeCalls[receiverId] = newCallLog._id.toString();
+      
+      console.log(`✅ Call initiated and incoming signal sent to ${receiverId} with log ID ${newCallLog._id}`);
+      
+    } catch (err) {
+      console.error('Error initiating call:', err);
+      callback({ success: false, error: 'server_error' });
+    }
+  });
+
   // ==================== WEBRTC SIGNALING ====================
   
   // WebRTC Offer - إرسال offer من المتصل إلى المستقبل
