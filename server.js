@@ -561,6 +561,39 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Call accept - قبول المكالمة
+  socket.on('call:accept', async ({ receiverId, callLogId }) => {
+    console.log(`✅ Call accepted by ${socket.userId} for caller ${receiverId}`);
+    const callerSocketId = onlineUsers.get(receiverId);
+    
+    // تحديث سجل المكالمة في قاعدة البيانات
+    if (callLogId) {
+      try {
+        const CallLog = require('./models/CallLog');
+        const callLog = await CallLog.findById(callLogId);
+        if (callLog) {
+          callLog.status = 'answered';
+          callLog.answeredAt = new Date();
+          await callLog.save();
+          console.log(`✅ CallLog ${callLogId} updated to answered`);
+        }
+      } catch (err) {
+        console.error('Error updating call log:', err);
+      }
+    }
+    
+    // إخطار المتصل بأن المكالمة تم قبولها
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call:accepted', {
+        receiverId: socket.userId,
+        callLogId: callLogId
+      });
+      console.log(`📲 Call accepted notification sent to ${receiverId}`);
+    } else {
+      console.log(`❌ Caller ${receiverId} not found online`);
+    }
+  });
+
   // ==================== WEBRTC SIGNALING ====================
   
   // WebRTC Offer - إرسال offer من المتصل إلى المستقبل
