@@ -14,7 +14,7 @@ const { createMentionNotifications } = require('../utils/mentionNotificationHelp
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media, scheduledTime, hashtags, mentions, category, scope } = req.body;
+    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -39,6 +39,7 @@ router.post('/', protect, async (req, res) => {
       hashtags: finalHashtags,
       mentions: finalMentions,
       category: category || null,
+      postType: postType || null,
       scope: scope || 'global' // local or global
     });
 
@@ -101,10 +102,10 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { userType, limit, skip, category } = req.query;
+    const { userType, limit, skip, category, postType } = req.query;
     
-    // إذا كان category أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
-    if (category || userType) {
+    // إذا كان category أو postType أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
+    if (category || postType || userType) {
       const users = await User.find({ userType: userType }).select('_id');
       const userIds = users.map(u => u._id);
       
@@ -118,6 +119,10 @@ router.get('/', protect, async (req, res) => {
       
       if (category) {
         query.category = category;
+      }
+      
+      if (postType) {
+        query.postType = postType;
       }
       
       const posts = await Post.find(query)

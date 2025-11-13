@@ -157,6 +157,11 @@ const PostSchema = new mongoose.Schema({
     ],
     default: null,
   },
+  postType: {
+    type: String,
+    enum: ['ابحث عن موظفين', 'ابحث عن وظيفة'],
+    default: null,
+  },
   topics: [String],
   // Hashtags and Mentions
   hashtags: [{
