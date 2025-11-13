@@ -101,17 +101,26 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { userType, limit, skip } = req.query;
+    const { userType, limit, skip, category } = req.query;
     
-    // إذا كان userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
-    if (userType) {
+    // إذا كان category أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
+    if (category || userType) {
       const users = await User.find({ userType: userType }).select('_id');
       const userIds = users.map(u => u._id);
       
-      const posts = await Post.find({
-        user: { $in: userIds },
+      let query = {
         $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      })
+      };
+      
+      if (userType) {
+        query.user = { $in: userIds };
+      }
+      
+      if (category) {
+        query.category = category;
+      }
+      
+      const posts = await Post.find(query)
         .populate('user', 'name avatar userType companyName')
         .populate('reactions.user', 'name avatar')
         .sort({ createdAt: -1 })
