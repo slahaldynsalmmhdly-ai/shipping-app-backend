@@ -51,19 +51,28 @@ const storage = new CloudinaryStorage({
 
 // Filter for image and video files
 const fileFilter = (req, file, cb) => {
-  // Check file extension as fallback for cases where mimetype is generic
+  // التحقق من mimetype أولاً (الأهم)
+  if (file.mimetype && (file.mimetype.startsWith("image") || file.mimetype.startsWith("video"))) {
+    return cb(null, true);
+  }
+  
+  // التحقق من الامتداد كـ fallback
   const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', 
                              '.mp4', '.mpeg', '.mov', '.webm', '.avi'];
-  const fileExt = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+  const fileExt = file.originalname ? 
+    file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.')) : '';
   
-  if (file.mimetype.startsWith("image") || 
-      file.mimetype.startsWith("video") ||
-      allowedExtensions.includes(fileExt)) {
-    cb(null, true);
-  } else {
-    console.log(`Rejected file: ${file.originalname}, mimetype: ${file.mimetype}`);
-    cb(new Error(`نوع الملف غير مدعوم. يرجى رفع صورة أو فيديو فقط.`), false);
+  if (allowedExtensions.includes(fileExt)) {
+    return cb(null, true);
   }
+  
+  // إذا كان الاسم "blob" ولكن mimetype صحيح، نقبله
+  if (file.originalname === 'blob' && file.mimetype) {
+    return cb(null, true);
+  }
+  
+  console.log(`Rejected file: ${file.originalname}, mimetype: ${file.mimetype}`);
+  cb(new Error(`نوع الملف غير مدعوم. يرجى رفع صورة أو فيديو فقط.`), false);
 };
 
 const upload = multer({ 
