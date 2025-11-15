@@ -22,7 +22,8 @@ router.post("/", protect, async (req, res) => {
       media,
       scheduledTime,
       hashtags,
-      mentions
+      mentions,
+      isHighlighted
     } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
@@ -50,7 +51,8 @@ router.post("/", protect, async (req, res) => {
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
       hashtags: finalHashtags,
-      mentions: finalMentions
+      mentions: finalMentions,
+      isFeatured: isHighlighted || false
     });
 
     const shipmentAd = await newShipmentAd.save();
@@ -158,6 +160,14 @@ router.get("/", protect, async (req, res) => {
     
     // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
     const sortedAds = distributedAds.sort((a, b) => {
+      // الإعلانات المميزة تظهر أولاً دائماً
+      const aFeatured = a.isFeatured && (!a.featuredUntil || new Date(a.featuredUntil) > new Date());
+      const bFeatured = b.isFeatured && (!b.featuredUntil || new Date(b.featuredUntil) > new Date());
+      
+      if (aFeatured && !bFeatured) return -1;
+      if (!aFeatured && bFeatured) return 1;
+      
+      // إذا كلاهما مميز أو كلاهما غير مميز، نرتب حسب التفاعل
       const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
       const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
       

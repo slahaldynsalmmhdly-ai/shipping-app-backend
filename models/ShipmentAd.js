@@ -135,11 +135,21 @@ const ShipmentAdSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  // Featured/Highlighted ad (appears first)
+  isFeatured: {
+    type: Boolean,
+    default: false,
+  },
+  featuredUntil: {
+    type: Date,
+    default: null, // null = featured indefinitely, Date = featured until this date
+  },
 });
 
 // إضافة فهارس لتحسين الأداء
 ShipmentAdSchema.index({ user: 1, createdAt: -1 });
 ShipmentAdSchema.index({ isPublished: 1, createdAt: -1 });
+ShipmentAdSchema.index({ isFeatured: -1, createdAt: -1 }); // For featured ads
 ShipmentAdSchema.index({ hashtags: 1 });
 ShipmentAdSchema.index({ hiddenFromHomeFeedFor: 1 });
 ShipmentAdSchema.index({ createdAt: -1 });

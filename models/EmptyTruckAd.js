@@ -144,6 +144,15 @@ const EmptyTruckAdSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     }],
+    // Featured/Highlighted ad (appears first)
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    featuredUntil: {
+      type: Date,
+      default: null, // null = featured indefinitely, Date = featured until this date
+    },
   },
   {
     timestamps: true,
@@ -153,6 +162,7 @@ const EmptyTruckAdSchema = mongoose.Schema(
 // إضافة فهارس لتحسين الأداء
 EmptyTruckAdSchema.index({ user: 1, createdAt: -1 });
 EmptyTruckAdSchema.index({ isPublished: 1, createdAt: -1 });
+EmptyTruckAdSchema.index({ isFeatured: -1, createdAt: -1 }); // For featured ads
 EmptyTruckAdSchema.index({ hashtags: 1 });
 EmptyTruckAdSchema.index({ hiddenFromHomeFeedFor: 1 });
 EmptyTruckAdSchema.index({ createdAt: -1 });

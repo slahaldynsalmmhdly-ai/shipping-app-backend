@@ -13,7 +13,7 @@ const { createMentionNotifications } = require('../utils/mentionNotificationHelp
 // @access  Private
 router.post("/", protect, async (req, res) => {
   try {
-    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media, scheduledTime, hashtags, mentions } = req.body;
+    const { currentLocation, preferredDestination, availabilityDate, truckType, additionalNotes, media, scheduledTime, hashtags, mentions, isHighlighted } = req.body;
 
     if (!currentLocation || !preferredDestination || !availabilityDate || !truckType) {
       return res.status(400).json({ message: "Please fill all required fields" });
@@ -38,7 +38,8 @@ router.post("/", protect, async (req, res) => {
       scheduledTime: scheduledTime || null,
       isPublished: scheduledTime ? false : true, // If scheduled, not published yet
       hashtags: finalHashtags,
-      mentions: finalMentions
+      mentions: finalMentions,
+      isFeatured: isHighlighted || false
     });
     
     // إرسال إشعارات للمتابعين عند نشر إعلان شاحنة فارغة جديد
@@ -142,6 +143,14 @@ router.get("/", protect, async (req, res) => {
     
     // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
     const sortedAds = distributedAds.sort((a, b) => {
+      // الإعلانات المميزة تظهر أولاً دائماً
+      const aFeatured = a.isFeatured && (!a.featuredUntil || new Date(a.featuredUntil) > new Date());
+      const bFeatured = b.isFeatured && (!b.featuredUntil || new Date(b.featuredUntil) > new Date());
+      
+      if (aFeatured && !bFeatured) return -1;
+      if (!aFeatured && bFeatured) return 1;
+      
+      // إذا كلاهما مميز أو كلاهما غير مميز، نرتب حسب التفاعل
       const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
       const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
       
