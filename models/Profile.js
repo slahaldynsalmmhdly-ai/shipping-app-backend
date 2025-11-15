@@ -16,11 +16,6 @@ const ProfileSchema = new mongoose.Schema({
   coverUrl: {
     type: String,
   },
-  fleetImages: [
-    {
-      type: String,
-    },
-  ],
   reviews: [
     {
       type: mongoose.Schema.Types.ObjectId,

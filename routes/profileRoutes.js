@@ -112,7 +112,6 @@ router.put(
         user.truckCount = req.body.truckCount || user.truckCount;
         user.truckTypes = req.body.truckTypes || user.truckTypes;
         user.registrationNumber = req.body.registrationNumber || user.registrationNumber;
-        user.fleetImages = req.body.fleetImages || user.fleetImages;
         user.licenseImages = req.body.licenseImages || user.licenseImages;
       }
 
@@ -139,7 +138,6 @@ router.put(
         truckCount: updatedUser.truckCount,
         truckTypes: updatedUser.truckTypes,
         registrationNumber: updatedUser.registrationNumber,
-        fleetImages: updatedUser.fleetImages,
         licenseImages: updatedUser.licenseImages,
       });
     } else {

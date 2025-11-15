@@ -97,9 +97,6 @@ const UserSchema = new mongoose.Schema({
     type: String, // Vehicle registration number
     default: "",
   },
-  fleetImages: [
-    { type: String } // Array of URLs to fleet images
-  ],
   licenseImages: [
     { type: String } // Array of URLs to license images
   ],

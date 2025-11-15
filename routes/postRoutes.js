@@ -49,6 +49,12 @@ router.post('/', protect, async (req, res) => {
 
     const post = await newPost.save();
     
+    // إخفاء المنشور من صاحبه في الصفحة الرئيسية بعد النشر
+    if (!scheduledTime) {
+      post.hiddenFromHomeFeedFor.push(req.user.id);
+      await post.save();
+    }
+    
     // إرسال إشعارات للمتابعين عند نشر منشور جديد
     if (!scheduledTime) { // فقط إذا كان المنشور منشور فوراً وليس مجدول
       try {
@@ -170,11 +176,6 @@ router.get('/', protect, async (req, res) => {
     const filteredPosts = [];
     
     for (const post of allPosts) {
-      // إخفاء منشورات المستخدم الخاصة من صفحته الرئيسية
-      if (post.user._id.toString() === req.user.id) {
-        continue;
-      }
-      
       // إخفاء منشورات المتابعين تماماً (100% إشعارات فقط)
       const isFollowing = following.some(id => id.toString() === post.user._id.toString());
       

@@ -21,7 +21,6 @@ const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
 const adminAuthRoutes = require("./routes/adminAuthRoutes"); // Added adminAuthRoutes
 // AI features routes removed
 const followRoutes = require("./routes/followRoutes"); // Added followRoutes
-const fleetAuthRoutes = require("./routes/fleetAuthRoutes"); // Added fleetAuthRoutes
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
 const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
 const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
@@ -105,7 +104,6 @@ app.use("/api/v1/reports", reportRoutes); // Mount report routes
 app.use("/api/admin", adminAuthRoutes); // Mount admin auth routes
 // AI features routes removed
 app.use("/api/v1/follow", followRoutes); // Mount follow routes
-app.use("/api/fleet", fleetAuthRoutes); // Mount fleet auth routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes
 app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
 app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
