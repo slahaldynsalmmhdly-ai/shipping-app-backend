@@ -184,11 +184,43 @@ const PostSchema = new mongoose.Schema({
     enum: ['local', 'global'],
     default: 'global',
   },
+  // Publishing scope: category page only, or both home and category
+  publishScope: {
+    type: String,
+    enum: ['category_only', 'home_and_category'],
+    default: 'home_and_category',
+  },
+  // Featured/Pinned post (appears first)
+  isFeatured: {
+    type: Boolean,
+    default: false,
+  },
+  featuredUntil: {
+    type: Date,
+    default: null, // null = featured indefinitely, Date = featured until this date
+  },
+  // Contact information
+  contactInfo: {
+    phone: {
+      enabled: { type: Boolean, default: false },
+      number: { type: String, default: '' },
+    },
+    whatsapp: {
+      enabled: { type: Boolean, default: false },
+      number: { type: String, default: '' },
+    },
+    email: {
+      enabled: { type: Boolean, default: false },
+      address: { type: String, default: '' },
+    },
+  },
 });
 
 // إضافة فهارس لتحسين الأداء
 PostSchema.index({ user: 1, createdAt: -1 });
 PostSchema.index({ isPublished: 1, createdAt: -1 });
+PostSchema.index({ isFeatured: -1, createdAt: -1 }); // For featured posts
+PostSchema.index({ category: 1, publishScope: 1, createdAt: -1 }); // For category filtering
 PostSchema.index({ hashtags: 1 });
 PostSchema.index({ hiddenFromHomeFeedFor: 1 });
 PostSchema.index({ createdAt: -1 });

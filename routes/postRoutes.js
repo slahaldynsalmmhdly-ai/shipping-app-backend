@@ -119,6 +119,11 @@ router.get('/', protect, async (req, res) => {
       
       if (category) {
         query.category = category;
+        // إذا كان الفلتر حسب الفئة، نعرض كل المنشورات في هذه الفئة
+        // (سواء category_only أو home_and_category)
+      } else {
+        // إذا لم يكن هناك فلتر فئة، نعرض فقط المنشورات التي يجب أن تظهر في الصفحة الرئيسية
+        query.publishScope = { $ne: 'category_only' };
       }
       
       if (postType) {
@@ -128,7 +133,7 @@ router.get('/', protect, async (req, res) => {
       const posts = await Post.find(query)
         .populate('user', 'name avatar userType companyName')
         .populate('reactions.user', 'name avatar')
-        .sort({ createdAt: -1 })
+        .sort({ isFeatured: -1, createdAt: -1 }) // المنشورات المميزة أولاً
         .limit(parseInt(limit) || 10)
         .skip(parseInt(skip) || 0);
       
@@ -141,10 +146,11 @@ router.get('/', protect, async (req, res) => {
     const notifications = currentUser?.notifications || [];
 
     // Find all published posts, excluding those hidden from current user's home feed
+    // وفقط المنشورات التي يجب أن تظهر في الصفحة الرئيسية
     const allPosts = await Post.find({ 
       $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
-      // تم إزالة فلتر generatedByAI لعرض المنشورات المولدة بالذكاء الاصطناعي
+      hiddenFromHomeFeedFor: { $ne: req.user.id },
+      publishScope: { $ne: 'category_only' } // إخفاء المنشورات التي فقط للفئة
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({
@@ -198,6 +204,14 @@ router.get('/', protect, async (req, res) => {
     
     // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
     const sortedPosts = distributedPosts.sort((a, b) => {
+      // المنشورات المميزة تظهر أولاً دائماً
+      const aFeatured = a.isFeatured && (!a.featuredUntil || new Date(a.featuredUntil) > new Date());
+      const bFeatured = b.isFeatured && (!b.featuredUntil || new Date(b.featuredUntil) > new Date());
+      
+      if (aFeatured && !bFeatured) return -1;
+      if (!aFeatured && bFeatured) return 1;
+      
+      // إذا كلاهما مميز أو كلاهما غير مميز، نرتب حسب التفاعل
       const engagementA = (a.reactions?.length || 0) * 2 + (a.comments?.length || 0) * 3;
       const engagementB = (b.reactions?.length || 0) * 2 + (b.comments?.length || 0) * 3;
       
