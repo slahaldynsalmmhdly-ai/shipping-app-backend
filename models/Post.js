@@ -214,6 +214,19 @@ const PostSchema = new mongoose.Schema({
       address: { type: String, default: '' },
     },
   },
+  // Contact fields for frontend compatibility
+  contactPhone: {
+    type: String,
+    default: '',
+  },
+  contactEmail: {
+    type: String,
+    default: '',
+  },
+  contactMethods: [{
+    type: String,
+    enum: ['واتساب', 'اتصال', 'بريد إلكتروني', 'الكل'],
+  }],
 });
 
 // إضافة فهارس لتحسين الأداء

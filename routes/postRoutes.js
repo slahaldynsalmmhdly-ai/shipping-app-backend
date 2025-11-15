@@ -14,7 +14,7 @@ const { createMentionNotifications } = require('../utils/mentionNotificationHelp
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope } = req.body;
+    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -40,7 +40,10 @@ router.post('/', protect, async (req, res) => {
       mentions: finalMentions,
       category: category || null,
       postType: postType || null,
-      scope: scope || 'global' // local or global
+      scope: scope || 'global', // local or global
+      contactPhone: contactPhone || '',
+      contactEmail: contactEmail || '',
+      contactMethods: contactMethods || []
     });
 
     const post = await newPost.save();
@@ -862,7 +865,7 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(400).json({ msg: "Cannot edit a repost" });
     }
 
-    const { text, media } = req.body;
+    const { text, media, contactPhone, contactEmail, contactMethods } = req.body;
 
     // Update fields
     if (text !== undefined) {
@@ -870,6 +873,15 @@ router.put("/:id", protect, async (req, res) => {
     }
     if (media !== undefined) {
       post.media = media;
+    }
+    if (contactPhone !== undefined) {
+      post.contactPhone = contactPhone;
+    }
+    if (contactEmail !== undefined) {
+      post.contactEmail = contactEmail;
+    }
+    if (contactMethods !== undefined) {
+      post.contactMethods = contactMethods;
     }
 
     await post.save();
