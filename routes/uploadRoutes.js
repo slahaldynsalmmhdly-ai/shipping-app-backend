@@ -43,7 +43,6 @@ const storage = new CloudinaryStorage({
     return {
       folder: folder,
       resource_type: resourceType,
-      public_id: `${folder.split("/").pop()}-${Date.now()}`,
       // Don't specify format, let Cloudinary handle it automatically
     };
   },
