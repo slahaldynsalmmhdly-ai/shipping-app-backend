@@ -19,17 +19,13 @@ const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
 const callLogRoutes = require("./routes/callLogRoutes"); // Added callLogRoutes
 const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
 const adminAuthRoutes = require("./routes/adminAuthRoutes"); // Added adminAuthRoutes
-// AI features routes removed
 const followRoutes = require("./routes/followRoutes"); // Added followRoutes
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
 const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
 const mentionRoutes = require("./routes/mentionRoutes"); // Added mentionRoutes
 const storyRoutes = require("./routes/storyRoutes"); // Added storyRoutes
-// AI Bot routes removed
-const imageAnalysisRoutes = require("./routes/imageAnalysisRoutes"); // Added imageAnalysisRoutes
 const pricingRoutes = require("./routes/pricingRoutes"); // Added pricingRoutes
 const distanceRoutes = require("./routes/distanceRoutes"); // Added distanceRoutes
-// AI Chat routes removed
 const chatProfileRoutes = require("./routes/chatProfileRoutes"); // Added chatProfileRoutes
 const phoneVerificationRoutes = require("./routes/phoneVerificationRoutes"); // Added phoneVerificationRoutes
 const passport = require("passport");
@@ -51,8 +47,6 @@ const { fixOldContent } = require('./utils/fixOldContent');
 setTimeout(() => {
   fixOldContent();
 }, 3000); // Wait 3 seconds for DB connection to be ready
-
-// AI Scheduler removed
 
 // Start Content Scheduler for scheduled posts and ads
 const { startContentScheduler } = require('./utils/contentScheduler');
@@ -103,17 +97,13 @@ app.use("/api/v1/search", searchRoutes); // Mount search routes
 app.use("/api/v1/call-logs", callLogRoutes); // Mount call log routes
 app.use("/api/v1/reports", reportRoutes); // Mount report routes
 app.use("/api/admin", adminAuthRoutes); // Mount admin auth routes
-// AI features routes removed
 app.use("/api/v1/follow", followRoutes); // Mount follow routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes
 app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes
 app.use("/api/v1/mentions", mentionRoutes); // Mount mention routes
 app.use("/api/v1/stories", storyRoutes); // Mount story routes
-// AI Bot routes removed
-app.use("/api/v1/analyze-image", imageAnalysisRoutes); // Mount image analysis routes
 app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
 app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
-// AI Chat routes removed
 app.use("/api/v1/chat-profile", chatProfileRoutes); // Mount chat profile routes
 app.use("/api/v1/phone-verification", phoneVerificationRoutes); // Mount phone verification routes
 
