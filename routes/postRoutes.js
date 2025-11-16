@@ -317,10 +317,37 @@ router.put("/:id/react", protect, async (req, res) => {
   }
 });
 
+// @desc    Get comments for a post
+// @route   GET /api/v1/posts/:id/comments
+// @access  Public
+router.get("/:id/comments", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    if (!post) {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+
+    res.json(post.comments);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 // @desc    Add a comment to a post
 // @route   POST /api/v1/posts/:id/comment
 // @access  Private
-router.post("/:id/comment", protect, async (req, res) => {
+router.post(":id/comment", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     const post = await Post.findById(req.params.id);
