@@ -1,15 +1,26 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-// إنشاء عميل Resend باستخدام المفتاح من متغيرات البيئة
-const resend = new Resend(process.env.RESEND_API_KEY);
+// إنشاء transporter باستخدام Gmail مع port 465 (أكثر استقراراً)
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // SSL
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000
+});
 
 /**
- * إرسال رمز OTP عبر البريد الإلكتروني باستخدام Resend
+ * إرسال رمز OTP عبر البريد الإلكتروني
  */
 async function sendOTPEmail(email, code) {
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev', // البريد الافتراضي من Resend (يمكنك تغييره لاحقاً)
+    const mailOptions = {
+      from: `"برنامج الوظائف" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'رمز التحقق - برنامج الوظائف',
       html: `
@@ -25,15 +36,11 @@ async function sendOTPEmail(email, code) {
           </div>
         </div>
       `
-    });
+    };
 
-    if (error) {
-      console.error('❌ خطأ من Resend:', error);
-      throw error;
-    }
-
-    console.log('✅ تم إرسال البريد الإلكتروني عبر Resend:', data.id);
-    return { success: true, messageId: data.id };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ تم إرسال البريد الإلكتروني:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ خطأ في إرسال البريد الإلكتروني:', error);
     throw error;
@@ -45,8 +52,8 @@ async function sendOTPEmail(email, code) {
  */
 async function sendPasswordResetEmail(email, code) {
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+    const mailOptions = {
+      from: `"برنامج الوظائف" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'إعادة تعيين كلمة السر - برنامج الوظائف',
       html: `
@@ -62,15 +69,11 @@ async function sendPasswordResetEmail(email, code) {
           </div>
         </div>
       `
-    });
+    };
 
-    if (error) {
-      console.error('❌ خطأ من Resend:', error);
-      throw error;
-    }
-
-    console.log('✅ تم إرسال بريد إعادة تعيين كلمة السر عبر Resend:', data.id);
-    return { success: true, messageId: data.id };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ تم إرسال بريد إعادة تعيين كلمة السر:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ خطأ في إرسال البريد الإلكتروني:', error);
     throw error;
