@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const OTPSchema = new mongoose.Schema({
-  phone: {
+  identifier: {
     type: String,
     required: true,
     index: true,
@@ -9,10 +9,6 @@ const OTPSchema = new mongoose.Schema({
   code: {
     type: String,
     required: true,
-  },
-  telegramChatId: {
-    type: String,
-    default: null,
   },
   verified: {
     type: Boolean,
