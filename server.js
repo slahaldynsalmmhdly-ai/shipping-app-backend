@@ -31,6 +31,7 @@ const pricingRoutes = require("./routes/pricingRoutes"); // Added pricingRoutes
 const distanceRoutes = require("./routes/distanceRoutes"); // Added distanceRoutes
 // AI Chat routes removed
 const chatProfileRoutes = require("./routes/chatProfileRoutes"); // Added chatProfileRoutes
+const phoneVerificationRoutes = require("./routes/phoneVerificationRoutes"); // Added phoneVerificationRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -114,6 +115,7 @@ app.use("/api/v1/pricing", pricingRoutes); // Mount pricing routes
 app.use("/api/v1/distance", distanceRoutes); // Mount distance routes
 // AI Chat routes removed
 app.use("/api/v1/chat-profile", chatProfileRoutes); // Mount chat profile routes
+app.use("/api/v1/phone-verification", phoneVerificationRoutes); // Mount phone verification routes
 
 // PeerJS Server Setup (must be before 404 handler)
 const { ExpressPeerServer } = require('peer');
@@ -146,6 +148,10 @@ const server = app.listen(PORT, () => {
     `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
   );
 });
+
+// Initialize Telegram Bot
+const { initBot } = require('./services/telegramBot');
+initBot();
 
 // PeerJS Server for Video/Audio Calls
 const peerServer = ExpressPeerServer(server, {

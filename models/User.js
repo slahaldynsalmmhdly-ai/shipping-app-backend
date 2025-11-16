@@ -18,7 +18,7 @@ const UserSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ["individual", "company", "driver"],
+    enum: ["individual", "company", "driver", "recruitment_office"],
     required: true,
   },
   googleId: {
@@ -43,6 +43,14 @@ const UserSchema = new mongoose.Schema({
   phone: {
     type: String,
     default: "",
+  },
+  phoneVerified: {
+    type: Boolean,
+    default: false,
+  },
+  telegramChatId: {
+    type: String,
+    default: null,
   },
   description: {
     type: String, // For company description or individual "about"
@@ -204,4 +212,3 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 module.exports = mongoose.model("User", UserSchema);
-
