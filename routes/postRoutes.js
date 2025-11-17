@@ -347,7 +347,7 @@ router.get("/:id/comments", async (req, res) => {
 // @desc    Add a comment to a post
 // @route   POST /api/v1/posts/:id/comment
 // @access  Private
-router.post(":id/comment", protect, async (req, res) => {
+router.post("/:id/comment", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     const post = await Post.findById(req.params.id);
