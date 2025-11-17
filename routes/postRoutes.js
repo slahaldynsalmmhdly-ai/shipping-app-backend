@@ -14,7 +14,7 @@ const { createMentionNotifications } = require('../utils/mentionNotificationHelp
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted } = req.body;
+    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted, publishScope } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -44,7 +44,8 @@ router.post('/', protect, async (req, res) => {
       contactPhone: contactPhone || '',
       contactEmail: contactEmail || '',
       contactMethods: contactMethods || [],
-      isFeatured: isHighlighted || false
+      isFeatured: isHighlighted || false,
+      publishScope: publishScope || 'home_and_category' // category_only or home_and_category
     });
 
     const post = await newPost.save();
