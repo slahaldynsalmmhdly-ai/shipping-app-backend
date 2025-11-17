@@ -30,29 +30,44 @@ router.get('/', protect, async (req, res) => {
     const userCity = currentUser?.city || null;
 
     // بناء فلتر المنشورات حسب الموقع
-    const locationFilter = {
-      $or: [
-        { scope: 'global' }, // المنشورات العالمية
-        { scope: { $exists: false } }, // المنشورات القديمة بدون scope
-        { scope: null }, // المنشورات بدون scope
-        // المنشورات المحلية: تظهر حسب الدولة والمدينة
-        {
-          $and: [
-            { scope: 'local' },
-            {
-              $or: [
-                // إذا كان للمنشور مدينة محددة: يظهر فقط لنفس المدينة
-                { $and: [{ city: { $exists: true, $ne: null } }, { city: userCity }] },
-                // إذا كان للمنشور دولة فقط (بدون مدينة): يظهر لنفس الدولة
-                { $and: [{ city: { $in: [null, undefined] } }, { country: userCountry }] },
-                // إذا لم يكن للمنشور دولة ولا مدينة: يظهر للجميع (منشورات قديمة)
-                { $and: [{ country: { $in: [null, undefined] } }, { city: { $in: [null, undefined] } }] }
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    let locationFilter;
+    
+    if (userCountry === null) {
+      // المستخدم بدون دولة: يرى جميع المنشورات (عالمية ومحلية)
+      locationFilter = {
+        $or: [
+          { scope: 'global' },
+          { scope: { $exists: false } },
+          { scope: null },
+          { scope: 'local' } // جميع المنشورات المحلية
+        ]
+      };
+    } else {
+      // المستخدم لديه دولة: فلترة حسب الموقع
+      locationFilter = {
+        $or: [
+          { scope: 'global' }, // المنشورات العالمية
+          { scope: { $exists: false } }, // المنشورات القديمة بدون scope
+          { scope: null }, // المنشورات بدون scope
+          // المنشورات المحلية: تظهر حسب الدولة والمدينة
+          {
+            $and: [
+              { scope: 'local' },
+              {
+                $or: [
+                  // إذا كان للمنشور مدينة محددة: يظهر فقط لنفس المدينة
+                  { $and: [{ city: { $exists: true, $ne: null } }, { city: userCity }] },
+                  // إذا كان للمنشور دولة فقط (بدون مدينة): يظهر لنفس الدولة
+                  { $and: [{ city: { $in: [null, undefined] } }, { country: userCountry }] },
+                  // إذا لم يكن للمنشور دولة ولا مدينة: يظهر للجميع (منشورات قديمة)
+                  { $and: [{ country: { $in: [null, undefined] } }, { city: { $in: [null, undefined] } }] }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    }
 
     // جلب المنشورات العادية (فقط التي يجب أن تظهر في الصفحة الرئيسية)
     const posts = await Post.find({
