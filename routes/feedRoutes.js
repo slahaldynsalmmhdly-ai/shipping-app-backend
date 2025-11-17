@@ -13,7 +13,7 @@ const User = require('../models/User');
  * 
  * خوارزمية بسيطة:
  * - ترتيب حسب الوقت (الأحدث أولاً)
- * - بدون فلترة scope (لأن المنشورات القديمة ما عندها scope)
+ * - فلترة publishScope: إخفاء المنشورات category_only من الصفحة الرئيسية
  * - pagination ثابت ومستقر
  */
 router.get('/', protect, async (req, res) => {
@@ -24,11 +24,19 @@ router.get('/', protect, async (req, res) => {
 
     console.log(`📥 جلب الصفحة ${page}, limit: ${limit}`);
 
-    // جلب المنشورات العادية
+    // جلب المنشورات العادية (فقط التي يجب أن تظهر في الصفحة الرئيسية)
     const posts = await Post.find({
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id }
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { hiddenFromHomeFeedFor: { $ne: req.user.id } },
+        { user: { $ne: req.user.id } },
+        // إخفاء المنشورات التي فقط للفئة (category_only)
+        { $or: [
+          { publishScope: { $exists: false } }, // المنشورات القديمة
+          { publishScope: null }, // المنشورات بدون publishScope
+          { publishScope: 'home_and_category' } // المنشورات التي يجب أن تظهر في الصفحة الرئيسية
+        ] }
+      ]
     })
       .populate('user', 'name avatar userType companyName country')
       .populate({
