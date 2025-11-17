@@ -184,6 +184,18 @@ const PostSchema = new mongoose.Schema({
     enum: ['local', 'global'],
     default: 'global',
   },
+  // Country: الدولة التي ينتمي إليها المنشور
+  country: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  // City: المدينة التي ينتمي إليها المنشور
+  city: {
+    type: String,
+    default: null,
+    trim: true
+  },
   // Publishing scope: category page only, or both home and category
   publishScope: {
     type: String,

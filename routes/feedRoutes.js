@@ -19,10 +19,40 @@ const User = require('../models/User');
 router.get('/', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20; // زيادة من 10 إلى 20
+    const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
     console.log(`📥 جلب الصفحة ${page}, limit: ${limit}`);
+
+    // جلب بيانات المستخدم الحالي (الدولة والمدينة)
+    const currentUser = await User.findById(req.user.id).select('country city').lean();
+    const userCountry = currentUser?.country || null;
+    const userCity = currentUser?.city || null;
+
+    // بناء فلتر المنشورات حسب الموقع
+    const locationFilter = {
+      $or: [
+        { scope: 'global' }, // المنشورات العالمية
+        { scope: { $exists: false } }, // المنشورات القديمة بدون scope
+        { scope: null }, // المنشورات بدون scope
+        // المنشورات المحلية: تظهر حسب الدولة والمدينة
+        {
+          $and: [
+            { scope: 'local' },
+            {
+              $or: [
+                // إذا كان للمنشور مدينة محددة: يظهر فقط لنفس المدينة
+                { $and: [{ city: { $exists: true, $ne: null } }, { city: userCity }] },
+                // إذا كان للمنشور دولة فقط (بدون مدينة): يظهر لنفس الدولة
+                { $and: [{ city: { $in: [null, undefined] } }, { country: userCountry }] },
+                // إذا لم يكن للمنشور دولة ولا مدينة: يظهر للجميع (منشورات قديمة)
+                { $and: [{ country: { $in: [null, undefined] } }, { city: { $in: [null, undefined] } }] }
+              ]
+            }
+          ]
+        }
+      ]
+    };
 
     // جلب المنشورات العادية (فقط التي يجب أن تظهر في الصفحة الرئيسية)
     const posts = await Post.find({
@@ -32,10 +62,12 @@ router.get('/', protect, async (req, res) => {
         { user: { $ne: req.user.id } },
         // إخفاء المنشورات التي فقط للفئة (category_only)
         { $or: [
-          { publishScope: { $exists: false } }, // المنشورات القديمة
-          { publishScope: null }, // المنشورات بدون publishScope
-          { publishScope: 'home_and_category' } // المنشورات التي يجب أن تظهر في الصفحة الرئيسية
-        ] }
+          { publishScope: { $exists: false } },
+          { publishScope: null },
+          { publishScope: 'home_and_category' }
+        ] },
+        // فلترة حسب الموقع (الدولة والمدينة)
+        locationFilter
       ]
     })
       .populate('user', 'name avatar userType companyName country')
