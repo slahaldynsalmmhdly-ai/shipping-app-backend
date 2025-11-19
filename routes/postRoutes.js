@@ -122,6 +122,7 @@ router.get('/', protect, async (req, res) => {
       const users = await User.find({ userType: userType }).select('_id');
       const userIds = users.map(u => u._id);
       
+      // بناء الاستعلام الأساسي
       let query = {
         $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
       };
@@ -132,10 +133,7 @@ router.get('/', protect, async (req, res) => {
       
       if (category) {
         query.category = category;
-        // إذا كان الفلتر حسب الفئة، نعرض كل المنشورات في هذه الفئة
-        // (سواء category_only أو home_and_category)
       } else {
-        // إذا لم يكن هناك فلتر فئة، نعرض فقط المنشورات التي يجب أن تظهر في الصفحة الرئيسية
         query.publishScope = { $ne: 'category_only' };
       }
       
@@ -143,28 +141,41 @@ router.get('/', protect, async (req, res) => {
         query.postType = postType;
       }
       
-      // فلترة حسب الموقع والنطاق (scope)
+      // فلترة حسب الموقع (country/city)
+      // نستخدم $and لدمج الشروط بدلاً من استبدال $or
+      const locationConditions = [];
+      
       if (country && country !== 'عالمي') {
-        // المستخدم اختار دولة محددة - نعرض فقط المنشورات المحلية في هذه الدولة
-        query.scope = 'local';
-        query.country = country;
+        // فلترة محلية: منشورات في نفس الدولة
+        locationConditions.push({ scope: 'local' });
+        locationConditions.push({ country: country });
         
         if (city) {
-          // إذا كانت المدينة محددة: منشورات نفس المدينة + منشورات الدولة بدون مدينة
-          query.$or = [
-            { city: city },
-            { city: null },
-            { city: { $exists: false } }
-          ];
+          // إذا كانت المدينة محددة
+          const cityCondition = {
+            $or: [
+              { city: city },
+              { city: null },
+              { city: { $exists: false } }
+            ]
+          };
+          locationConditions.push(cityCondition);
         }
-      } else {
-        // المستخدم اختار 'عالمي' - نعرض فقط المنشورات العالمية
-        // المنشورات القديمة بدون scope أو بدون country تعتبر عالمية
-        query.$or = [
-          { scope: 'global' },
-          { scope: { $exists: false }, country: null },
-          { scope: { $exists: false }, country: { $exists: false } }
-        ];
+      } else if (country === 'عالمي' || !country) {
+        // فلترة عالمية: منشورات عالمية فقط
+        const globalCondition = {
+          $or: [
+            { scope: 'global' },
+            { scope: { $exists: false }, country: null },
+            { scope: { $exists: false }, country: { $exists: false } }
+          ]
+        };
+        locationConditions.push(globalCondition);
+      }
+      
+      // دمج شروط الموقع مع الاستعلام الأساسي
+      if (locationConditions.length > 0) {
+        query.$and = locationConditions;
       }
       
       // طباعة الاستعلام للتحقق من الفلترة
