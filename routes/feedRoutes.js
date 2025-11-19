@@ -24,24 +24,13 @@ router.get('/', protect, async (req, res) => {
 
     console.log(`📥 جلب الصفحة ${page}, limit: ${limit}`);
 
-    // جلب بيانات المستخدم الحالي (الدولة والمدينة)
-    const currentUser = await User.findById(req.user.id).select('country city').lean();
-    
-    // إذا كان هناك فلتر موقع من query parameters، استخدمه، وإلا استخدم موقع المستخدم
+    // فقط استخدم الفلتر من query parameters (ما يختاره المستخدم في الواجهة الأمامية)
     const filterCountry = req.query.country || null;
     const filterCity = req.query.city || null;
     
-    let userCountry, userCity;
-    
-    if (filterCountry !== null) {
-      // المستخدم اختار فلتر محدد
-      userCountry = filterCountry === '' ? null : filterCountry;
-      userCity = filterCity === '' ? null : filterCity;
-    } else {
-      // استخدم موقع المستخدم من قاعدة البيانات
-      userCountry = currentUser?.country || null;
-      userCity = currentUser?.city || null;
-    }
+    // إذا كان filterCountry فارغ، لا تطبق أي فلترة
+    let userCountry = filterCountry === '' ? null : filterCountry;
+    let userCity = filterCity === '' ? null : filterCity;
 
     // بناء فلتر المنشورات حسب الموقع
     let locationFilter;
