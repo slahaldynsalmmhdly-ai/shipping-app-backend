@@ -143,8 +143,8 @@ router.get('/', protect, async (req, res) => {
         query.postType = postType;
       }
       
-      // فلترة حسب الموقع
-      if (country) {
+      // فلترة حسب الموقع (فقط إذا لم يكن 'عالمي')
+      if (country && country !== 'عالمي') {
         query.country = country;
         if (city) {
           query.city = city;
