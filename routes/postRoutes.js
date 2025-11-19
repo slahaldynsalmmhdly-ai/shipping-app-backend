@@ -115,7 +115,7 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { userType, limit, skip, category, postType } = req.query;
+    const { userType, limit, skip, category, postType, country, city } = req.query;
     
     // إذا كان category أو postType أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
     if (category || postType || userType) {
@@ -141,6 +141,14 @@ router.get('/', protect, async (req, res) => {
       
       if (postType) {
         query.postType = postType;
+      }
+      
+      // فلترة حسب الموقع
+      if (country) {
+        query.country = country;
+        if (city) {
+          query.city = city;
+        }
       }
       
       const posts = await Post.find(query)
