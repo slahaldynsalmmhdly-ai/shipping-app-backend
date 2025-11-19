@@ -167,12 +167,27 @@ router.get('/', protect, async (req, res) => {
         ];
       }
       
+      // طباعة الاستعلام للتحقق من الفلترة
+      console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
+      console.log('📍 المعاملات:', { category, postType, country, city, userType });
+      
       const posts = await Post.find(query)
         .populate('user', 'name avatar userType companyName')
         .populate('reactions.user', 'name avatar')
         .sort({ isFeatured: -1, createdAt: -1 }) // المنشورات المميزة أولاً
         .limit(parseInt(limit) || 10)
         .skip(parseInt(skip) || 0);
+      
+      console.log('✅ عدد النتائج:', posts.length);
+      if (posts.length > 0) {
+        console.log('📝 أول منشور:', {
+          text: posts[0].text?.substring(0, 50),
+          category: posts[0].category,
+          scope: posts[0].scope,
+          country: posts[0].country,
+          city: posts[0].city
+        });
+      }
       
       return res.json({ posts });
     }
