@@ -145,36 +145,26 @@ router.get('/', protect, async (req, res) => {
       
       // فلترة حسب الموقع والنطاق (scope)
       if (country && country !== 'عالمي') {
-        // عرض المنشورات العالمية + المنشورات المحلية في نفس الدولة
-        const locationConditions = [
-          { scope: 'global' }, // المنشورات العالمية تظهر للجميع
-          { scope: 'local', country: country } // المنشورات المحلية في نفس الدولة
-        ];
+        // المستخدم اختار دولة محددة - نعرض فقط المنشورات المحلية في هذه الدولة
+        query.scope = 'local';
+        query.country = country;
         
-        // إذا كانت المدينة محددة، نضيف شرط للمنشورات في نفس المدينة
         if (city) {
-          locationConditions.push(
-            { scope: 'local', country: country, city: city }
-          );
-          // إزالة الشرط العام للدولة فقط واستبداله بشروط أكثر دقة
-          locationConditions[1] = { scope: 'local', country: country, $or: [{ city: city }, { city: null }, { city: { $exists: false } }] };
-        }
-        
-        // دمج شروط الموقع مع الشروط الموجودة
-        if (query.$or) {
-          // إذا كان هناك $or موجود مسبقاً، نحتاج لدمجه
-          const existingOr = query.$or;
-          delete query.$or;
-          query.$and = [
-            { $or: existingOr },
-            { $or: locationConditions }
+          // إذا كانت المدينة محددة: منشورات نفس المدينة + منشورات الدولة بدون مدينة
+          query.$or = [
+            { city: city },
+            { city: null },
+            { city: { $exists: false } }
           ];
-        } else {
-          query.$or = locationConditions;
         }
       } else {
-        // إذا لم يحدد المستخدم موقعاً أو اختار 'عالمي'، نعرض فقط المنشورات العالمية
-        query.scope = 'global';
+        // المستخدم اختار 'عالمي' - نعرض فقط المنشورات العالمية
+        // المنشورات القديمة بدون scope أو بدون country تعتبر عالمية
+        query.$or = [
+          { scope: 'global' },
+          { scope: { $exists: false }, country: null },
+          { scope: { $exists: false }, country: { $exists: false } }
+        ];
       }
       
       const posts = await Post.find(query)
