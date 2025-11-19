@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
-const ShipmentAd = require('../models/ShipmentAd');
-const EmptyTruckAd = require('../models/EmptyTruckAd');
+// const ShipmentAd = require('../models/ShipmentAd');
+// const EmptyTruckAd = require('../models/EmptyTruckAd');
 const User = require('../models/User');
 
 /**
- * @desc    Get unified feed (Posts + ShipmentAds + EmptyTruckAds)
+ * @desc    Get unified feed (Posts only)
  * @route   GET /api/v1/feed
  * @access  Private
  * 
@@ -46,39 +46,59 @@ router.get('/', protect, async (req, res) => {
     // بناء فلتر المنشورات حسب الموقع
     let locationFilter;
     
+    console.log(`🔍 فلترة حسب: country=${userCountry}, city=${userCity}`);
+    
     if (userCountry === null) {
       // المستخدم بدون دولة: يرى جميع المنشورات (عالمية ومحلية)
+      console.log('📍 عرض جميع المنشورات (بدون فلتر)');
       locationFilter = {
         $or: [
           { scope: 'global' },
           { scope: { $exists: false } },
           { scope: null },
-          { scope: 'local' } // جميع المنشورات المحلية
+          { scope: 'local' }
         ]
       };
     } else {
       // المستخدم لديه دولة: فلترة حسب الموقع
+      console.log(`📍 فلترة حسب الدولة: ${userCountry}`);
+      
+      const localPostsFilter = [];
+      
+      if (userCity) {
+        // إذا كان هناك مدينة محددة: أظهر منشورات نفس المدينة + منشورات الدولة بدون مدينة
+        console.log(`📍 فلترة حسب المدينة: ${userCity}`);
+        localPostsFilter.push(
+          // منشورات من نفس المدينة
+          { $and: [
+            { scope: 'local' },
+            { country: userCountry },
+            { city: userCity }
+          ]},
+          // منشورات من نفس الدولة بدون مدينة محددة
+          { $and: [
+            { scope: 'local' },
+            { country: userCountry },
+            { $or: [{ city: null }, { city: { $exists: false } }] }
+          ]}
+        );
+      } else {
+        // إذا لم يكن هناك مدينة: أظهر جميع منشورات الدولة
+        console.log(`📍 عرض جميع منشورات الدولة: ${userCountry}`);
+        localPostsFilter.push(
+          { $and: [
+            { scope: 'local' },
+            { country: userCountry }
+          ]}
+        );
+      }
+      
       locationFilter = {
         $or: [
-          { scope: 'global' }, // المنشورات العالمية
-          { scope: { $exists: false } }, // المنشورات القديمة بدون scope
-          { scope: null }, // المنشورات بدون scope
-          // المنشورات المحلية: تظهر حسب الدولة والمدينة
-          {
-            $and: [
-              { scope: 'local' },
-              {
-                $or: [
-                  // إذا كان للمنشور مدينة محددة: يظهر فقط لنفس المدينة
-                  { $and: [{ city: { $exists: true, $ne: null } }, { city: userCity }] },
-                  // إذا كان للمنشور دولة فقط (بدون مدينة): يظهر لنفس الدولة
-                  { $and: [{ city: { $in: [null, undefined] } }, { country: userCountry }] },
-                  // إذا لم يكن للمنشور دولة ولا مدينة: يظهر للجميع (منشورات قديمة)
-                  { $and: [{ country: { $in: [null, undefined] } }, { city: { $in: [null, undefined] } }] }
-                ]
-              }
-            ]
-          }
+          { scope: 'global' },
+          { scope: { $exists: false } },
+          { scope: null },
+          ...localPostsFilter
         ]
       };
     }
@@ -113,47 +133,19 @@ router.get('/', protect, async (req, res) => {
       .limit(limit)
       .lean();
 
-    // جلب إعلانات الشحن
-    const shipmentAds = await ShipmentAd.find({
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id }
-    })
-      .populate('user', 'name avatar userType companyName country')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    // جلب إعلانات الشاحنات الفارغة
-    const emptyTruckAds = await EmptyTruckAd.find({
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      user: { $ne: req.user.id }
-    })
-      .populate('user', 'name avatar userType companyName country')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // جلب المنشورات فقط (تم حذف إعلانات الشحن والشاحنات الفارغة)
 
     // فلترة العناصر التي لديها user (بعد populate)
     const validPosts = posts.filter(p => p.user !== null);
-    const validShipmentAds = shipmentAds.filter(s => s.user !== null);
-    const validEmptyTruckAds = emptyTruckAds.filter(e => e.user !== null);
 
-    console.log(`📊 منشورات: ${validPosts.length}, إعلانات شحن: ${validShipmentAds.length}, شاحنات فارغة: ${validEmptyTruckAds.length}`);
+    console.log(`📊 منشورات: ${validPosts.length}`);
 
     // إضافة نوع لكل عنصر
     const postsWithType = validPosts.map(p => ({ ...p, itemType: 'post' }));
-    const shipmentAdsWithType = validShipmentAds.map(s => ({ ...s, itemType: 'shipmentAd' }));
-    const emptyTruckAdsWithType = validEmptyTruckAds.map(e => ({ ...e, itemType: 'emptyTruckAd' }));
 
-    // دمج جميع العناصر
+    // المنشورات فقط
     let allItems = [
-      ...postsWithType,
-      ...shipmentAdsWithType,
-      ...emptyTruckAdsWithType
+      ...postsWithType
     ];
 
     // إزالة التكرار
@@ -207,21 +199,9 @@ router.get('/stats', protect, async (req, res) => {
       hiddenFromHomeFeedFor: { $ne: req.user.id }
     });
 
-    const shipmentAdsCount = await ShipmentAd.countDocuments({
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
-    });
-
-    const emptyTruckAdsCount = await EmptyTruckAd.countDocuments({
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id }
-    });
-
     const responseData = {
       totalPosts: postsCount,
-      totalShipmentAds: shipmentAdsCount,
-      totalEmptyTruckAds: emptyTruckAdsCount,
-      totalItems: postsCount + shipmentAdsCount + emptyTruckAdsCount,
+      totalItems: postsCount,
       userCountry: userCountry
     };
 
