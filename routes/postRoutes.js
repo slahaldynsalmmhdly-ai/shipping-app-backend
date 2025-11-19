@@ -143,12 +143,38 @@ router.get('/', protect, async (req, res) => {
         query.postType = postType;
       }
       
-      // فلترة حسب الموقع (فقط إذا لم يكن 'عالمي')
+      // فلترة حسب الموقع والنطاق (scope)
       if (country && country !== 'عالمي') {
-        query.country = country;
+        // عرض المنشورات العالمية + المنشورات المحلية في نفس الدولة
+        const locationConditions = [
+          { scope: 'global' }, // المنشورات العالمية تظهر للجميع
+          { scope: 'local', country: country } // المنشورات المحلية في نفس الدولة
+        ];
+        
+        // إذا كانت المدينة محددة، نضيف شرط للمنشورات في نفس المدينة
         if (city) {
-          query.city = city;
+          locationConditions.push(
+            { scope: 'local', country: country, city: city }
+          );
+          // إزالة الشرط العام للدولة فقط واستبداله بشروط أكثر دقة
+          locationConditions[1] = { scope: 'local', country: country, $or: [{ city: city }, { city: null }, { city: { $exists: false } }] };
         }
+        
+        // دمج شروط الموقع مع الشروط الموجودة
+        if (query.$or) {
+          // إذا كان هناك $or موجود مسبقاً، نحتاج لدمجه
+          const existingOr = query.$or;
+          delete query.$or;
+          query.$and = [
+            { $or: existingOr },
+            { $or: locationConditions }
+          ];
+        } else {
+          query.$or = locationConditions;
+        }
+      } else {
+        // إذا لم يحدد المستخدم موقعاً أو اختار 'عالمي'، نعرض فقط المنشورات العالمية
+        query.scope = 'global';
       }
       
       const posts = await Post.find(query)
