@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Vehicle = require("../models/Vehicle");
 const { protect } = require("../middleware/authMiddleware");
 
 // دالة لإنشاء استعلام بحث ذكي
@@ -47,7 +48,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const { query, category = "all", page = 1, limit = 20, country, city, mediaType, userType } = req.query;
+    const { query, category = "all", page = 1, limit = 20, country, city, postCategory } = req.query;
 
     if (!query || query.trim() === "") {
       return res.status(400).json({ 
@@ -87,17 +88,54 @@ router.get("/", protect, async (req, res) => {
     let results = {
       query: searchQuery,
       category,
+      companies: [],
       posts: [],
-      videos: [],
-      photos: [],
-      individuals: [],
-      jobs: [],
+      vehicles: [],
       totalResults: 0,
       pagination: {
         currentPage: parseInt(page),
         limit: limitNum,
       }
     };
+
+    // البحث في الشركات (companies)
+    if (category === "all" || category === "companies") {
+      const companiesSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'companyName', 'description', 'city', 'workClassification']);
+      
+      const companiesQuery = {
+        ...companiesSearchQuery,
+        ...locationFilter,
+        userType: "company"
+      };
+
+      const companies = await User.find(companiesQuery)
+        .select("-password -googleId -firebaseUid -notifications")
+        .limit(category === "companies" ? limitNum : 15)
+        .skip(category === "companies" ? skip : 0)
+        .lean();
+
+      const companiesWithRelevance = companies.map(company => {
+        const relevanceScore = calculateRelevanceScore(company, searchQuery, ['name', 'companyName', 'description', 'city']);
+        return {
+          ...company,
+          type: "company",
+          reviewCount: 0, // يمكن إضافة منطق حساب المراجعات لاحقاً
+          rating: 0, // يمكن إضافة منطق حساب التقييم لاحقاً
+          relevanceScore
+        };
+      });
+
+      companiesWithRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      
+      results.companies = companiesWithRelevance;
+
+      if (category === "companies") {
+        const totalCompanies = await User.countDocuments(companiesQuery);
+        results.totalResults = totalCompanies;
+        results.pagination.totalPages = Math.ceil(totalCompanies / limitNum);
+        results.pagination.hasMore = skip + companiesWithRelevance.length < totalCompanies;
+      }
+    }
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
@@ -109,11 +147,9 @@ router.get("/", protect, async (req, res) => {
         $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
       };
 
-      // فلترة حسب mediaType
-      if (mediaType === 'video') {
-        postsQuery.video = { $ne: null, $exists: true };
-      } else if (mediaType === 'image') {
-        postsQuery.images = { $exists: true, $ne: [] };
+      // فلترة حسب تصنيف المنشور
+      if (postCategory && postCategory !== '') {
+        postsQuery.category = postCategory;
       }
 
       const posts = await Post.find(postsQuery)
@@ -125,9 +161,22 @@ router.get("/", protect, async (req, res) => {
 
       const postsWithRelevance = posts.map(post => {
         const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category']);
+        
+        // تحويل الصور والفيديو إلى صيغة media
+        const media = [];
+        if (post.images && post.images.length > 0) {
+          post.images.forEach(img => {
+            media.push({ url: img, type: 'image' });
+          });
+        }
+        if (post.video) {
+          media.push({ url: post.video, type: 'video' });
+        }
+
         return {
           ...post,
           type: "post",
+          media: media,
           likesCount: post.reactions?.filter(r => r.type === "like").length || 0,
           commentsCount: post.comments?.length || 0,
           relevanceScore
@@ -151,98 +200,67 @@ router.get("/", protect, async (req, res) => {
       }
     }
 
-    // البحث في الوظائف (jobs) - حسب التصنيف (category)
-    if (category === "all" || category === "jobs") {
-      const jobsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category']);
+    // البحث في المركبات/الأساطيل (vehicles)
+    if (category === "all" || category === "vehicles") {
+      const vehiclesSearchQuery = buildSmartSearchQuery(searchQuery, [
+        'vehicleName', 
+        'vehicleType', 
+        'driverName', 
+        'licensePlate', 
+        'plateNumber',
+        'currentLocation',
+        'departureCity'
+      ]);
       
-      const jobsQuery = {
-        ...jobsSearchQuery,
-        ...locationFilter,
-        category: { $exists: true, $ne: null },
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
+      const vehiclesQuery = {
+        ...vehiclesSearchQuery
       };
 
-      const jobs = await Post.find(jobsQuery)
+      const vehicles = await Vehicle.find(vehiclesQuery)
         .populate("user", "name avatar userType companyName")
-        .sort({ createdAt: -1 })
-        .limit(category === "jobs" ? limitNum : 15)
-        .skip(category === "jobs" ? skip : 0)
+        .limit(category === "vehicles" ? limitNum : 15)
+        .skip(category === "vehicles" ? skip : 0)
         .lean();
 
-      const jobsWithRelevance = jobs.map(job => {
-        const relevanceScore = calculateRelevanceScore(job, searchQuery, ['text', 'repostText', 'category']);
+      const vehiclesWithRelevance = vehicles.map(vehicle => {
+        const relevanceScore = calculateRelevanceScore(vehicle, searchQuery, [
+          'vehicleName', 
+          'vehicleType', 
+          'driverName', 
+          'licensePlate',
+          'currentLocation'
+        ]);
+        
         return {
-          ...job,
-          type: "job",
-          likesCount: job.reactions?.filter(r => r.type === "like").length || 0,
-          commentsCount: job.comments?.length || 0,
+          ...vehicle,
+          type: "vehicle",
+          // توحيد الحقول للتوافق مع الواجهة الأمامية
+          vehicleName: vehicle.vehicleName || vehicle.vehicleType || 'مركبة',
+          licensePlate: vehicle.licensePlate || vehicle.plateNumber || '',
+          currentLocation: vehicle.currentLocation || vehicle.departureCity || '',
+          imageUrl: vehicle.imageUrl || (vehicle.imageUrls && vehicle.imageUrls[0]) || '',
           relevanceScore
         };
       });
 
-      jobsWithRelevance.sort((a, b) => {
-        if (b.relevanceScore !== a.relevanceScore) {
-          return b.relevanceScore - a.relevanceScore;
-        }
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-
-      results.jobs = jobsWithRelevance;
-
-      if (category === "jobs") {
-        const totalJobs = await Post.countDocuments(jobsQuery);
-        results.totalResults = totalJobs;
-        results.pagination.totalPages = Math.ceil(totalJobs / limitNum);
-        results.pagination.hasMore = skip + jobs.length < totalJobs;
-      }
-    }
-
-    // البحث في الأفراد
-    if (category === "all" || category === "individuals" || category === "users") {
-      const individualsSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'description', 'city']);
+      vehiclesWithRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
       
-      const individualsQuery = {
-        ...individualsSearchQuery,
-        ...locationFilter
-      };
+      results.vehicles = vehiclesWithRelevance;
 
-      if (userType) {
-        individualsQuery.userType = userType;
-      }
-
-      const individuals = await User.find(individualsQuery)
-        .select("-password -googleId -firebaseUid -notifications")
-        .limit(category === "individuals" || category === "users" ? limitNum : 15)
-        .skip(category === "individuals" || category === "users" ? skip : 0)
-        .lean();
-
-      const individualsWithRelevance = individuals.map(individual => {
-        const relevanceScore = calculateRelevanceScore(individual, searchQuery, ['name', 'description', 'city']);
-        return {
-          ...individual,
-          type: "individual",
-          relevanceScore
-        };
-      });
-
-      individualsWithRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
-      
-      results.individuals = individualsWithRelevance;
-
-      if (category === "individuals" || category === "users") {
-        const totalIndividuals = await User.countDocuments(individualsQuery);
-        results.totalResults = totalIndividuals;
-        results.pagination.totalPages = Math.ceil(totalIndividuals / limitNum);
-        results.pagination.hasMore = skip + individualsWithRelevance.length < totalIndividuals;
+      if (category === "vehicles") {
+        const totalVehicles = await Vehicle.countDocuments(vehiclesQuery);
+        results.totalResults = totalVehicles;
+        results.pagination.totalPages = Math.ceil(totalVehicles / limitNum);
+        results.pagination.hasMore = skip + vehiclesWithRelevance.length < totalVehicles;
       }
     }
 
     // حساب إجمالي النتائج لفئة "الكل"
     if (category === "all") {
       results.totalResults = 
+        results.companies.length +
         results.posts.length +
-        results.jobs.length +
-        results.individuals.length;
+        results.vehicles.length;
     }
 
     res.json({
