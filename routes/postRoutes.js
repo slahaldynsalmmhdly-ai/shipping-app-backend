@@ -154,13 +154,26 @@ router.get('/', protect, async (req, res) => {
         // عرض جميع المنشورات - لا نضيف شرط موقع
         console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
       } else {
-        // فلترة صارمة
-        console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
-        
-        conditions.push({ country: filterCountry });
+        // فلترة مرنة: عرض المنشورات من نفس الدولة أو المنشورات بدون موقع محدد
+        console.log(`📍 فلترة مرنة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''} أو بدون موقع`);
         
         if (filterCity) {
-          conditions.push({ city: filterCity });
+          // إذا كانت المدينة محددة: عرض منشورات من نفس المدينة أو بدون مدينة (لكن نفس الدولة) أو بدون موقع نهائياً
+          conditions.push({
+            $or: [
+              { country: filterCountry, city: filterCity },
+              { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
+        } else {
+          // إذا كانت الدولة فقط محددة: عرض منشورات من نفس الدولة أو بدون موقع
+          conditions.push({
+            $or: [
+              { country: filterCountry },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
         }
       }
       
