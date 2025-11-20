@@ -5,6 +5,69 @@ const Post = require("../models/Post");
 const Vehicle = require("../models/Vehicle");
 const { protect } = require("../middleware/authMiddleware");
 
+// قائمة المدن والدول للكشف التلقائي
+const CITIES = [
+  'الرياض', 'جدة', 'مكة', 'المدينة', 'الدمام', 'الخبر', 'الطائف', 'تبوك', 'أبها', 'حائل',
+  'القاهرة', 'الإسكندرية', 'الجيزة', 'شبرا الخيمة', 'بورسعيد', 'السويس', 'الأقصر', 'أسوان',
+  'دبي', 'أبوظبي', 'الشارقة', 'عجمان', 'رأس الخيمة', 'الفجيرة', 'أم القيوين',
+  'الكويت', 'حولي', 'الفروانية', 'الأحمدي', 'الجهراء', 'مبارك الكبير',
+  'عمان', 'إربد', 'الزرقاء', 'العقبة', 'السلط', 'مادبا', 'الكرك'
+];
+
+const COUNTRIES = [
+  'السعودية', 'مصر', 'الإمارات', 'الكويت', 'الأردن', 'قطر', 'البحرين', 'عمان',
+  'لبنان', 'سوريا', 'العراق', 'اليمن', 'ليبيا', 'تونس', 'الجزائر', 'المغرب'
+];
+
+const JOB_KEYWORDS = [
+  'وظيفة', 'وظائف', 'عمل', 'توظيف', 'مطلوب', 'طلب عمل', 'اعلان وظيفة',
+  'كهربائي', 'سائق', 'مهندس', 'محاسب', 'معلم', 'طبيب', 'ممرض', 'فني'
+];
+
+// دالة للكشف الذكي عن المدينة/الدولة في النص
+function detectLocation(searchText) {
+  const text = searchText.trim();
+  let detectedCity = null;
+  let detectedCountry = null;
+
+  // البحث عن المدينة
+  for (const city of CITIES) {
+    if (text.includes(city)) {
+      detectedCity = city;
+      break;
+    }
+  }
+
+  // البحث عن الدولة
+  for (const country of COUNTRIES) {
+    if (text.includes(country)) {
+      detectedCountry = country;
+      break;
+    }
+  }
+
+  return { city: detectedCity, country: detectedCountry };
+}
+
+// دالة للكشف عن الوظائف
+function detectJobSearch(searchText) {
+  const text = searchText.toLowerCase();
+  for (const keyword of JOB_KEYWORDS) {
+    if (text.includes(keyword)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// دالة لإزالة المدينة/الدولة من نص البحث
+function cleanSearchQuery(searchText, city, country) {
+  let cleaned = searchText;
+  if (city) cleaned = cleaned.replace(city, '').trim();
+  if (country) cleaned = cleaned.replace(country, '').trim();
+  return cleaned || searchText; // إذا أصبح فارغاً، نرجع النص الأصلي
+}
+
 // دالة لإنشاء استعلام بحث ذكي
 function buildSmartSearchQuery(searchText, fields) {
   const query = searchText.trim();
@@ -43,7 +106,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   return score;
 }
 
-// @desc    البحث الذكي المتكامل مع فلاتر صارمة
+// @desc    البحث الذكي التلقائي
 // @route   GET /api/v1/search
 // @access  Private
 router.get("/", protect, async (req, res) => {
@@ -55,8 +118,7 @@ router.get("/", protect, async (req, res) => {
       limit = 20, 
       country, 
       city, 
-      postCategory,
-      jobType // جديد: للبحث في الوظائف فقط
+      postCategory
     } = req.query;
 
     if (!query || query.trim() === "") {
@@ -70,27 +132,48 @@ router.get("/", protect, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
 
-    // فلترة الموقع - صارمة ودقيقة
-    let locationFilter = {};
+    // الكشف الذكي عن المدينة والدولة
+    const detectedLocation = detectLocation(searchQuery);
+    const isJobSearch = detectJobSearch(searchQuery);
     
-    // إذا تم تحديد الدولة والمدينة معاً
-    if (country && country !== '' && city && city !== '') {
+    // استخدام الموقع المكتشف أو المُرسل
+    const finalCountry = country || detectedLocation.country;
+    const finalCity = city || detectedLocation.city;
+    
+    // تنظيف نص البحث من المدينة/الدولة
+    const cleanedQuery = cleanSearchQuery(searchQuery, detectedLocation.city, detectedLocation.country);
+
+    // فلترة الموقع
+    let locationFilter = {};
+    if (finalCountry && finalCity) {
       locationFilter = {
-        country: country,
-        city: city
+        $or: [
+          { country: finalCountry, city: finalCity },
+          { country: finalCountry },
+          { city: finalCity }
+        ]
       };
-    } 
-    // إذا تم تحديد الدولة فقط
-    else if (country && country !== '') {
-      locationFilter = { country: country };
-    }
-    // إذا تم تحديد المدينة فقط
-    else if (city && city !== '') {
-      locationFilter = { city: city };
+    } else if (finalCountry) {
+      locationFilter = {
+        $or: [
+          { country: finalCountry },
+          { country: { $exists: false } }
+        ]
+      };
+    } else if (finalCity) {
+      locationFilter = {
+        $or: [
+          { city: finalCity },
+          { city: { $exists: false } }
+        ]
+      };
     }
 
     let results = {
       query: searchQuery,
+      detectedCity: detectedLocation.city,
+      detectedCountry: detectedLocation.country,
+      isJobSearch: isJobSearch,
       category,
       companies: [],
       posts: [],
@@ -102,14 +185,13 @@ router.get("/", protect, async (req, res) => {
       }
     };
 
-    // البحث في الشركات (companies)
+    // البحث في الشركات
     if (category === "all" || category === "companies") {
-      // البحث فقط في الحقول المتعلقة بالشركات (بدون city/country)
-      const companiesSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'companyName', 'description', 'workClassification']);
+      const companiesSearchQuery = buildSmartSearchQuery(cleanedQuery, ['name', 'companyName', 'description', 'workClassification']);
       
       const companiesQuery = {
         ...companiesSearchQuery,
-        ...locationFilter, // الفلتر الصارم للموقع
+        ...locationFilter,
         userType: "company"
       };
 
@@ -120,7 +202,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const companiesWithRelevance = companies.map(company => {
-        const relevanceScore = calculateRelevanceScore(company, searchQuery, ['name', 'companyName', 'description']);
+        const relevanceScore = calculateRelevanceScore(company, cleanedQuery, ['name', 'companyName', 'description']);
         return {
           ...company,
           type: "company",
@@ -144,24 +226,23 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      // البحث فقط في النص والتصنيف (بدون city/country في البحث النصي)
-      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText']);
+      const postsSearchQuery = buildSmartSearchQuery(cleanedQuery, ['text', 'repostText', 'category']);
       
       let postsQuery = {
         ...postsSearchQuery,
-        ...locationFilter, // الفلتر الصارم للموقع
+        ...locationFilter,
         $and: [
           { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] }
         ]
       };
 
-      // فلترة صارمة حسب تصنيف المنشور
+      // فلترة حسب تصنيف المنشور
       if (postCategory && postCategory !== '') {
         postsQuery.category = postCategory;
       }
 
-      // فلترة صارمة للوظائف
-      if (jobType === 'jobs') {
+      // إذا كان البحث عن وظائف، فلتر تلقائي
+      if (isJobSearch && !postCategory) {
         postsQuery.category = { 
           $in: ['طلب عمل', 'اعلان وظيفة', 'إعلان وظيفة', 'وظيفة', 'وظائف'] 
         };
@@ -175,7 +256,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const postsWithRelevance = posts.map(post => {
-        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category']);
+        const relevanceScore = calculateRelevanceScore(post, cleanedQuery, ['text', 'repostText', 'category']);
         
         // تحويل الصور والفيديو إلى صيغة media
         const media = [];
@@ -215,9 +296,9 @@ router.get("/", protect, async (req, res) => {
       }
     }
 
-    // البحث في المركبات/الأساطيل (vehicles)
+    // البحث في المركبات/الأساطيل
     if (category === "all" || category === "vehicles") {
-      const vehiclesSearchQuery = buildSmartSearchQuery(searchQuery, [
+      const vehiclesSearchQuery = buildSmartSearchQuery(cleanedQuery, [
         'vehicleName', 
         'vehicleType', 
         'driverName', 
@@ -227,7 +308,7 @@ router.get("/", protect, async (req, res) => {
       
       const vehiclesQuery = {
         ...vehiclesSearchQuery,
-        ...locationFilter // الفلتر الصارم للموقع (إذا كان Vehicle يحتوي على city/country)
+        ...locationFilter
       };
 
       const vehicles = await Vehicle.find(vehiclesQuery)
@@ -237,7 +318,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const vehiclesWithRelevance = vehicles.map(vehicle => {
-        const relevanceScore = calculateRelevanceScore(vehicle, searchQuery, [
+        const relevanceScore = calculateRelevanceScore(vehicle, cleanedQuery, [
           'vehicleName', 
           'vehicleType', 
           'driverName', 
