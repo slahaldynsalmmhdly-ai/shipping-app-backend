@@ -6,7 +6,7 @@ const Vehicle = require("../models/Vehicle");
 const { protect } = require("../middleware/authMiddleware");
 const axios = require("axios");
 
-// دالة لتحليل الاستعلام باستخدام OpenAI
+// دالة لتحليل الاستعلام باستخدام DeepSeek AI
 async function analyzeQueryWithAI(query) {
   try {
     const prompt = `أنت محلل استعلامات بحث ذكي. حلل الاستعلام التالي واستخرج المعلومات بصيغة JSON فقط بدون أي نص إضافي:
@@ -28,9 +28,9 @@ async function analyzeQueryWithAI(query) {
 أرجع JSON فقط:`;
 
     const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+      'https://api.deepseek.com/v1/chat/completions',
       {
-        model: 'gpt-4.1-nano',
+        model: 'deepseek-chat',
         messages: [
           {
             role: 'user',
@@ -42,7 +42,7 @@ async function analyzeQueryWithAI(query) {
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY || 'sk-73b3ec9150bc4d79952843a0ce884373'}`,
           'Content-Type': 'application/json'
         },
         timeout: 10000
@@ -121,7 +121,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   return score;
 }
 
-// @desc    البحث الذكي باستخدام OpenAI
+// @desc    البحث الذكي باستخدام DeepSeek AI
 // @route   GET /api/v1/search
 // @access  Private
 router.get("/", protect, async (req, res) => {
