@@ -4,21 +4,42 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const Vehicle = require("../models/Vehicle");
 const { protect } = require("../middleware/authMiddleware");
+const { execSync } = require("child_process");
+const path = require("path");
 
-// دالة لإنشاء استعلام بحث شامل في كل الحقول
-function buildComprehensiveSearchQuery(searchText, fields) {
+// دالة لاستدعاء Python AI للتحليل
+function analyzeQueryWithAI(query) {
+  try {
+    const pythonScript = path.join(__dirname, '../utils/aiSearch.py');
+    const result = execSync(`python3 ${pythonScript} "${query}"`, { 
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024 
+    });
+    return JSON.parse(result);
+  } catch (error) {
+    console.error("AI Analysis Error:", error.message);
+    // في حالة الفشل، نرجع تحليل بسيط
+    return {
+      searchText: query,
+      cleanedText: query,
+      city: null,
+      country: null,
+      timeFilter: null,
+      isJobSearch: false
+    };
+  }
+}
+
+// دالة لإنشاء استعلام بحث ذكي
+function buildSmartSearchQuery(searchText, fields) {
   const query = searchText.trim();
   if (!query) return {};
 
   const words = query.split(/\s+/).filter(word => word.length > 0);
   const orConditions = [];
   
-  // البحث في كل حقل بشكل منفصل
   fields.forEach(field => {
-    // البحث بالنص الكامل
     orConditions.push({ [field]: { $regex: query, $options: "i" } });
-    
-    // البحث بكل كلمة على حدة
     words.forEach(word => {
       if (word.length >= 2) {
         orConditions.push({ [field]: { $regex: word, $options: "i" } });
@@ -37,17 +58,9 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   
   fields.forEach(field => {
     const value = String(item[field] || '').toLowerCase();
-    
-    // تطابق كامل
     if (value === query) score += 20;
-    
-    // يحتوي على النص الكامل
     if (value.includes(query)) score += 10;
-    
-    // يبدأ بالنص
     if (value.startsWith(query)) score += 8;
-    
-    // يحتوي على كلمات منفصلة
     words.forEach(word => {
       if (value.includes(word)) score += 3;
       if (value.startsWith(word)) score += 2;
@@ -57,7 +70,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   return score;
 }
 
-// @desc    البحث الشامل المباشر في قاعدة البيانات
+// @desc    البحث الذكي باستخدام AI
 // @route   GET /api/v1/search
 // @access  Private
 router.get("/", protect, async (req, res) => {
@@ -81,8 +94,38 @@ router.get("/", protect, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
 
+    // تحليل الاستعلام باستخدام AI
+    const aiAnalysis = analyzeQueryWithAI(searchQuery);
+    
+    console.log("AI Analysis:", aiAnalysis);
+
+    // استخدام النتائج من AI
+    const cleanedQuery = aiAnalysis.cleanedText || searchQuery;
+    const detectedCity = aiAnalysis.city;
+    const detectedCountry = aiAnalysis.country;
+    const timeFilterDays = aiAnalysis.timeFilter;
+    const isJobSearch = aiAnalysis.isJobSearch;
+
+    // بناء فلتر الموقع
+    let locationFilter = {};
+    if (detectedCity) {
+      locationFilter.city = detectedCity;
+    }
+    if (detectedCountry) {
+      locationFilter.country = detectedCountry;
+    }
+
+    // بناء فلتر الوقت
+    let timeFilter = {};
+    if (timeFilterDays) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - timeFilterDays);
+      timeFilter.createdAt = { $gte: cutoffDate };
+    }
+
     let results = {
       query: searchQuery,
+      aiAnalysis: aiAnalysis,
       category,
       companies: [],
       posts: [],
@@ -96,18 +139,16 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في الشركات
     if (category === "all" || category === "companies") {
-      // البحث الشامل في كل حقول الشركة
-      const companiesSearchQuery = buildComprehensiveSearchQuery(searchQuery, [
+      const companiesSearchQuery = buildSmartSearchQuery(cleanedQuery, [
         'name', 
         'companyName', 
         'description', 
-        'workClassification',
-        'city',
-        'country'
+        'workClassification'
       ]);
       
       const companiesQuery = {
         ...companiesSearchQuery,
+        ...locationFilter,
         userType: "company"
       };
 
@@ -118,12 +159,10 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const companiesWithRelevance = companies.map(company => {
-        const relevanceScore = calculateRelevanceScore(company, searchQuery, [
+        const relevanceScore = calculateRelevanceScore(company, cleanedQuery, [
           'name', 
           'companyName', 
-          'description',
-          'city',
-          'country'
+          'description'
         ]);
         return {
           ...company,
@@ -148,63 +187,63 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      // البحث الشامل في كل حقول المنشور
-      const postsSearchQuery = buildComprehensiveSearchQuery(searchQuery, [
+      const postsSearchQuery = buildSmartSearchQuery(cleanedQuery, [
         'text', 
-        'repostText', 
-        'category',
-        'city',
-        'country'
+        'repostText'
       ]);
       
       let postsQuery = {
         ...postsSearchQuery,
+        ...locationFilter,
+        ...timeFilter,
         $and: [
           { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] }
         ]
       };
 
-      // فلترة حسب تصنيف المنشور (إذا تم تحديده)
+      // فلترة حسب تصنيف المنشور
       if (postCategory && postCategory !== '') {
         postsQuery.category = postCategory;
       }
 
+      // إذا كان البحث عن وظائف (من AI)
+      if (isJobSearch && !postCategory) {
+        postsQuery.category = { 
+          $in: ['طلب عمل', 'اعلان وظيفة', 'إعلان وظيفة', 'وظيفة', 'وظائف'] 
+        };
+      }
+
       const posts = await Post.find(postsQuery)
         .populate("user", "name avatar userType companyName")
-        .sort({ createdAt: -1 }) // الأحدث أولاً
+        .sort({ createdAt: -1 })
         .limit(category === "posts" ? limitNum : 15)
         .skip(category === "posts" ? skip : 0)
         .lean();
 
       const postsWithRelevance = posts.map(post => {
-        // حساب الملاءمة بناءً على النص والموقع والتصنيف واسم المستخدم
-        let relevanceScore = calculateRelevanceScore(post, searchQuery, [
+        let relevanceScore = calculateRelevanceScore(post, cleanedQuery, [
           'text', 
-          'repostText', 
-          'category',
-          'city',
-          'country'
+          'repostText'
         ]);
         
-        // إضافة نقاط إذا كان اسم المستخدم أو الشركة يطابق
+        // نقاط إضافية لاسم المستخدم/الشركة
         if (post.user) {
           const userName = String(post.user.name || '').toLowerCase();
           const companyName = String(post.user.companyName || '').toLowerCase();
-          const query = searchQuery.toLowerCase();
+          const query = cleanedQuery.toLowerCase();
           
           if (userName.includes(query)) relevanceScore += 5;
           if (companyName.includes(query)) relevanceScore += 5;
         }
         
-        // إضافة نقاط للمنشورات الحديثة
+        // نقاط إضافية للمنشورات الحديثة
         const postAge = Date.now() - new Date(post.createdAt).getTime();
         const daysOld = postAge / (1000 * 60 * 60 * 24);
         
-        if (daysOld < 1) relevanceScore += 5; // اليوم
-        else if (daysOld < 7) relevanceScore += 3; // هذا الأسبوع
-        else if (daysOld < 30) relevanceScore += 1; // هذا الشهر
+        if (daysOld < 1) relevanceScore += 10;
+        else if (daysOld < 7) relevanceScore += 5;
+        else if (daysOld < 30) relevanceScore += 2;
         
-        // تحويل الصور والفيديو إلى صيغة media
         const media = [];
         if (post.images && post.images.length > 0) {
           post.images.forEach(img => {
@@ -225,7 +264,6 @@ router.get("/", protect, async (req, res) => {
         };
       });
 
-      // الترتيب حسب الملاءمة ثم التاريخ
       postsWithRelevance.sort((a, b) => {
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
@@ -243,22 +281,19 @@ router.get("/", protect, async (req, res) => {
       }
     }
 
-    // البحث في المركبات/الأساطيل
+    // البحث في المركبات
     if (category === "all" || category === "vehicles") {
-      // البحث الشامل في كل حقول المركبة
-      const vehiclesSearchQuery = buildComprehensiveSearchQuery(searchQuery, [
+      const vehiclesSearchQuery = buildSmartSearchQuery(cleanedQuery, [
         'vehicleName', 
         'vehicleType', 
         'driverName', 
         'licensePlate', 
-        'plateNumber',
-        'currentLocation',
-        'departureCity',
-        'arrivalCity'
+        'plateNumber'
       ]);
       
       const vehiclesQuery = {
-        ...vehiclesSearchQuery
+        ...vehiclesSearchQuery,
+        ...locationFilter
       };
 
       const vehicles = await Vehicle.find(vehiclesQuery)
@@ -268,19 +303,17 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const vehiclesWithRelevance = vehicles.map(vehicle => {
-        let relevanceScore = calculateRelevanceScore(vehicle, searchQuery, [
+        let relevanceScore = calculateRelevanceScore(vehicle, cleanedQuery, [
           'vehicleName', 
           'vehicleType', 
           'driverName', 
-          'licensePlate',
-          'currentLocation'
+          'licensePlate'
         ]);
         
-        // إضافة نقاط إذا كان اسم المستخدم يطابق
         if (vehicle.user) {
           const userName = String(vehicle.user.name || '').toLowerCase();
           const companyName = String(vehicle.user.companyName || '').toLowerCase();
-          const query = searchQuery.toLowerCase();
+          const query = cleanedQuery.toLowerCase();
           
           if (userName.includes(query)) relevanceScore += 5;
           if (companyName.includes(query)) relevanceScore += 5;
@@ -309,7 +342,6 @@ router.get("/", protect, async (req, res) => {
       }
     }
 
-    // حساب إجمالي النتائج لفئة "الكل"
     if (category === "all") {
       results.totalResults = 
         results.companies.length +
