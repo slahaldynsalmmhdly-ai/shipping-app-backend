@@ -2,30 +2,21 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Post = require("../models/Post");
-const Review = require("../models/Review");
 const { protect } = require("../middleware/authMiddleware");
 
-// دالة لإنشاء استعلام بحث ذكي يجمع الكلمات المدخلة
+// دالة لإنشاء استعلام بحث ذكي
 function buildSmartSearchQuery(searchText, fields) {
   const query = searchText.trim();
-  
-  if (!query) {
-    return {};
-  }
+  if (!query) return {};
 
   const words = query.split(/\s+/).filter(word => word.length > 0);
   const orConditions = [];
   
   fields.forEach(field => {
-    orConditions.push({
-      [field]: { $regex: query, $options: "i" }
-    });
-    
+    orConditions.push({ [field]: { $regex: query, $options: "i" } });
     words.forEach(word => {
       if (word.length >= 2) {
-        orConditions.push({
-          [field]: { $regex: word, $options: "i" }
-        });
+        orConditions.push({ [field]: { $regex: word, $options: "i" } });
       }
     });
   });
@@ -33,7 +24,7 @@ function buildSmartSearchQuery(searchText, fields) {
   return orConditions.length > 0 ? { $or: orConditions } : {};
 }
 
-// دالة لحساب درجة الملاءمة (relevance score)
+// دالة لحساب درجة الملاءمة
 function calculateRelevanceScore(item, searchQuery, fields) {
   const query = searchQuery.toLowerCase();
   const words = query.split(/\s+/).filter(word => word.length > 0);
@@ -41,20 +32,11 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   
   fields.forEach(field => {
     const value = String(item[field] || '').toLowerCase();
-    
-    if (value.includes(query)) {
-      score += 10;
-    }
-    
+    if (value.includes(query)) score += 10;
     words.forEach(word => {
-      if (value.includes(word)) {
-        score += 3;
-      }
+      if (value.includes(word)) score += 3;
     });
-    
-    if (value.startsWith(query)) {
-      score += 5;
-    }
+    if (value.startsWith(query)) score += 5;
   });
   
   return score;
@@ -65,7 +47,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const { query, category = "all", page = 1, limit = 20, country, city } = req.query;
+    const { query, category = "all", page = 1, limit = 20, country, city, mediaType, userType } = req.query;
 
     if (!query || query.trim() === "") {
       return res.status(400).json({ 
@@ -109,6 +91,7 @@ router.get("/", protect, async (req, res) => {
       videos: [],
       photos: [],
       individuals: [],
+      jobs: [],
       totalResults: 0,
       pagination: {
         currentPage: parseInt(page),
@@ -116,15 +99,22 @@ router.get("/", protect, async (req, res) => {
       }
     };
 
-    // البحث في المنشورات (posts)
+    // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText']);
+      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category']);
       
-      const postsQuery = {
+      let postsQuery = {
         ...postsSearchQuery,
         ...locationFilter,
         $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
       };
+
+      // فلترة حسب mediaType
+      if (mediaType === 'video') {
+        postsQuery.video = { $ne: null, $exists: true };
+      } else if (mediaType === 'image') {
+        postsQuery.images = { $exists: true, $ne: [] };
+      }
 
       const posts = await Post.find(postsQuery)
         .populate("user", "name avatar userType companyName")
@@ -134,7 +124,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const postsWithRelevance = posts.map(post => {
-        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText']);
+        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category']);
         return {
           ...post,
           type: "post",
@@ -161,122 +151,73 @@ router.get("/", protect, async (req, res) => {
       }
     }
 
-    // البحث في الفيديوهات
-    if (category === "all" || category === "videos") {
-      const videosSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText']);
+    // البحث في الوظائف (jobs) - حسب التصنيف (category)
+    if (category === "all" || category === "jobs") {
+      const jobsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category']);
       
-      const videosQuery = {
-        ...videosSearchQuery,
+      const jobsQuery = {
+        ...jobsSearchQuery,
         ...locationFilter,
-        video: { $ne: null, $exists: true },
+        category: { $exists: true, $ne: null },
         $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
       };
 
-      const videos = await Post.find(videosQuery)
+      const jobs = await Post.find(jobsQuery)
         .populate("user", "name avatar userType companyName")
         .sort({ createdAt: -1 })
-        .limit(category === "videos" ? limitNum : 15)
-        .skip(category === "videos" ? skip : 0)
+        .limit(category === "jobs" ? limitNum : 15)
+        .skip(category === "jobs" ? skip : 0)
         .lean();
 
-      const videosWithRelevance = videos.map(video => {
-        const relevanceScore = calculateRelevanceScore(video, searchQuery, ['text', 'repostText']);
+      const jobsWithRelevance = jobs.map(job => {
+        const relevanceScore = calculateRelevanceScore(job, searchQuery, ['text', 'repostText', 'category']);
         return {
-          ...video,
-          type: "video",
-          likesCount: video.reactions?.filter(r => r.type === "like").length || 0,
-          commentsCount: video.comments?.length || 0,
+          ...job,
+          type: "job",
+          likesCount: job.reactions?.filter(r => r.type === "like").length || 0,
+          commentsCount: job.comments?.length || 0,
           relevanceScore
         };
       });
 
-      videosWithRelevance.sort((a, b) => {
+      jobsWithRelevance.sort((a, b) => {
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
         }
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
-      results.videos = videosWithRelevance;
+      results.jobs = jobsWithRelevance;
 
-      if (category === "videos") {
-        const totalVideos = await Post.countDocuments(videosQuery);
-        results.totalResults = totalVideos;
-        results.pagination.totalPages = Math.ceil(totalVideos / limitNum);
-        results.pagination.hasMore = skip + videos.length < totalVideos;
-      }
-    }
-
-    // البحث في الصور
-    if (category === "all" || category === "photos") {
-      const photosSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText']);
-      
-      const photosQuery = {
-        ...photosSearchQuery,
-        ...locationFilter,
-        images: { $exists: true, $ne: [] },
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      };
-
-      const photos = await Post.find(photosQuery)
-        .populate("user", "name avatar userType companyName")
-        .sort({ createdAt: -1 })
-        .limit(category === "photos" ? limitNum : 15)
-        .skip(category === "photos" ? skip : 0)
-        .lean();
-
-      const photosWithRelevance = photos.map(photo => {
-        const relevanceScore = calculateRelevanceScore(photo, searchQuery, ['text', 'repostText']);
-        return {
-          ...photo,
-          type: "photo",
-          likesCount: photo.reactions?.filter(r => r.type === "like").length || 0,
-          commentsCount: photo.comments?.length || 0,
-          relevanceScore
-        };
-      });
-
-      photosWithRelevance.sort((a, b) => {
-        if (b.relevanceScore !== a.relevanceScore) {
-          return b.relevanceScore - a.relevanceScore;
-        }
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-
-      results.photos = photosWithRelevance;
-
-      if (category === "photos") {
-        const totalPhotos = await Post.countDocuments(photosQuery);
-        results.totalResults = totalPhotos;
-        results.pagination.totalPages = Math.ceil(totalPhotos / limitNum);
-        results.pagination.hasMore = skip + photos.length < totalPhotos;
+      if (category === "jobs") {
+        const totalJobs = await Post.countDocuments(jobsQuery);
+        results.totalResults = totalJobs;
+        results.pagination.totalPages = Math.ceil(totalJobs / limitNum);
+        results.pagination.hasMore = skip + jobs.length < totalJobs;
       }
     }
 
     // البحث في الأفراد
-    if (category === "all" || category === "individuals") {
-      const individualsSearchQuery = buildSmartSearchQuery(searchQuery, [
-        'name', 'description', 'city'
-      ]);
+    if (category === "all" || category === "individuals" || category === "users") {
+      const individualsSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'description', 'city']);
       
       const individualsQuery = {
-        userType: "individual",
         ...individualsSearchQuery,
         ...locationFilter
       };
 
+      if (userType) {
+        individualsQuery.userType = userType;
+      }
+
       const individuals = await User.find(individualsQuery)
         .select("-password -googleId -firebaseUid -notifications")
-        .limit(category === "individuals" ? limitNum : 15)
-        .skip(category === "individuals" ? skip : 0)
+        .limit(category === "individuals" || category === "users" ? limitNum : 15)
+        .skip(category === "individuals" || category === "users" ? skip : 0)
         .lean();
 
       const individualsWithRelevance = individuals.map(individual => {
-        const relevanceScore = calculateRelevanceScore(
-          individual, 
-          searchQuery, 
-          ['name', 'description', 'city']
-        );
+        const relevanceScore = calculateRelevanceScore(individual, searchQuery, ['name', 'description', 'city']);
         return {
           ...individual,
           type: "individual",
@@ -288,7 +229,7 @@ router.get("/", protect, async (req, res) => {
       
       results.individuals = individualsWithRelevance;
 
-      if (category === "individuals") {
+      if (category === "individuals" || category === "users") {
         const totalIndividuals = await User.countDocuments(individualsQuery);
         results.totalResults = totalIndividuals;
         results.pagination.totalPages = Math.ceil(totalIndividuals / limitNum);
@@ -300,8 +241,7 @@ router.get("/", protect, async (req, res) => {
     if (category === "all") {
       results.totalResults = 
         results.posts.length +
-        results.videos.length +
-        results.photos.length +
+        results.jobs.length +
         results.individuals.length;
     }
 
