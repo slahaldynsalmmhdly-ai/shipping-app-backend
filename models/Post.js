@@ -196,6 +196,12 @@ const PostSchema = new mongoose.Schema({
     default: null,
     trim: true
   },
+  // Embedding: للبحث الدلالي الذكي
+  embedding: {
+    type: [Number],
+    default: null,
+    select: false // لا يظهر في الاستعلامات العادية
+  },
   // Publishing scope: category page only, or both home and category
   publishScope: {
     type: String,
