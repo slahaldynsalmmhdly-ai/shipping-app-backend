@@ -145,41 +145,36 @@ router.get('/', protect, async (req, res) => {
       }
       
       // 5. فلترة حسب الموقع (country/city)
-      // ملاحظة: إذا كان category محدد، لا نطبق فلترة الموقع لأن المستخدم يريد رؤية جميع المنشورات في هذا التصنيف
-      if (!category) {
-        const filterCountry = country === '' ? null : country;
-        const filterCity = city === '' ? null : city;
-        
-        console.log(`🔍 فلترة الموقع: country=${filterCountry}, city=${filterCity}`);
-        
-        if (!filterCountry || filterCountry === 'عالمي') {
-          // عرض جميع المنشورات - لا نضيف شرط موقع
-          console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
-        } else {
-          // فلترة مرنة: عرض المنشورات من نفس الدولة أو المنشورات بدون موقع محدد
-          console.log(`📍 فلترة مرنة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''} أو بدون موقع`);
-          
-          if (filterCity) {
-            // إذا كانت المدينة محددة: عرض منشورات من نفس المدينة أو بدون مدينة (لكن نفس الدولة) أو بدون موقع نهائياً
-            conditions.push({
-              $or: [
-                { country: filterCountry, city: filterCity },
-                { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
-                { $or: [{ country: null }, { country: { $exists: false } }] }
-              ]
-            });
-          } else {
-            // إذا كانت الدولة فقط محددة: عرض منشورات من نفس الدولة أو بدون موقع
-            conditions.push({
-              $or: [
-                { country: filterCountry },
-                { $or: [{ country: null }, { country: { $exists: false } }] }
-              ]
-            });
-          }
-        }
+      const filterCountry = country === '' ? null : country;
+      const filterCity = city === '' ? null : city;
+      
+      console.log(`🔍 فلترة الموقع: country=${filterCountry}, city=${filterCity}`);
+      
+      if (!filterCountry || filterCountry === 'عالمي') {
+        // عرض جميع المنشورات - لا نضيف شرط موقع
+        console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
       } else {
-        console.log('📍 تم تجاهل فلترة الموقع لأن category محدد - عرض جميع المنشورات في هذا التصنيف');
+        // فلترة مرنة: عرض المنشورات من نفس الدولة أو المنشورات بدون موقع محدد
+        console.log(`📍 فلترة مرنة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''} أو بدون موقع`);
+        
+        if (filterCity) {
+          // إذا كانت المدينة محددة: عرض منشورات من نفس المدينة أو بدون مدينة (لكن نفس الدولة) أو بدون موقع نهائياً
+          conditions.push({
+            $or: [
+              { country: filterCountry, city: filterCity },
+              { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
+        } else {
+          // إذا كانت الدولة فقط محددة: عرض منشورات من نفس الدولة أو بدون موقع
+          conditions.push({
+            $or: [
+              { country: filterCountry },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
+        }
       }
       
       // 6. بناء الاستعلام النهائي باستخدام $and
