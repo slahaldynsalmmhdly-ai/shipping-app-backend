@@ -139,7 +139,7 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category']);
+      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category', 'city', 'country']);
       
       let postsQuery = {
         ...postsSearchQuery,
@@ -160,7 +160,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const postsWithRelevance = posts.map(post => {
-        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category']);
+        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category', 'city', 'country']);
         
         // تحويل الصور والفيديو إلى صيغة media
         const media = [];
