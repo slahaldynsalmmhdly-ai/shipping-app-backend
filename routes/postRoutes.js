@@ -142,41 +142,51 @@ router.get('/', protect, async (req, res) => {
       }
       
       // فلترة حسب الموقع (country/city)
-      // نستخدم $and لدمج الشروط بدلاً من استبدال $or
-      const locationConditions = [];
+      // استخدام نفس آلية الفلترة من feedRoutes.js (الصفحة الرئيسية)
+      let locationFilter;
       
-      if (country && country !== 'عالمي') {
-        // فلترة محلية: منشورات في نفس الدولة
-        locationConditions.push({ scope: 'local' });
-        locationConditions.push({ country: country });
-        
-        if (city) {
-          // إذا كانت المدينة محددة
-          const cityCondition = {
-            $or: [
-              { city: city },
-              { city: null },
-              { city: { $exists: false } }
-            ]
-          };
-          locationConditions.push(cityCondition);
-        }
-      } else if (country === 'عالمي' || !country) {
-        // فلترة عالمية: منشورات عالمية فقط
-        const globalCondition = {
+      // معالجة القيم الفارغة
+      const filterCountry = country === '' ? null : country;
+      const filterCity = city === '' ? null : city;
+      
+      console.log(`🔍 فلترة الموقع: country=${filterCountry}, city=${filterCity}`);
+      
+      if (!filterCountry || filterCountry === 'عالمي') {
+        // عرض جميع المنشورات (عالمية ومحلية) - بدون فلتر موقع
+        console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
+        locationFilter = {
           $or: [
             { scope: 'global' },
-            { scope: { $exists: false }, country: null },
-            { scope: { $exists: false }, country: { $exists: false } }
+            { scope: { $exists: false } },
+            { scope: null },
+            { scope: 'local' }
           ]
         };
-        locationConditions.push(globalCondition);
+      } else {
+        // فلترة صارمة - فقط المنشورات من نفس الموقع
+        console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
+        
+        if (filterCity) {
+          // فلترة حسب الدولة والمدينة
+          locationFilter = {
+            $and: [
+              { country: filterCountry },
+              { city: filterCity }
+            ]
+          };
+        } else {
+          // فلترة حسب الدولة فقط
+          locationFilter = {
+            country: filterCountry
+          };
+        }
       }
       
-      // دمج شروط الموقع مع الاستعلام الأساسي
-      if (locationConditions.length > 0) {
-        query.$and = locationConditions;
-      }
+      // دمج فلتر الموقع مع الاستعلام الأساسي
+      query = {
+        ...query,
+        ...locationFilter
+      };
       
       // طباعة الاستعلام للتحقق من الفلترة
       console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
