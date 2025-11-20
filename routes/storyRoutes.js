@@ -108,6 +108,68 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @desc    Get all active stories grouped by user (feed format)
+// @route   GET /api/v1/stories/feed
+// @access  Private
+router.get('/feed', protect, async (req, res) => {
+  try {
+    const currentTime = new Date();
+
+    // جلب جميع القصص النشطة (غير منتهية الصلاحية)
+    const stories = await Story.find({
+      expiresAt: { $gt: currentTime },
+      isActive: true,
+    })
+      .populate('user', 'name avatar userType companyName')
+      .populate('views.user', 'name')
+      .sort({ createdAt: -1 });
+
+    // تجميع القصص حسب المستخدم
+    const usersWithStories = [];
+    const userMap = new Map();
+    
+    stories.forEach(story => {
+      const userId = story.user._id.toString();
+      
+      if (!userMap.has(userId)) {
+        const userStoryData = {
+          _id: story.user._id,
+          name: story.user.name,
+          avatar: story.user.avatar,
+          userType: story.user.userType,
+          companyName: story.user.companyName,
+          latestStory: story,
+          hasUnviewed: false,
+        };
+        
+        // التحقق من المشاهدة
+        const viewedByCurrentUser = story.views.some(
+          view => view.user && view.user._id && view.user._id.toString() === req.user.id
+        );
+        
+        if (!viewedByCurrentUser) {
+          userStoryData.hasUnviewed = true;
+        }
+        
+        userMap.set(userId, userStoryData);
+        usersWithStories.push(userStoryData);
+      }
+    });
+
+    // ترتيب: القصص غير المشاهدة أولاً، ثم الأحدث
+    usersWithStories.sort((a, b) => {
+      if (a.hasUnviewed && !b.hasUnviewed) return -1;
+      if (!a.hasUnviewed && b.hasUnviewed) return 1;
+      return new Date(b.latestStory.createdAt) - new Date(a.latestStory.createdAt);
+    });
+
+    res.json({ usersWithStories });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'خطأ في الخادم', error: err.message });
+  }
+});
+
 // @desc    Get stories for a specific user
 // @route   GET /api/v1/stories/user/:userId
 // @access  Private
