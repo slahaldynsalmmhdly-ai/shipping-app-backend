@@ -154,39 +154,19 @@ router.get('/', protect, async (req, res) => {
       if (!filterCountry || filterCountry === 'عالمي') {
         // عرض جميع المنشورات (عالمية ومحلية) - بدون فلتر موقع
         console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
-        locationFilter = {
-          $or: [
-            { scope: 'global' },
-            { scope: { $exists: false } },
-            { scope: null },
-            { scope: 'local' }
-          ]
-        };
+        // لا نضيف أي فلتر موقع - نعرض كل شيء
       } else {
         // فلترة صارمة - فقط المنشورات من نفس الموقع
         console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
         
+        // إضافة فلتر الدولة مباشرة (بدون $and)
+        query.country = filterCountry;
+        
         if (filterCity) {
-          // فلترة حسب الدولة والمدينة
-          locationFilter = {
-            $and: [
-              { country: filterCountry },
-              { city: filterCity }
-            ]
-          };
-        } else {
-          // فلترة حسب الدولة فقط
-          locationFilter = {
-            country: filterCountry
-          };
+          // إضافة فلتر المدينة مباشرة
+          query.city = filterCity;
         }
       }
-      
-      // دمج فلتر الموقع مع الاستعلام الأساسي
-      query = {
-        ...query,
-        ...locationFilter
-      };
       
       // طباعة الاستعلام للتحقق من الفلترة
       console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
