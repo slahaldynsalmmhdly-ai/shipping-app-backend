@@ -119,54 +119,55 @@ router.get('/', protect, async (req, res) => {
     
     // إذا كان category أو postType أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
     if (category || postType || userType) {
-      const users = await User.find({ userType: userType }).select('_id');
-      const userIds = users.map(u => u._id);
+      // بناء مصفوفة الشروط (مثل feedRoutes.js)
+      const conditions = [];
       
-      // بناء الاستعلام الأساسي
-      let query = {
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      };
+      // 1. شرط النشر (إلزامي)
+      conditions.push({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] });
       
+      // 2. شرط userType
       if (userType) {
-        query.user = { $in: userIds };
+        const users = await User.find({ userType: userType }).select('_id');
+        const userIds = users.map(u => u._id);
+        conditions.push({ user: { $in: userIds } });
       }
       
+      // 3. شرط category
       if (category) {
-        query.category = category;
+        conditions.push({ category: category });
       } else {
-        query.publishScope = { $ne: 'category_only' };
+        conditions.push({ publishScope: { $ne: 'category_only' } });
       }
       
+      // 4. شرط postType
       if (postType) {
-        query.postType = postType;
+        conditions.push({ postType: postType });
       }
       
-      // فلترة حسب الموقع (country/city)
-      // استخدام نفس آلية الفلترة من feedRoutes.js (الصفحة الرئيسية)
-      let locationFilter;
-      
-      // معالجة القيم الفارغة
+      // 5. فلترة حسب الموقع (country/city)
       const filterCountry = country === '' ? null : country;
       const filterCity = city === '' ? null : city;
       
       console.log(`🔍 فلترة الموقع: country=${filterCountry}, city=${filterCity}`);
       
       if (!filterCountry || filterCountry === 'عالمي') {
-        // عرض جميع المنشورات (عالمية ومحلية) - بدون فلتر موقع
+        // عرض جميع المنشورات - لا نضيف شرط موقع
         console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
-        // لا نضيف أي فلتر موقع - نعرض كل شيء
       } else {
-        // فلترة صارمة - فقط المنشورات من نفس الموقع
+        // فلترة صارمة
         console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
         
-        // إضافة فلتر الدولة مباشرة (بدون $and)
-        query.country = filterCountry;
+        conditions.push({ country: filterCountry });
         
         if (filterCity) {
-          // إضافة فلتر المدينة مباشرة
-          query.city = filterCity;
+          conditions.push({ city: filterCity });
         }
       }
+      
+      // 6. بناء الاستعلام النهائي باستخدام $and
+      const query = {
+        $and: conditions
+      };
       
       // طباعة الاستعلام للتحقق من الفلترة
       console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
