@@ -251,17 +251,12 @@ router.get("/", protect, async (req, res) => {
         ]
       };
 
-      // فلترة حسب تصنيف المنشور
+      // فلترة حسب تصنيف المنشور (فقط إذا المستخدم اختار تصنيف محدد من الواجهة)
       if (postCategory && postCategory !== '') {
         postsQuery.category = postCategory;
       }
-
-      // إذا كان البحث عن وظائف (من AI)
-      if (isJobSearch && !postCategory) {
-        postsQuery.category = { 
-          $in: ['طلب عمل', 'اعلان وظيفة', 'إعلان وظيفة', 'وظيفة', 'وظائف'] 
-        };
-      }
+      
+      // لا نطبق فلتر category تلقائي - نترك البحث يبحث في النص مباشرة
 
       const posts = await Post.find(postsQuery)
         .populate("user", "name avatar userType companyName")
