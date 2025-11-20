@@ -4,21 +4,72 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const Vehicle = require("../models/Vehicle");
 const { protect } = require("../middleware/authMiddleware");
-const { execSync } = require("child_process");
-const path = require("path");
+const axios = require("axios");
 
-// دالة لاستدعاء Python AI للتحليل
-function analyzeQueryWithAI(query) {
+// دالة لتحليل الاستعلام باستخدام OpenAI
+async function analyzeQueryWithAI(query) {
   try {
-    const pythonScript = path.join(__dirname, '../utils/aiSearch.py');
-    const result = execSync(`python3 ${pythonScript} "${query}"`, { 
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024 
-    });
-    return JSON.parse(result);
+    const prompt = `أنت محلل استعلامات بحث ذكي. حلل الاستعلام التالي واستخرج المعلومات بصيغة JSON فقط بدون أي نص إضافي:
+
+الاستعلام: "${query}"
+
+استخرج:
+- searchText: النص الأساسي للبحث (بعد إزالة المدن والدول والكلمات الزمنية)
+- city: المدينة إن وجدت (من قائمة: الرياض، جدة، مكة، المدينة، الدمام، الخبر، القاهرة، الإسكندرية، دبي، أبوظبي، الكويت، عمان، الدوحة، المنامة، مسقط)
+- country: الدولة إن وجدت (من قائمة: السعودية، مصر، الإمارات، الكويت، الأردن، قطر، البحرين، عمان)
+- timeFilterDays: عدد الأيام إذا كانت هناك كلمات زمنية (حديثة=7، جديدة=7، اليوم=1، أمس=2، الأسبوع=7، الشهر=30، قريباً=7، مؤخراً=7، الآن=1)
+- isJobSearch: true إذا كان البحث عن وظائف (يحتوي على: وظيفة، وظائف، عمل، توظيف، مطلوب، طلب عمل، كهربائي، سائق، مهندس، محاسب)
+
+أمثلة:
+"وظائف حديثة جدة" → {"searchText":"وظائف","city":"جدة","country":null,"timeFilterDays":7,"isJobSearch":true}
+"كهربائي الرياض" → {"searchText":"كهربائي","city":"الرياض","country":null,"timeFilterDays":null,"isJobSearch":true}
+"شركات شحن دبي" → {"searchText":"شركات شحن","city":"دبي","country":null,"timeFilterDays":null,"isJobSearch":false}
+
+أرجع JSON فقط:`;
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4.1-nano',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 200
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    const aiResponse = response.data.choices[0].message.content.trim();
+    
+    // استخراج JSON من الرد
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const result = JSON.parse(jsonMatch[0]);
+      return {
+        searchText: result.searchText || query,
+        cleanedText: result.searchText || query,
+        city: result.city || null,
+        country: result.country || null,
+        timeFilter: result.timeFilterDays || null,
+        isJobSearch: result.isJobSearch || false
+      };
+    }
+    
+    throw new Error('Invalid AI response');
+    
   } catch (error) {
     console.error("AI Analysis Error:", error.message);
-    // في حالة الفشل، نرجع تحليل بسيط
+    // في حالة الفشل، نرجع الاستعلام كما هو
     return {
       searchText: query,
       cleanedText: query,
@@ -30,8 +81,8 @@ function analyzeQueryWithAI(query) {
   }
 }
 
-// دالة لإنشاء استعلام بحث ذكي
-function buildSmartSearchQuery(searchText, fields) {
+// دالة لإنشاء استعلام بحث
+function buildSearchQuery(searchText, fields) {
   const query = searchText.trim();
   if (!query) return {};
 
@@ -70,7 +121,7 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   return score;
 }
 
-// @desc    البحث الذكي باستخدام AI
+// @desc    البحث الذكي باستخدام OpenAI
 // @route   GET /api/v1/search
 // @access  Private
 router.get("/", protect, async (req, res) => {
@@ -94,28 +145,27 @@ router.get("/", protect, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
 
-    // تحليل الاستعلام باستخدام AI
-    const aiAnalysis = analyzeQueryWithAI(searchQuery);
+    // تحليل الاستعلام باستخدام OpenAI
+    const aiAnalysis = await analyzeQueryWithAI(searchQuery);
     
     console.log("AI Analysis:", aiAnalysis);
 
-    // استخدام النتائج من AI
     const cleanedQuery = aiAnalysis.cleanedText || searchQuery;
     const detectedCity = aiAnalysis.city;
     const detectedCountry = aiAnalysis.country;
     const timeFilterDays = aiAnalysis.timeFilter;
     const isJobSearch = aiAnalysis.isJobSearch;
 
-    // بناء فلتر الموقع
+    // بناء فلتر الموقع (صارم)
     let locationFilter = {};
     if (detectedCity) {
-      locationFilter.city = detectedCity;
+      locationFilter.city = { $regex: new RegExp(`^${detectedCity}$`, 'i') };
     }
-    if (detectedCountry) {
-      locationFilter.country = detectedCountry;
+    if (detectedCountry && !detectedCity) {
+      locationFilter.country = { $regex: new RegExp(`^${detectedCountry}$`, 'i') };
     }
 
-    // بناء فلتر الوقت
+    // بناء فلتر الوقت (صارم)
     let timeFilter = {};
     if (timeFilterDays) {
       const cutoffDate = new Date();
@@ -139,7 +189,7 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في الشركات
     if (category === "all" || category === "companies") {
-      const companiesSearchQuery = buildSmartSearchQuery(cleanedQuery, [
+      const companiesSearchQuery = buildSearchQuery(cleanedQuery, [
         'name', 
         'companyName', 
         'description', 
@@ -187,7 +237,7 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      const postsSearchQuery = buildSmartSearchQuery(cleanedQuery, [
+      const postsSearchQuery = buildSearchQuery(cleanedQuery, [
         'text', 
         'repostText'
       ]);
@@ -226,7 +276,6 @@ router.get("/", protect, async (req, res) => {
           'repostText'
         ]);
         
-        // نقاط إضافية لاسم المستخدم/الشركة
         if (post.user) {
           const userName = String(post.user.name || '').toLowerCase();
           const companyName = String(post.user.companyName || '').toLowerCase();
@@ -236,7 +285,6 @@ router.get("/", protect, async (req, res) => {
           if (companyName.includes(query)) relevanceScore += 5;
         }
         
-        // نقاط إضافية للمنشورات الحديثة
         const postAge = Date.now() - new Date(post.createdAt).getTime();
         const daysOld = postAge / (1000 * 60 * 60 * 24);
         
@@ -283,7 +331,7 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المركبات
     if (category === "all" || category === "vehicles") {
-      const vehiclesSearchQuery = buildSmartSearchQuery(cleanedQuery, [
+      const vehiclesSearchQuery = buildSearchQuery(cleanedQuery, [
         'vehicleName', 
         'vehicleType', 
         'driverName', 
