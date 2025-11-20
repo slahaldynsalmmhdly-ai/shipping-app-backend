@@ -43,12 +43,21 @@ function calculateRelevanceScore(item, searchQuery, fields) {
   return score;
 }
 
-// @desc    البحث الذكي المتكامل
+// @desc    البحث الذكي المتكامل مع فلاتر صارمة
 // @route   GET /api/v1/search
 // @access  Private
 router.get("/", protect, async (req, res) => {
   try {
-    const { query, category = "all", page = 1, limit = 20, country, city, postCategory } = req.query;
+    const { 
+      query, 
+      category = "all", 
+      page = 1, 
+      limit = 20, 
+      country, 
+      city, 
+      postCategory,
+      jobType // جديد: للبحث في الوظائف فقط
+    } = req.query;
 
     if (!query || query.trim() === "") {
       return res.status(400).json({ 
@@ -61,28 +70,23 @@ router.get("/", protect, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
 
-    // فلترة الموقع
-    const filterCountry = country === '' ? null : country;
-    const filterCity = city === '' ? null : city;
-    
+    // فلترة الموقع - صارمة ودقيقة
     let locationFilter = {};
-    if (filterCountry && filterCountry !== 'عالمي') {
-      if (filterCity) {
-        locationFilter = {
-          $or: [
-            { country: filterCountry, city: filterCity },
-            { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
-            { $or: [{ country: null }, { country: { $exists: false } }] }
-          ]
-        };
-      } else {
-        locationFilter = {
-          $or: [
-            { country: filterCountry },
-            { $or: [{ country: null }, { country: { $exists: false } }] }
-          ]
-        };
-      }
+    
+    // إذا تم تحديد الدولة والمدينة معاً
+    if (country && country !== '' && city && city !== '') {
+      locationFilter = {
+        country: country,
+        city: city
+      };
+    } 
+    // إذا تم تحديد الدولة فقط
+    else if (country && country !== '') {
+      locationFilter = { country: country };
+    }
+    // إذا تم تحديد المدينة فقط
+    else if (city && city !== '') {
+      locationFilter = { city: city };
     }
 
     let results = {
@@ -100,11 +104,12 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في الشركات (companies)
     if (category === "all" || category === "companies") {
-      const companiesSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'companyName', 'description', 'city', 'workClassification']);
+      // البحث فقط في الحقول المتعلقة بالشركات (بدون city/country)
+      const companiesSearchQuery = buildSmartSearchQuery(searchQuery, ['name', 'companyName', 'description', 'workClassification']);
       
       const companiesQuery = {
         ...companiesSearchQuery,
-        ...locationFilter,
+        ...locationFilter, // الفلتر الصارم للموقع
         userType: "company"
       };
 
@@ -115,12 +120,12 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const companiesWithRelevance = companies.map(company => {
-        const relevanceScore = calculateRelevanceScore(company, searchQuery, ['name', 'companyName', 'description', 'city']);
+        const relevanceScore = calculateRelevanceScore(company, searchQuery, ['name', 'companyName', 'description']);
         return {
           ...company,
           type: "company",
-          reviewCount: 0, // يمكن إضافة منطق حساب المراجعات لاحقاً
-          rating: 0, // يمكن إضافة منطق حساب التقييم لاحقاً
+          reviewCount: 0,
+          rating: 0,
           relevanceScore
         };
       });
@@ -139,17 +144,27 @@ router.get("/", protect, async (req, res) => {
 
     // البحث في المنشورات
     if (category === "all" || category === "posts") {
-      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText', 'category', 'city', 'country']);
+      // البحث فقط في النص والتصنيف (بدون city/country في البحث النصي)
+      const postsSearchQuery = buildSmartSearchQuery(searchQuery, ['text', 'repostText']);
       
       let postsQuery = {
         ...postsSearchQuery,
-        ...locationFilter,
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
+        ...locationFilter, // الفلتر الصارم للموقع
+        $and: [
+          { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] }
+        ]
       };
 
-      // فلترة حسب تصنيف المنشور
+      // فلترة صارمة حسب تصنيف المنشور
       if (postCategory && postCategory !== '') {
         postsQuery.category = postCategory;
+      }
+
+      // فلترة صارمة للوظائف
+      if (jobType === 'jobs') {
+        postsQuery.category = { 
+          $in: ['طلب عمل', 'اعلان وظيفة', 'إعلان وظيفة', 'وظيفة', 'وظائف'] 
+        };
       }
 
       const posts = await Post.find(postsQuery)
@@ -160,7 +175,7 @@ router.get("/", protect, async (req, res) => {
         .lean();
 
       const postsWithRelevance = posts.map(post => {
-        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category', 'city', 'country']);
+        const relevanceScore = calculateRelevanceScore(post, searchQuery, ['text', 'repostText', 'category']);
         
         // تحويل الصور والفيديو إلى صيغة media
         const media = [];
@@ -207,13 +222,12 @@ router.get("/", protect, async (req, res) => {
         'vehicleType', 
         'driverName', 
         'licensePlate', 
-        'plateNumber',
-        'currentLocation',
-        'departureCity'
+        'plateNumber'
       ]);
       
       const vehiclesQuery = {
-        ...vehiclesSearchQuery
+        ...vehiclesSearchQuery,
+        ...locationFilter // الفلتر الصارم للموقع (إذا كان Vehicle يحتوي على city/country)
       };
 
       const vehicles = await Vehicle.find(vehiclesQuery)
@@ -227,14 +241,12 @@ router.get("/", protect, async (req, res) => {
           'vehicleName', 
           'vehicleType', 
           'driverName', 
-          'licensePlate',
-          'currentLocation'
+          'licensePlate'
         ]);
         
         return {
           ...vehicle,
           type: "vehicle",
-          // توحيد الحقول للتوافق مع الواجهة الأمامية
           vehicleName: vehicle.vehicleName || vehicle.vehicleType || 'مركبة',
           licensePlate: vehicle.licensePlate || vehicle.plateNumber || '',
           currentLocation: vehicle.currentLocation || vehicle.departureCity || '',
