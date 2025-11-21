@@ -15,7 +15,7 @@ const { createMentionNotifications } = require('../utils/mentionNotificationHelp
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted, publishScope, country, city } = req.body;
+    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted, publishScope, country, city, isShort, title, privacy, allowComments, allowDownload, allowDuet, location, thumbnail } = req.body;
 
     // Check if user exists (optional, but good for data integrity)
     const user = await User.findById(req.user.id);
@@ -60,7 +60,16 @@ router.post('/', protect, async (req, res) => {
       contactEmail: contactEmail || '',
       contactMethods: contactMethods || [],
       isFeatured: isHighlighted || false,
-      publishScope: publishScope || 'home_and_category' // category_only or home_and_category
+      publishScope: publishScope || 'home_and_category', // category_only or home_and_category
+      // ✅ إضافة حقول الفيديو والشورتس
+      isShort: isShort || false,
+      title: title || '',
+      privacy: privacy || 'public',
+      allowComments: allowComments !== undefined ? allowComments : true,
+      allowDownload: allowDownload !== undefined ? allowDownload : true,
+      allowDuet: allowDuet !== undefined ? allowDuet : true,
+      location: location || '',
+      thumbnail: thumbnail || null
     });
 
     const post = await newPost.save();
