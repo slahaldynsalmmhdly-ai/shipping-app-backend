@@ -194,6 +194,34 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // Admin fields for user management
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
+  banned: {
+    type: Boolean,
+    default: false,
+  },
+  banReason: {
+    type: String,
+    default: '',
+  },
+  bannedAt: {
+    type: Date,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  deactivatedAt: {
+    type: Date,
+  },
+  deactivationReason: {
+    type: String,
+    default: '',
+  },
   // AI Bot Settings removed - all bot features disabled
 }, { timestamps: true });
 

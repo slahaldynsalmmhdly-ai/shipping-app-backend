@@ -19,6 +19,7 @@ const searchRoutes = require("./routes/searchRoutes"); // Added searchRoutes
 const callLogRoutes = require("./routes/callLogRoutes"); // Added callLogRoutes
 const reportRoutes = require("./routes/reportRoutes"); // Added reportRoutes
 const adminAuthRoutes = require("./routes/adminAuthRoutes"); // Added adminAuthRoutes
+const adminRoutes = require("./routes/adminRoutes"); // Added adminRoutes
 const followRoutes = require("./routes/followRoutes"); // Added followRoutes
 const feedRoutes = require("./routes/feedRoutes"); // Added feedRoutes
 const hashtagRoutes = require("./routes/hashtagRoutes"); // Added hashtagRoutes
@@ -97,6 +98,7 @@ app.use("/api/v1/search", searchRoutes); // Mount search routes
 app.use("/api/v1/call-logs", callLogRoutes); // Mount call log routes
 app.use("/api/v1/reports", reportRoutes); // Mount report routes
 app.use("/api/admin", adminAuthRoutes); // Mount admin auth routes
+app.use("/api/v1/admin", adminRoutes); // Mount admin management routes
 app.use("/api/v1/follow", followRoutes); // Mount follow routes
 app.use("/api/v1/feed", feedRoutes); // Mount feed routes
 app.use("/api/v1/hashtags", hashtagRoutes); // Mount hashtag routes

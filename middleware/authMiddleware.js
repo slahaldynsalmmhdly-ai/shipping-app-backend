@@ -116,5 +116,15 @@ const protectUnified = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { protect, restrictTo, protectUnified };
+// Middleware to check if user is admin
+const admin = (req, res, next) => {
+  // Check if this is an admin token (from adminAuthRoutes)
+  if (req.user && (req.user.role === 'admin' || req.user.isAdmin)) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+  }
+};
+
+module.exports = { protect, restrictTo, protectUnified, admin };
 
