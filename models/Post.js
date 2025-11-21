@@ -245,6 +245,41 @@ const PostSchema = new mongoose.Schema({
     type: String,
     enum: ['واتساب', 'اتصال', 'بريد إلكتروني', 'الكل'],
   }],
+  
+  // Video/Shorts specific fields
+  isShort: {
+    type: Boolean,
+    default: false, // true if this is a short video post
+  },
+  title: {
+    type: String,
+    default: '', // Video title
+  },
+  privacy: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public',
+  },
+  allowComments: {
+    type: Boolean,
+    default: true,
+  },
+  allowDownload: {
+    type: Boolean,
+    default: true,
+  },
+  allowDuet: {
+    type: Boolean,
+    default: true, // Allow content reuse
+  },
+  location: {
+    type: String,
+    default: '',
+  },
+  isHighlighted: {
+    type: Boolean,
+    default: false, // Promoted/highlighted video
+  },
 });
 
 // إضافة فهارس لتحسين الأداء
@@ -257,6 +292,7 @@ PostSchema.index({ hiddenFromHomeFeedFor: 1 });
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ 'reactions.user': 1 });
 PostSchema.index({ viewedBy: 1 });
+PostSchema.index({ isShort: 1, createdAt: -1 }); // For shorts filtering
 
 module.exports = mongoose.model('Post', PostSchema);
 
