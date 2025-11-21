@@ -4,6 +4,7 @@ const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const ShipmentAd = require('../models/ShipmentAd');
 const EmptyTruckAd = require('../models/EmptyTruckAd');
+const Hashtag = require('../models/Hashtag');
 
 // @desc    Search hashtags (autocomplete)
 // @route   GET /api/v1/hashtags/search?q=searchTerm
@@ -13,48 +14,27 @@ router.get('/search', protect, async (req, res) => {
     const { q } = req.query;
     
     if (!q || q.trim().length === 0) {
-      return res.json([]);
+      // إذا لم يكن هناك بحث، أرجع الهاشتاقات الرائجة
+      const trending = await Hashtag.find()
+        .sort({ count: -1 })
+        .limit(10)
+        .select('tag count category')
+        .lean();
+      return res.json(trending.map(h => ({ _id: h.tag, tag: h.tag, count: h.count, category: h.category })));
     }
 
     const searchTerm = q.toLowerCase().trim();
     
-    // البحث في جميع الهاشتاقات من Posts و ShipmentAds و EmptyTruckAds
-    const [posts, shipmentAds, emptyTruckAds] = await Promise.all([
-      Post.find({ 
-        hashtags: { $regex: `^${searchTerm}`, $options: 'i' },
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      }).select('hashtags').lean(),
-      ShipmentAd.find({ 
-        hashtags: { $regex: `^${searchTerm}`, $options: 'i' },
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      }).select('hashtags').lean(),
-      EmptyTruckAd.find({ 
-        hashtags: { $regex: `^${searchTerm}`, $options: 'i' },
-        $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
-      }).select('hashtags').lean()
-    ]);
+    // البحث في Hashtag model أولاً
+    const hashtagResults = await Hashtag.find({
+      tag: { $regex: `^${searchTerm}`, $options: 'i' }
+    })
+      .sort({ count: -1 })
+      .limit(10)
+      .select('tag count category')
+      .lean();
 
-    // جمع جميع الهاشتاقات وحساب عدد استخدام كل واحد
-    const hashtagMap = new Map();
-    
-    [...posts, ...shipmentAds, ...emptyTruckAds].forEach(item => {
-      if (item.hashtags && Array.isArray(item.hashtags)) {
-        item.hashtags.forEach(tag => {
-          if (tag.toLowerCase().startsWith(searchTerm)) {
-            const count = hashtagMap.get(tag) || 0;
-            hashtagMap.set(tag, count + 1);
-          }
-        });
-      }
-    });
-
-    // تحويل إلى مصفوفة وترتيب حسب الاستخدام
-    const hashtags = Array.from(hashtagMap.entries())
-      .map(([tag, count]) => ({ _id: tag, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10); // أول 10 نتائج
-
-    res.json(hashtags);
+    res.json(hashtagResults.map(h => ({ _id: h.tag, tag: h.tag, count: h.count, category: h.category })));
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });

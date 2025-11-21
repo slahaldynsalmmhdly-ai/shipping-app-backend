@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { protect } = require('../middleware/authMiddleware');
 const Post = require('../models/Post');
 const User = require('../models/User'); // Assuming User model is needed for populating user info
+const Hashtag = require('../models/Hashtag');
 // تم إزالة smartFeedAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 const { extractHashtags, extractMentionIds } = require('../utils/textParser');
@@ -28,6 +29,18 @@ router.post('/', protect, async (req, res) => {
     
     // دمج الهاشتاقات والإشارات المستخرجة مع تلك المرسلة من الواجهة الأمامية
     const finalHashtags = [...new Set([...extractedHashtags, ...(hashtags || [])])];
+    
+    // تحديث أو إنشاء الهاشتاقات في Hashtag model
+    for (const tag of finalHashtags) {
+      await Hashtag.findOneAndUpdate(
+        { tag: tag.toLowerCase() },
+        { 
+          $inc: { count: 1 },
+          $set: { lastUsed: new Date() }
+        },
+        { upsert: true, new: true }
+      );
+    }
     const finalMentions = [...new Set([...extractedMentions, ...(mentions || [])])];
 
     const newPost = new Post({
