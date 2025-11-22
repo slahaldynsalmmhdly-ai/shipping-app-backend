@@ -64,6 +64,17 @@ const shortSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // تتبع من أعاد النشر
+  repostedBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    repostedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   // تتبع المشاهدات
   viewedBy: [{
     user: {

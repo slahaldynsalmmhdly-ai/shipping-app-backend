@@ -30,22 +30,36 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const shorts = await Short.find(query)
-      .select('_id title description videoUrl thumbnailUrl duration user likes comments views viewedBy createdAt')
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt')
       .populate('user', 'companyName avatar')
+      .populate('repostedBy.user', 'companyName avatar firstName lastName')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
     
-    // إضافة isLiked و shortCommentCount لكل شورت
+    // إضافة isLiked، shortCommentCount، isReposted، reposters لكل شورت
     const formattedShorts = shorts.map(short => {
       const shortObj = short.toObject();
       const userView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+      const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user._id.toString());
+      
+      const reposters = short.repostedBy.map(r => ({
+        _id: r.user._id,
+        name: r.user.companyName || `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+        avatar: r.user.avatar,
+        repostedAt: r.repostedAt
+      }));
+      
       return {
         ...shortObj,
         isLiked: userView?.liked || false,
         shortCommentCount: shortObj.comments || 0,
         commentCount: shortObj.comments || 0,
-        viewedBy: undefined // إزالة viewedBy من الاستجابة
+        isReposted: isReposted,
+        repostCount: shortObj.shares || 0,
+        reposters: reposters,
+        viewedBy: undefined,
+        repostedBy: undefined
       };
     });
     
@@ -546,6 +560,71 @@ router.post('/:id/share', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء المشاركة'
+    });
+  }
+});
+
+/**
+ * POST /api/v1/shorts/:id/repost
+ * إعادة نشر شورت (toggle)
+ */
+router.post('/:id/repost', protect, async (req, res) => {
+  try {
+    const short = await Short.findById(req.params.id);
+
+    if (!short) {
+      return res.status(404).json({
+        success: false,
+        message: 'الشورت غير موجود'
+      });
+    }
+
+    // التحقق من وجود إعادة نشر سابقة
+    const existingRepostIndex = short.repostedBy.findIndex(
+      r => r.user.toString() === req.user._id.toString()
+    );
+
+    let isReposted = false;
+
+    if (existingRepostIndex !== -1) {
+      // إلغاء إعادة النشر
+      short.repostedBy.splice(existingRepostIndex, 1);
+      short.shares = Math.max(0, short.shares - 1);
+      isReposted = false;
+    } else {
+      // إضافة إعادة نشر
+      short.repostedBy.push({
+        user: req.user._id,
+        repostedAt: new Date()
+      });
+      short.shares += 1;
+      isReposted = true;
+    }
+
+    await short.save();
+
+    // جلب بيانات المستخدمين الذين أعادوا النشر
+    const populatedShort = await Short.findById(short._id)
+      .populate('repostedBy.user', 'companyName avatar firstName lastName');
+
+    const reposters = populatedShort.repostedBy.map(r => ({
+      _id: r.user._id,
+      name: r.user.companyName || `${r.user.firstName} ${r.user.lastName}`,
+      avatar: r.user.avatar,
+      repostedAt: r.repostedAt
+    }));
+
+    res.json({
+      success: true,
+      isReposted: isReposted,
+      repostCount: short.shares,
+      reposters: reposters
+    });
+  } catch (error) {
+    console.error('خطأ في إعادة النشر:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء إعادة النشر'
     });
   }
 });
