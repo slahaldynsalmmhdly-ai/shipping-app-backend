@@ -37,10 +37,17 @@ router.post('/:shortId', protect, async (req, res) => {
     const populatedComment = await comment.populate('user', 'companyName avatar firstName lastName');
 
     // تحويل البيانات لتتوافق مع الواجهة الأمامية
+    const commentObj = populatedComment.toObject();
     const formattedComment = {
-      ...populatedComment.toObject(),
+      _id: commentObj._id,
+      short: commentObj.short,
+      user: commentObj.user,
+      text: commentObj.text,
+      createdAt: commentObj.createdAt,
+      updatedAt: commentObj.updatedAt,
+      isDeleted: commentObj.isDeleted,
       likes: populatedComment.likes.map(like => like.user.toString()),
-      replyCount: populatedComment.replies.length,
+      replyCount: 0,
       replies: []
     };
 
@@ -70,15 +77,30 @@ router.get('/:shortId', protect, async (req, res) => {
       .limit(parseInt(limit));
 
     // تحويل البيانات لتتوافق مع الواجهة الأمامية
-    const formattedComments = comments.map(comment => ({
-      ...comment.toObject(),
-      likes: comment.likes.map(like => like.user.toString()),
-      replyCount: comment.replies.length,
-      replies: comment.replies.map(reply => ({
-        ...reply.toObject(),
-        likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
-      }))
-    }));
+    const formattedComments = comments.map(comment => {
+      const commentObj = comment.toObject();
+      return {
+        _id: commentObj._id,
+        short: commentObj.short,
+        user: commentObj.user,
+        text: commentObj.text,
+        createdAt: commentObj.createdAt,
+        updatedAt: commentObj.updatedAt,
+        isDeleted: commentObj.isDeleted,
+        likes: comment.likes.map(like => like.user.toString()),
+        replyCount: comment.replies.length,
+        replies: comment.replies.map(reply => {
+          const replyObj = reply.toObject();
+          return {
+            _id: replyObj._id,
+            user: replyObj.user,
+            text: replyObj.text,
+            createdAt: replyObj.createdAt,
+            likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
+          };
+        })
+      };
+    });
 
     res.json(formattedComments);
   } catch (error) {
@@ -183,14 +205,27 @@ router.post('/:commentId/reply', protect, async (req, res) => {
       .populate('replies.user', 'companyName avatar firstName lastName');
 
     // تحويل البيانات لتتوافق مع الواجهة الأمامية
+    const commentObj = updatedComment.toObject();
     const formattedComment = {
-      ...updatedComment.toObject(),
+      _id: commentObj._id,
+      short: commentObj.short,
+      user: commentObj.user,
+      text: commentObj.text,
+      createdAt: commentObj.createdAt,
+      updatedAt: commentObj.updatedAt,
+      isDeleted: commentObj.isDeleted,
       likes: updatedComment.likes.map(like => like.user.toString()),
       replyCount: updatedComment.replies.length,
-      replies: updatedComment.replies.map(reply => ({
-        ...reply.toObject(),
-        likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
-      }))
+      replies: updatedComment.replies.map(reply => {
+        const replyObj = reply.toObject();
+        return {
+          _id: replyObj._id,
+          user: replyObj.user,
+          text: replyObj.text,
+          createdAt: replyObj.createdAt,
+          likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
+        };
+      })
     };
 
     res.status(201).json(formattedComment);
