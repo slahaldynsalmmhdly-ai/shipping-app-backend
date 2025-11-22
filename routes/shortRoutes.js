@@ -38,7 +38,7 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const shorts = await Short.find(query)
-      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactNumbers hashtags')
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactPhone contactEmail contactMethods hashtags')
       .populate('user', 'companyName avatar')
       .populate('repostedBy.user', 'companyName avatar firstName lastName')
       .sort({ createdAt: -1 })
