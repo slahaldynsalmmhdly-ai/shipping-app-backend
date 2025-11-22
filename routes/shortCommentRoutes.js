@@ -36,7 +36,15 @@ router.post('/:shortId', protect, async (req, res) => {
     // جلب التعليق مع بيانات المستخدم
     const populatedComment = await comment.populate('user', 'companyName avatar firstName lastName');
 
-    res.status(201).json(populatedComment);
+    // تحويل البيانات لتتوافق مع الواجهة الأمامية
+    const formattedComment = {
+      ...populatedComment.toObject(),
+      likes: populatedComment.likes.map(like => like.user.toString()),
+      replyCount: populatedComment.replies.length,
+      replies: []
+    };
+
+    res.status(201).json(formattedComment);
   } catch (error) {
     console.error('Error creating comment:', error);
     res.status(500).json({ message: 'فشل إضافة التعليق' });
@@ -61,9 +69,18 @@ router.get('/:shortId', protect, async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await ShortComment.countDocuments({ short: shortId, isDeleted: false });
+    // تحويل البيانات لتتوافق مع الواجهة الأمامية
+    const formattedComments = comments.map(comment => ({
+      ...comment.toObject(),
+      likes: comment.likes.map(like => like.user.toString()),
+      replyCount: comment.replies.length,
+      replies: comment.replies.map(reply => ({
+        ...reply.toObject(),
+        likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
+      }))
+    }));
 
-    res.json(comments);
+    res.json(formattedComments);
   } catch (error) {
     console.error('Error fetching comments:', error);
     res.status(500).json({ message: 'فشل جلب التعليقات' });
@@ -165,7 +182,18 @@ router.post('/:commentId/reply', protect, async (req, res) => {
       .populate('user', 'companyName avatar firstName lastName')
       .populate('replies.user', 'companyName avatar firstName lastName');
 
-    res.status(201).json(updatedComment);
+    // تحويل البيانات لتتوافق مع الواجهة الأمامية
+    const formattedComment = {
+      ...updatedComment.toObject(),
+      likes: updatedComment.likes.map(like => like.user.toString()),
+      replyCount: updatedComment.replies.length,
+      replies: updatedComment.replies.map(reply => ({
+        ...reply.toObject(),
+        likes: reply.likes ? reply.likes.map(like => like.user.toString()) : []
+      }))
+    };
+
+    res.status(201).json(formattedComment);
   } catch (error) {
     console.error('Error adding reply:', error);
     res.status(500).json({ message: 'فشل إضافة الرد' });
