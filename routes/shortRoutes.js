@@ -7,6 +7,49 @@ const { protect } = require('../middleware/authMiddleware');
 // تم إزالة smartShortsAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 
 /**
+ * GET /api/v1/shorts/:tab
+ * الحصول على الشورتس حسب التبويب (for-you أو following)
+ * ✅ مطابق مع الواجهة الأمامية
+ */
+router.get('/:tab', protect, async (req, res) => {
+  try {
+    const { tab } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    if (!['for-you', 'following'].includes(tab)) {
+      return res.status(400).json({ message: 'Invalid tab' });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    let query = { isActive: true, isPublic: true };
+    
+    if (tab === 'following') {
+      const user = await User.findById(req.user._id).select('following');
+      query.user = { $in: user.following };
+    }
+    
+    const shorts = await Short.find(query)
+      .populate('user', 'companyName avatar')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await Short.countDocuments(query);
+    
+    res.json({
+      success: true,
+      posts: shorts,
+      page: parseInt(page),
+      hasMore: skip + shorts.length < total
+    });
+  } catch (error) {
+    console.error('Error fetching shorts:', error);
+    res.status(500).json({ message: 'Failed to fetch shorts' });
+  }
+});
+
+/**
  * GET /api/v1/shorts
  * الحصول على قائمة الشورتس بالخوارزمية الذكية
  */
