@@ -36,10 +36,7 @@ router.post('/:shortId', protect, async (req, res) => {
     // جلب التعليق مع بيانات المستخدم
     const populatedComment = await comment.populate('user', 'companyName avatar firstName lastName');
 
-    res.status(201).json({
-      success: true,
-      comment: populatedComment
-    });
+    res.status(201).json(populatedComment);
   } catch (error) {
     console.error('Error creating comment:', error);
     res.status(500).json({ message: 'فشل إضافة التعليق' });
@@ -66,12 +63,7 @@ router.get('/:shortId', protect, async (req, res) => {
 
     const total = await ShortComment.countDocuments({ short: shortId, isDeleted: false });
 
-    res.json({
-      success: true,
-      comments,
-      page: parseInt(page),
-      hasMore: skip + comments.length < total
-    });
+    res.json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
     res.status(500).json({ message: 'فشل جلب التعليقات' });
@@ -95,11 +87,13 @@ router.post('/:commentId/like', protect, async (req, res) => {
     const existingLike = comment.likes.find(like => like.user.toString() === req.user._id.toString());
     
     if (existingLike) {
-      return res.status(400).json({ message: 'أنت بالفعل أعجبت بهذا التعليق' });
+      // إزالة الإعجاب (تبديل)
+      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user._id.toString());
+    } else {
+      // إضافة الإعجاب
+      comment.likes.push({ user: req.user._id });
     }
-
-    // إضافة الإعجاب
-    comment.likes.push({ user: req.user._id });
+    
     await comment.save();
 
     res.json({
@@ -171,10 +165,7 @@ router.post('/:commentId/reply', protect, async (req, res) => {
       .populate('user', 'companyName avatar firstName lastName')
       .populate('replies.user', 'companyName avatar firstName lastName');
 
-    res.status(201).json({
-      success: true,
-      comment: updatedComment
-    });
+    res.status(201).json(updatedComment);
   } catch (error) {
     console.error('Error adding reply:', error);
     res.status(500).json({ message: 'فشل إضافة الرد' });
