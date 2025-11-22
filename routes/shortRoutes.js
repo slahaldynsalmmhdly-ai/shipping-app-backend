@@ -24,9 +24,17 @@ router.get('/:tab', protect, async (req, res) => {
     
     let query = { isActive: true, isPublic: true };
     
+    // احصل على المستخدم والمتابعين
+    const user = await User.findById(req.user._id).select('following');
+    const followingIds = user.following || [];
+    
     if (tab === 'following') {
-      const user = await User.findById(req.user._id).select('following');
-      query.user = { $in: user.following };
+      // جلب فيديوهات من المتابعين فقط
+      query.user = { $in: followingIds };
+    } else if (tab === 'for-you') {
+      // جلب فيديوهات من غير المتابعين فقط (استبعد المتابعين وأنت)
+      const excludeIds = [...followingIds, req.user._id];
+      query.user = { $nin: excludeIds };
     }
     
     const shorts = await Short.find(query)
@@ -83,10 +91,16 @@ router.get('/:tab', protect, async (req, res) => {
  */
 router.get('/', protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id).populate('following');
+    const currentUser = await User.findById(req.user._id).select('following');
+    const followingIds = currentUser.following || [];
 
-    // جلب جميع الشورتس النشطة
-    const allShorts = await Short.find({ isActive: true, isPublic: true })
+    // جلب جميع الشورتس من غير المتابعين
+    const excludeIds = [...followingIds, currentUser._id];
+    const allShorts = await Short.find({ 
+      isActive: true, 
+      isPublic: true,
+      user: { $nin: excludeIds }
+    })
       .populate('user', 'companyName avatar')
       .sort({ createdAt: -1 })
       .limit(100);
