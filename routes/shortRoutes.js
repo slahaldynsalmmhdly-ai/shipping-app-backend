@@ -163,7 +163,7 @@ router.get('/', protect, async (req, res) => {
  */
 router.post('/', protect, async (req, res) => {
   try {
-    const { title, description, videoUrl, thumbnailUrl, duration, hashtags, visibility, allowComments, allowDownload, allowRepost, contactNumbers } = req.body;
+        const { title, description, videoUrl, thumbnailUrl, duration, hashtags, category, privacy, allowComments, allowDownload, allowDuet, location, contactPhone, contactEmail, contactMethods } = req.body;
 
     // إنشاء الشورت
     const short = await Short.create({
@@ -174,11 +174,15 @@ router.post('/', protect, async (req, res) => {
       thumbnailUrl,
       duration,
       hashtags: hashtags || [],
-      visibility: visibility || 'everyone',
+      category: category,
+      privacy: privacy || 'public',
       allowComments: allowComments !== false,
       allowDownload: allowDownload !== false,
-      allowRepost: allowRepost !== false,
-      contactNumbers: contactNumbers || []
+      allowDuet: allowDuet !== false,
+      location: location || '',
+      contactPhone: contactPhone,
+      contactEmail: contactEmail,
+      contactMethods: contactMethods || []
     });
 
     // تم إزالة تحليل AI (بطيء جداً)

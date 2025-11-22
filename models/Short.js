@@ -124,7 +124,13 @@ const shortSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  contactNumbers: [{
+  contactPhone: {
+    type: String
+  },
+  contactEmail: {
+    type: String
+  },
+  contactMethods: [{
     type: String
   }],
   // معلومات إضافية
