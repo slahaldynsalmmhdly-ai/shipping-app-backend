@@ -30,19 +30,30 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const shorts = await Short.find(query)
-      .select('_id title description videoUrl thumbnailUrl duration user likes comments views reactions createdAt')
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views viewedBy createdAt')
       .populate('user', 'companyName avatar')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
     
+    // إضافة isLiked لكل شورت
+    const formattedShorts = shorts.map(short => {
+      const shortObj = short.toObject();
+      const userView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+      return {
+        ...shortObj,
+        isLiked: userView?.liked || false,
+        viewedBy: undefined // إزالة viewedBy من الاستجابة
+      };
+    });
+    
     const total = await Short.countDocuments(query);
     
     res.json({
       success: true,
-      posts: shorts,
+      posts: formattedShorts,
       page: parseInt(page),
-      hasMore: skip + shorts.length < total
+      hasMore: skip + formattedShorts.length < total
     });
   } catch (error) {
     console.error('Error fetching shorts:', error);
