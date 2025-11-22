@@ -34,7 +34,7 @@ router.post('/:shortId', protect, async (req, res) => {
     await Short.findByIdAndUpdate(shortId, { $inc: { comments: 1 } });
 
     // جلب التعليق مع بيانات المستخدم
-    const populatedComment = await comment.populate('user', 'companyName avatar');
+    const populatedComment = await comment.populate('user', 'companyName avatar firstName lastName');
 
     res.status(201).json({
       success: true,
@@ -58,8 +58,8 @@ router.get('/:shortId', protect, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const comments = await ShortComment.find({ short: shortId, isDeleted: false })
-      .populate('user', 'companyName avatar')
-      .populate('replies.user', 'companyName avatar')
+      .populate('user', 'companyName avatar firstName lastName')
+      .populate('replies.user', 'companyName avatar firstName lastName')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -168,8 +168,8 @@ router.post('/:commentId/reply', protect, async (req, res) => {
 
     // جلب التعليق مع البيانات المحدثة
     const updatedComment = await ShortComment.findById(commentId)
-      .populate('user', 'companyName avatar')
-      .populate('replies.user', 'companyName avatar');
+      .populate('user', 'companyName avatar firstName lastName')
+      .populate('replies.user', 'companyName avatar firstName lastName');
 
     res.status(201).json({
       success: true,
