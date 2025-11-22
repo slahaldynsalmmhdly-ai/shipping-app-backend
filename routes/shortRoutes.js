@@ -38,7 +38,7 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const shorts = await Short.find(query)
-      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowRepost contactNumbers hashtags')
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactNumbers hashtags')
       .populate('user', 'companyName avatar')
       .populate('repostedBy.user', 'companyName avatar firstName lastName')
       .sort({ createdAt: -1 })
@@ -69,7 +69,7 @@ router.get('/:tab', protect, async (req, res) => {
         visibility: shortObj.visibility || 'everyone',
         allowComments: shortObj.allowComments !== false,
         allowDownload: shortObj.allowDownload !== false,
-        allowRepost: shortObj.allowRepost !== false,
+        allowDuet: shortObj.allowDuet !== false,
         contactNumbers: shortObj.contactNumbers || [],
         hashtags: shortObj.hashtags || [],
         viewedBy: undefined,

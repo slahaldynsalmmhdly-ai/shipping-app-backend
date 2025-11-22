@@ -120,7 +120,7 @@ const shortSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  allowRepost: {
+  allowDuet: {
     type: Boolean,
     default: true
   },
