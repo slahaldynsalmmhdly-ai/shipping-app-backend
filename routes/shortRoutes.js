@@ -309,6 +309,99 @@ router.post('/:id/like', protect, async (req, res) => {
 });
 
 /**
+ * POST /api/v1/shorts/:id/react
+ * التفاعل مع شورت (إعجاب) - endpoint بديل يتوافق مع الواجهة الأمامية
+ */
+router.post('/:id/react', protect, async (req, res) => {
+  try {
+    const { reactionType } = req.body;
+    
+    // حالياً ندعم فقط 'like'
+    if (reactionType !== 'like') {
+      return res.status(400).json({
+        success: false,
+        message: 'نوع التفاعل غير مدعوم'
+      });
+    }
+
+    const short = await Short.findById(req.params.id);
+
+    if (!short) {
+      return res.status(404).json({
+        success: false,
+        message: 'الشورت غير موجود'
+      });
+    }
+
+    // تحديث سجل التفاعل
+    let interaction = await ShortInteraction.findOne({
+      user: req.user._id,
+      short: short._id
+    });
+
+    let liked = false;
+
+    if (interaction) {
+      // تبديل حالة الإعجاب
+      interaction.liked = !interaction.liked;
+      liked = interaction.liked;
+      interaction.calculateInterestScore();
+      await interaction.save();
+    } else {
+      // إنشاء سجل جديد مع إعجاب
+      interaction = await ShortInteraction.create({
+        user: req.user._id,
+        short: short._id,
+        totalDuration: short.duration,
+        liked: true,
+        hashtags: short.hashtags || []
+      });
+      interaction.calculateInterestScore();
+      await interaction.save();
+      liked = true;
+    }
+
+    // البحث عن المشاهدة
+    const view = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+
+    if (view) {
+      if (view.liked) {
+        // إلغاء الإعجاب
+        view.liked = false;
+        short.likes = Math.max(0, short.likes - 1);
+      } else {
+        // إضافة إعجاب
+        view.liked = true;
+        short.likes += 1;
+      }
+    } else {
+      // إضافة مشاهدة جديدة مع إعجاب
+      short.viewedBy.push({
+        user: req.user._id,
+        liked: true,
+        watchDuration: 0
+      });
+      short.likes += 1;
+      short.views += 1;
+    }
+
+    await short.save();
+
+    res.json({
+      success: true,
+      liked: liked,
+      likes: short.likes
+    });
+  } catch (error) {
+    console.error('خطأ في التفاعل:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء التفاعل'
+    });
+  }
+});
+
+/**
  * POST /api/v1/shorts/:id/comment
  * التعليق على شورت
  */
