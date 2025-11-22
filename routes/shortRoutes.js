@@ -36,13 +36,15 @@ router.get('/:tab', protect, async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
     
-    // إضافة isLiked لكل شورت
+    // إضافة isLiked و shortCommentCount لكل شورت
     const formattedShorts = shorts.map(short => {
       const shortObj = short.toObject();
       const userView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
       return {
         ...shortObj,
         isLiked: userView?.liked || false,
+        shortCommentCount: shortObj.comments || 0,
+        commentCount: shortObj.comments || 0,
         viewedBy: undefined // إزالة viewedBy من الاستجابة
       };
     });
