@@ -30,6 +30,7 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const shorts = await Short.find(query)
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views reactions createdAt')
       .populate('user', 'companyName avatar')
       .sort({ createdAt: -1 })
       .skip(skip)
