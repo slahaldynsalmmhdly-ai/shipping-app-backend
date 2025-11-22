@@ -106,6 +106,27 @@ const shortSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  // إعدادات المشاركة والرؤية
+  visibility: {
+    type: String,
+    enum: ['everyone', 'friends', 'private'],
+    default: 'everyone' // الجميع بشكل افتراضي
+  },
+  allowComments: {
+    type: Boolean,
+    default: true
+  },
+  allowDownload: {
+    type: Boolean,
+    default: true
+  },
+  allowRepost: {
+    type: Boolean,
+    default: true
+  },
+  contactNumbers: [{
+    type: String
+  }],
   // معلومات إضافية
   isPublic: {
     type: Boolean,
