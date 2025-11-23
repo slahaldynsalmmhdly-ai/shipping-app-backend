@@ -537,4 +537,78 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
   }
 });
 
+/**
+ * GET /api/v1/posts/:id
+ * Get a single post or short by ID
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if this is a Short
+    if (await isShort(id)) {
+      // Handle as Short
+      const short = await Short.findById(id)
+        .populate('user', 'companyName avatar firstName lastName name')
+        .populate('repostedBy.user', 'companyName avatar firstName lastName name');
+
+      if (!short) {
+        return res.status(404).json({ message: 'الشورت غير موجود' });
+      }
+
+      // Format the short data to match frontend expectations
+      const shortObj = short.toObject();
+      const userView = short.viewedBy.find(v => v.user.toString() === req.user?._id?.toString());
+      const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user?._id?.toString());
+      
+      const reposters = short.repostedBy.map(r => ({
+        _id: r.user._id,
+        name: r.user.companyName || `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+        avatar: r.user.avatar,
+        repostedAt: r.repostedAt
+      }));
+
+      // Ensure user has name field
+      if (shortObj.user && !shortObj.user.name) {
+        shortObj.user.name = shortObj.user.companyName || 
+          `${shortObj.user.firstName || ''} ${shortObj.user.lastName || ''}`.trim() || 
+          'مستخدم';
+      }
+      
+      const formattedShort = {
+        ...shortObj,
+        isLiked: userView?.liked || false,
+        shortCommentCount: shortObj.comments || 0,
+        commentCount: shortObj.comments || 0,
+        isReposted: isReposted,
+        repostCount: shortObj.shares || 0,
+        reposters: reposters,
+        visibility: shortObj.visibility || 'everyone',
+        allowComments: shortObj.allowComments !== false,
+        allowDownload: shortObj.allowDownload !== false,
+        allowDuet: shortObj.allowDuet !== false,
+        contactNumbers: shortObj.contactNumbers || [],
+        hashtags: shortObj.hashtags || [],
+        viewedBy: undefined,
+        repostedBy: undefined
+      };
+
+      return res.json(formattedShort);
+    }
+
+    // Handle as Post (original logic)
+    const post = await Post.findById(id)
+      .populate("user", "name avatar");
+
+    if (!post) {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+
+    res.json(post);
+  } catch (err) {
+    console.error('Error fetching post/short:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
