@@ -696,77 +696,63 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
-
 /**
- * GET /api/v1/shorts/:id/similar
- * الحصول على فيديوهات مشابهة لفيديو معين
+ * GET /api/v1/shorts/search/:query
+ * البحث عن الشورتس بالهاشتاقات والوصف والعناوين
  */
-const { getSimilarShorts, getShortsbyHashtags, getRecommendedShorts } = require('../utils/similarShortsAlgorithm');
-
-router.get('/:id/similar', protect, async (req, res) => {
+router.get('/search/:query', protect, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const similarShorts = await getSimilarShorts(req.params.id, req.user._id, limit);
+    const { query } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ message: 'يجب إدخال كلمة بحث' });
+    }
+
+    // البحث في العناوين والأوصاف والهاشتاقات
+    const searchQuery = {
+      isActive: true,
+      isPublic: true,
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { hashtags: { $regex: query, $options: 'i' } }
+      ]
+    };
+
+    const shorts = await Short.find(searchQuery)
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactPhone contactEmail contactMethods hashtags')
+      .populate('user', 'companyName avatar')
+      .populate('repostedBy.user', 'companyName avatar firstName lastName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const formattedShorts = shorts.map(short => {
+      const shortObj = short.toObject();
+      return {
+        ...shortObj,
+        allowComments: shortObj.allowComments !== false,
+        allowDownload: shortObj.allowDownload !== false,
+        allowDuet: shortObj.allowDuet !== false,
+        hashtags: shortObj.hashtags || [],
+        viewedBy: undefined,
+        repostedBy: undefined
+      };
+    });
+
+    const total = await Short.countDocuments(searchQuery);
 
     res.json({
       success: true,
-      count: similarShorts.length,
-      data: similarShorts
+      posts: formattedShorts,
+      page: parseInt(page),
+      hasMore: skip + formattedShorts.length < total
     });
   } catch (error) {
-    console.error('خطأ في جلب الفيديوهات المشابهة:', error);
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ أثناء جلب الفيديوهات المشابهة'
-    });
-  }
-});
-
-/**
- * GET /api/v1/shorts/hashtag/:hashtag
- * الحصول على فيديوهات بهاشتاق معين
- */
-router.get('/hashtag/:hashtag', protect, async (req, res) => {
-  try {
-    const hashtag = req.params.hashtag;
-    const limit = parseInt(req.query.limit) || 10;
-    const shorts = await getShortsbyHashtags([hashtag], req.user._id, limit);
-
-    res.json({
-      success: true,
-      count: shorts.length,
-      data: shorts
-    });
-  } catch (error) {
-    console.error('خطأ في جلب الفيديوهات بالهاشتاق:', error);
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ أثناء جلب الفيديوهات'
-    });
-  }
-});
-
-/**
- * GET /api/v1/shorts/recommended
- * الحصول على فيديوهات موصى بها بناءً على اهتمامات المستخدم
- */
-router.get('/recommended', protect, async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const recommendedShorts = await getRecommendedShorts(req.user._id, limit);
-
-    res.json({
-      success: true,
-      count: recommendedShorts.length,
-      data: recommendedShorts
-    });
-  } catch (error) {
-    console.error('خطأ في جلب الفيديوهات الموصى بها:', error);
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ أثناء جلب الفيديوهات الموصى بها'
-    });
+    console.error('خطأ في البحث عن الشورتس:', error);
+    res.status(500).json({ message: 'فشل البحث عن الشورتس' });
   }
 });
 
