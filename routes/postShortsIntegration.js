@@ -197,7 +197,9 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
         comment.likes.push({ user: req.user._id });
         
         // Remove dislike if exists
-        comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
+        if (comment.dislikes && Array.isArray(comment.dislikes)) {
+          comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
+        }
       }
       
       await comment.save();
@@ -420,7 +422,9 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
         reply.likes.push({ user: req.user._id });
         
         // Remove dislike if exists
-        reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
+        if (reply.dislikes && Array.isArray(reply.dislikes)) {
+          reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
+        }
       }
 
       await comment.save();
