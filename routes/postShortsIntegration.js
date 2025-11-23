@@ -177,14 +177,23 @@ router.post("/:id/comment", protect, async (req, res) => {
 router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
   try {
     const { id, comment_id } = req.params;
+    console.log('[LIKE] Request received:', { id, comment_id, userId: req.user?._id });
 
     // Check if this is a Short
-    if (await isShort(id)) {
+    const shortCheck = await isShort(id);
+    console.log('[LIKE] Is Short?', shortCheck);
+    
+    if (shortCheck) {
       // Handle as Short Comment
       const comment = await ShortComment.findById(comment_id);
+      console.log('[LIKE] Comment found?', !!comment);
+      
       if (!comment) {
+        console.log('[LIKE] Comment not found!');
         return res.status(404).json({ message: 'التعليق غير موجود' });
       }
+      
+      console.log('[LIKE] Comment likes before:', comment.likes.length);
 
       // Toggle like
       const existingLike = comment.likes.find(like => like.user.toString() === req.user._id.toString());
@@ -203,6 +212,8 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       }
       
       await comment.save();
+      console.log('[LIKE] Comment likes after:', comment.likes.length);
+      console.log('[LIKE] Success! Returning response');
 
       return res.json({
         success: true,
