@@ -710,13 +710,47 @@ router.post("/:id/react", protect, async (req, res) => {
 
       await short.save();
 
-      // Return format matching frontend expectations
-      return res.json({
-        _id: short._id,
-        likes: short.likes,
+      // Populate user data
+      await short.populate('user', 'companyName avatar firstName lastName name');
+      await short.populate('repostedBy.user', 'companyName avatar firstName lastName name');
+
+      // Format the short data to match frontend expectations
+      const shortObj = short.toObject();
+      const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user._id.toString());
+      
+      const reposters = short.repostedBy.map(r => ({
+        _id: r.user._id,
+        name: r.user.companyName || `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+        avatar: r.user.avatar,
+        repostedAt: r.repostedAt
+      }));
+
+      // Ensure user has name field
+      if (shortObj.user && !shortObj.user.name) {
+        shortObj.user.name = shortObj.user.companyName || 
+          `${shortObj.user.firstName || ''} ${shortObj.user.lastName || ''}`.trim() || 
+          'مستخدم';
+      }
+      
+      const formattedShort = {
+        ...shortObj,
         isLiked: liked,
-        success: true
-      });
+        shortCommentCount: shortObj.comments || 0,
+        commentCount: shortObj.comments || 0,
+        isReposted: isReposted,
+        repostCount: shortObj.shares || 0,
+        reposters: reposters,
+        visibility: shortObj.visibility || 'everyone',
+        allowComments: shortObj.allowComments !== false,
+        allowDownload: shortObj.allowDownload !== false,
+        allowDuet: shortObj.allowDuet !== false,
+        contactNumbers: shortObj.contactNumbers || [],
+        hashtags: shortObj.hashtags || [],
+        viewedBy: undefined,
+        repostedBy: undefined
+      };
+
+      return res.json(formattedShort);
     }
 
     // Handle as Post (if needed)
