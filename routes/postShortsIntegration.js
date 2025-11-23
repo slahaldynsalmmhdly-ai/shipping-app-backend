@@ -207,7 +207,7 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       return res.json({
         success: true,
         likesCount: comment.likes.length,
-        dislikesCount: comment.dislikes.length
+        dislikesCount: comment.dislikes ? comment.dislikes.length : 0
       });
     }
 
@@ -432,7 +432,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.json({
         success: true,
         likesCount: reply.likes.length,
-        dislikesCount: reply.dislikes.length
+        dislikesCount: reply.dislikes ? reply.dislikes.length : 0
       });
     }
 
