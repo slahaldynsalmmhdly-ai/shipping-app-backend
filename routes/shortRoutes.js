@@ -756,4 +756,74 @@ router.get('/search/:query', protect, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/v1/shorts/suggestions/:query
+ * الحصول على اقتراحات البحث من الهاشتاقات والأوصاف والعناوين
+ */
+router.get('/suggestions/:query', protect, async (req, res) => {
+  try {
+    const { query } = req.params;
+
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ message: 'يجب إدخال كلمة بحث' });
+    }
+
+    // البحث عن الشورتس التي تطابق الكلمة المدخلة
+    const shorts = await Short.find({
+      isActive: true,
+      isPublic: true,
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { hashtags: { $regex: query, $options: 'i' } }
+      ]
+    }).select('title description hashtags').limit(20);
+
+    // استخراج الاقتراحات الفريدة
+    const suggestions = new Set();
+
+    shorts.forEach(short => {
+      // إضافة الهاشتاقات
+      if (short.hashtags && Array.isArray(short.hashtags)) {
+        short.hashtags.forEach(tag => {
+          if (tag.toLowerCase().includes(query.toLowerCase())) {
+            suggestions.add(`#${tag}`);
+          }
+        });
+      }
+
+      // إضافة كلمات من العنوان
+      if (short.title) {
+        const titleWords = short.title.split(' ');
+        titleWords.forEach(word => {
+          if (word.toLowerCase().includes(query.toLowerCase())) {
+            suggestions.add(word);
+          }
+        });
+      }
+
+      // إضافة كلمات من الوصف
+      if (short.description) {
+        const descWords = short.description.split(' ');
+        descWords.forEach(word => {
+          if (word.toLowerCase().includes(query.toLowerCase()) && word.length > 2) {
+            suggestions.add(word);
+          }
+        });
+      }
+    });
+
+    // تحويل الـ Set إلى Array وترتيبها
+    const suggestionsList = Array.from(suggestions).sort().slice(0, 10);
+
+    res.json({
+      success: true,
+      suggestions: suggestionsList
+    });
+  } catch (error) {
+    console.error('خطأ في جلب الاقتراحات:', error);
+    res.status(500).json({ message: 'فشل جلب الاقتراحات' });
+  }
+});
+
 module.exports = router;
