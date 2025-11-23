@@ -177,23 +177,14 @@ router.post("/:id/comment", protect, async (req, res) => {
 router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
   try {
     const { id, comment_id } = req.params;
-    console.log('[LIKE] Request received:', { id, comment_id, userId: req.user?._id });
 
     // Check if this is a Short
-    const shortCheck = await isShort(id);
-    console.log('[LIKE] Is Short?', shortCheck);
-    
-    if (shortCheck) {
+    if (await isShort(id)) {
       // Handle as Short Comment
       const comment = await ShortComment.findById(comment_id);
-      console.log('[LIKE] Comment found?', !!comment);
-      
       if (!comment) {
-        console.log('[LIKE] Comment not found!');
         return res.status(404).json({ message: 'التعليق غير موجود' });
       }
-      
-      console.log('[LIKE] Comment likes before:', comment.likes.length);
 
       // Toggle like
       const existingLike = comment.likes.find(like => like.user.toString() === req.user._id.toString());
@@ -206,19 +197,15 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
         comment.likes.push({ user: req.user._id });
         
         // Remove dislike if exists
-        if (comment.dislikes && Array.isArray(comment.dislikes)) {
-          comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
-        }
+        comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
       }
       
       await comment.save();
-      console.log('[LIKE] Comment likes after:', comment.likes.length);
-      console.log('[LIKE] Success! Returning response');
 
       return res.json({
         success: true,
         likesCount: comment.likes.length,
-        dislikesCount: comment.dislikes ? comment.dislikes.length : 0
+        dislikesCount: comment.dislikes.length
       });
     }
 
@@ -433,9 +420,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
         reply.likes.push({ user: req.user._id });
         
         // Remove dislike if exists
-        if (reply.dislikes && Array.isArray(reply.dislikes)) {
-          reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
-        }
+        reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
       }
 
       await comment.save();
@@ -443,7 +428,7 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.json({
         success: true,
         likesCount: reply.likes.length,
-        dislikesCount: reply.dislikes ? reply.dislikes.length : 0
+        dislikesCount: reply.dislikes.length
       });
     }
 
@@ -548,80 +533,6 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
     res.json({ msg: "Reply removed" });
   } catch (err) {
     console.error('Error deleting reply:', err.message);
-    res.status(500).json({ message: 'Server Error', error: err.message });
-  }
-});
-
-/**
- * GET /api/v1/posts/:id
- * Get a single post or short by ID
- */
-router.get("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Check if this is a Short
-    if (await isShort(id)) {
-      // Handle as Short
-      const short = await Short.findById(id)
-        .populate('user', 'companyName avatar firstName lastName name')
-        .populate('repostedBy.user', 'companyName avatar firstName lastName name');
-
-      if (!short) {
-        return res.status(404).json({ message: 'الشورت غير موجود' });
-      }
-
-      // Format the short data to match frontend expectations
-      const shortObj = short.toObject();
-      const userView = short.viewedBy.find(v => v.user.toString() === req.user?._id?.toString());
-      const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user?._id?.toString());
-      
-      const reposters = short.repostedBy.map(r => ({
-        _id: r.user._id,
-        name: r.user.companyName || `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
-        avatar: r.user.avatar,
-        repostedAt: r.repostedAt
-      }));
-
-      // Ensure user has name field
-      if (shortObj.user && !shortObj.user.name) {
-        shortObj.user.name = shortObj.user.companyName || 
-          `${shortObj.user.firstName || ''} ${shortObj.user.lastName || ''}`.trim() || 
-          'مستخدم';
-      }
-      
-      const formattedShort = {
-        ...shortObj,
-        isLiked: userView?.liked || false,
-        shortCommentCount: shortObj.comments || 0,
-        commentCount: shortObj.comments || 0,
-        isReposted: isReposted,
-        repostCount: shortObj.shares || 0,
-        reposters: reposters,
-        visibility: shortObj.visibility || 'everyone',
-        allowComments: shortObj.allowComments !== false,
-        allowDownload: shortObj.allowDownload !== false,
-        allowDuet: shortObj.allowDuet !== false,
-        contactNumbers: shortObj.contactNumbers || [],
-        hashtags: shortObj.hashtags || [],
-        viewedBy: undefined,
-        repostedBy: undefined
-      };
-
-      return res.json(formattedShort);
-    }
-
-    // Handle as Post (original logic)
-    const post = await Post.findById(id)
-      .populate("user", "name avatar");
-
-    if (!post) {
-      return res.status(404).json({ msg: "Post not found" });
-    }
-
-    res.json(post);
-  } catch (err) {
-    console.error('Error fetching post/short:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
