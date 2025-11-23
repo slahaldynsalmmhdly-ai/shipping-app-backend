@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Short = require('../models/Short');
 const ShortComment = require('../models/ShortComment');
+const ShortInteraction = require('../models/ShortInteraction');
 const Post = require('../models/Post');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -623,6 +624,113 @@ router.get("/:id", async (req, res) => {
   } catch (err) {
     console.error('Error fetching post/short:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/posts/:id/react
+ * React to a post or short (like)
+ */
+router.post("/:id/react", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reactionType } = req.body;
+    
+    // حالياً ندعم فقط 'like'
+    if (reactionType !== 'like') {
+      return res.status(400).json({
+        success: false,
+        message: 'نوع التفاعل غير مدعوم'
+      });
+    }
+
+    // Check if this is a Short
+    if (await isShort(id)) {
+      // Handle as Short
+      const short = await Short.findById(id);
+      
+      if (!short) {
+        return res.status(404).json({
+          success: false,
+          message: 'الشورت غير موجود'
+        });
+      }
+
+      // تحديث سجل التفاعل
+      let interaction = await ShortInteraction.findOne({
+        user: req.user._id,
+        short: short._id
+      });
+
+      let liked = false;
+
+      if (interaction) {
+        // تبديل حالة الإعجاب
+        interaction.liked = !interaction.liked;
+        liked = interaction.liked;
+        interaction.calculateInterestScore();
+        await interaction.save();
+      } else {
+        // إنشاء سجل جديد مع إعجاب
+        interaction = await ShortInteraction.create({
+          user: req.user._id,
+          short: short._id,
+          totalDuration: short.duration,
+          liked: true,
+          hashtags: short.hashtags || []
+        });
+        interaction.calculateInterestScore();
+        await interaction.save();
+        liked = true;
+      }
+
+      // البحث عن المشاهدة
+      const view = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+
+      if (view) {
+        if (view.liked) {
+          // إلغاء الإعجاب
+          view.liked = false;
+          short.likes = Math.max(0, short.likes - 1);
+        } else {
+          // إضافة إعجاب
+          view.liked = true;
+          short.likes += 1;
+        }
+      } else {
+        // إضافة مشاهدة جديدة مع إعجاب
+        short.viewedBy.push({
+          user: req.user._id,
+          liked: true,
+          watchDuration: 0
+        });
+        short.likes += 1;
+        short.views += 1;
+      }
+
+      await short.save();
+
+      // Return format matching frontend expectations
+      return res.json({
+        _id: short._id,
+        likes: short.likes,
+        isLiked: liked,
+        success: true
+      });
+    }
+
+    // Handle as Post (if needed)
+    return res.status(400).json({
+      success: false,
+      message: 'Post reactions not implemented yet'
+    });
+    
+  } catch (error) {
+    console.error('خطأ في التفاعل:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء التفاعل'
+    });
   }
 });
 
