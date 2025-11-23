@@ -8,6 +8,7 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes"); // Added vehicleRoutes
 const uploadRoutes = require("./routes/uploadRoutes"); // Added uploadRoutes
 const postRoutes = require("./routes/postRoutes"); // Added postRoutes
+const postShortsIntegration = require("./routes/postShortsIntegration"); // Integration for Shorts in Posts API
 const shipmentAdRoutes = require("./routes/shipmentAdRoutes"); // Added shipmentAdRoutes
 const emptyTruckAdRoutes = require("./routes/emptyTruckAdRoutes"); // Added emptyTruckAdRoutes
 const userRoutes = require("./routes/userRoutes"); // Added userRoutes
@@ -88,7 +89,8 @@ app.use("/api/v1/profile", profileRoutes);
 app.use("/api/reviews", reviewRoutes); // Changed to /api/reviews for clarity
 app.use("/api/vehicles", vehicleRoutes); // Changed to /api/vehicles for clarity
 app.use("/api/upload", uploadRoutes); // Mount upload routes
-app.use("/api/v1/posts", postRoutes); // Mount post routes
+app.use("/api/v1/posts", postShortsIntegration); // Mount post routes with Shorts integration (priority)
+app.use("/api/v1/posts-original", postRoutes); // Original post routes (fallback)
 app.use("/api/v1/shipmentads", shipmentAdRoutes); // Mount shipment ad routes
 app.use("/api/v1/emptytruckads", emptyTruckAdRoutes); // Mount empty truck ad routes
 app.use("/api/v1/users", userRoutes); // Mount user routes
