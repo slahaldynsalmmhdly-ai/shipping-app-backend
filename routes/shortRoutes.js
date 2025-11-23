@@ -165,6 +165,10 @@ router.post('/', protect, async (req, res) => {
   try {
         const { title, description, videoUrl, thumbnailUrl, duration, hashtags, category, privacy, allowComments, allowDownload, allowDuet, location, contactPhone, contactEmail, contactMethods } = req.body;
 
+    if (!duration || duration <= 0) {
+      return res.status(400).json({ message: 'مدة الفيديو غير صالحة' });
+    }
+
     // إنشاء الشورت
     const short = await Short.create({
       user: req.user._id,
