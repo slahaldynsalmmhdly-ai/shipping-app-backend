@@ -389,7 +389,14 @@ router.put("/:id/react", protect, async (req, res) => {
         path: 'comments.replies.user',
         select: 'name avatar'
       });
-    res.json(updatedPost);
+
+    // ✅ الإصلاح: إضافة id للكائن المُرجع للتوافق مع الواجهة الأمامية
+    const postWithId = {
+      ...updatedPost.toObject(),
+      id: updatedPost._id.toString()
+    };
+
+    res.json(postWithId);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");

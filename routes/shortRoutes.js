@@ -447,11 +447,41 @@ router.post('/:id/react', protect, async (req, res) => {
 
     await short.save();
 
-    res.json({
-      success: true,
-      liked: liked,
-      likes: short.likes
-    });
+    // ✅ الإصلاح: إرجاع كائن Short كامل بدلاً من {success, liked, likes}
+    // إعادة جلب الشورت مع populate للبيانات المطلوبة
+    const updatedShort = await Short.findById(short._id)
+      .populate('user', 'companyName avatar firstName lastName')
+      .populate('repostedBy.user', 'companyName avatar firstName lastName');
+
+    // تنسيق البيانات بنفس طريقة GET endpoint
+    const userView = updatedShort.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+    const isReposted = updatedShort.repostedBy.some(r => r.user._id.toString() === req.user._id.toString());
+
+    const reposters = updatedShort.repostedBy.map(r => ({
+      _id: r.user._id,
+      name: r.user.companyName || `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+      avatar: r.user.avatar,
+      repostedAt: r.repostedAt
+    }));
+
+    const formattedShort = {
+      ...updatedShort.toObject(),
+      id: updatedShort._id.toString(), // ✅ إضافة id بجانب _id للتوافق مع الواجهة الأمامية
+      isLiked: userView?.liked || false,
+      shortCommentCount: updatedShort.comments || 0,
+      commentCount: updatedShort.comments || 0,
+      isReposted: isReposted,
+      repostCount: updatedShort.shares || 0,
+      reposters: reposters,
+      visibility: updatedShort.visibility || 'everyone',
+      allowComments: updatedShort.allowComments !== false,
+      allowDownload: updatedShort.allowDownload !== false,
+      allowDuet: updatedShort.allowDuet !== false,
+      viewedBy: undefined, // إخفاء البيانات الحساسة
+      repostedBy: undefined // إخفاء البيانات الحساسة
+    };
+
+    res.json(formattedShort);
   } catch (error) {
     console.error('خطأ في التفاعل:', error);
     res.status(500).json({
