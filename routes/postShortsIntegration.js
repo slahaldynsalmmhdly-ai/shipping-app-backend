@@ -732,9 +732,13 @@ router.post("/:id/react", protect, async (req, res) => {
           'مستخدم';
       }
       
+      // Get the actual liked state from viewedBy (after save)
+      const updatedView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+      const actualLikedState = updatedView ? updatedView.liked : false;
+      
       const formattedShort = {
         ...shortObj,
-        isLiked: liked,
+        isLiked: actualLikedState,
         shortCommentCount: shortObj.comments || 0,
         commentCount: shortObj.comments || 0,
         isReposted: isReposted,
