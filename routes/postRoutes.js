@@ -509,7 +509,7 @@ router.get(":id/comments", protect, async (req, res) => {
 // @desc    Delete a comment from a post
 // @route   DELETE /api/v1/posts/:id/comment/:comment_id
 // @access  Private
-router.delete(":id/comment/:comment_id", protect, async (req, res) => {{
+router.delete(":id/comment/:comment_id", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
 
