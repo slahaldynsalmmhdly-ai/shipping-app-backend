@@ -486,10 +486,30 @@ router.post("/:id/comment", protect, async (req, res) => {
   }
 });
 
+// @desc    Get all comments for a post
+// @route   GET /api/v1/posts/:id/comments
+// @access  Private
+router.get(":id/comments", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("comments.user", "name avatar")
+      .populate("comments.replies.user", "name avatar");
+
+    if (!post) {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+
+    res.json(post.comments);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 // @desc    Delete a comment from a post
 // @route   DELETE /api/v1/posts/:id/comment/:comment_id
 // @access  Private
-router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
+router.delete(":id/comment/:comment_id", protect, async (req, res) => {{
   try {
     const post = await Post.findById(req.params.id);
 
