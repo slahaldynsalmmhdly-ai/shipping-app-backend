@@ -146,7 +146,7 @@ router.put("/:id/react", protect, async (req, res) => {
 
     // Check if the user has already reacted
     const existingReactionIndex = post.reactions.findIndex(
-      (reaction) => reaction.user.toString() === req.user.id
+      (reaction) => reaction.user.toString() === req.user._id
     );
 
     if (existingReactionIndex > -1) {
@@ -156,13 +156,13 @@ router.put("/:id/react", protect, async (req, res) => {
         post.reactions.splice(existingReactionIndex, 1);
 
         // Remove notification for the post owner
-        if (post.user.toString() !== req.user.id) {
+        if (post.user.toString() !== req.user._id) {
           const postOwner = await User.findById(post.user);
           if (postOwner) {
             postOwner.notifications = postOwner.notifications.filter(
               (notif) =>
                 !(notif.type === 'like' &&
-                  notif.sender.toString() === req.user.id &&
+                  notif.sender.toString() === req.user._id &&
                   notif.post.toString() === post._id.toString())
             );
             await postOwner.save();
@@ -174,16 +174,16 @@ router.put("/:id/react", protect, async (req, res) => {
       }
     } else {
       // User has not reacted, add new reaction
-      post.reactions.unshift({ user: req.user.id, type: reactionType });
+      post.reactions.unshift({ user: req.user._id, type: reactionType });
 
       // Create notification for the post owner if not self-liking
-      if (post.user.toString() !== req.user.id) {
-        const sender = await User.findById(req.user.id).select('name');
+      if (post.user.toString() !== req.user._id) {
+        const sender = await User.findById(req.user._id).select('name');
         const postOwner = await User.findById(post.user);
         if (postOwner && sender) {
           postOwner.notifications.unshift({
             type: 'like',
-            sender: req.user.id,
+            sender: req.user._id,
             post: post._id,
             message: generateNotificationMessage('like', sender.name)
           });
@@ -412,20 +412,20 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       return res.status(404).json({ msg: "Comment not found" });
     }
 
-    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
-    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user._id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user._id);
 
     // If user has disliked, remove dislike
     if (alreadyDisliked) {
-      comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+      comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id);
     }
 
     // If user has not liked, add like
     if (!alreadyLiked) {
-      comment.likes.unshift({ user: req.user.id });
+      comment.likes.unshift({ user: req.user._id });
     } else {
       // If already liked, remove like (toggle)
-      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user.id);
+      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user._id);
     }
 
     post.markModified("comments");
@@ -651,20 +651,20 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.status(404).json({ msg: "Reply not found" });
     }
 
-    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
-    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user._id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user._id);
 
     // If user has disliked, remove dislike
     if (alreadyDisliked) {
-      reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
+      reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id);
     }
 
     // If user has not liked, add like
     if (!alreadyLiked) {
-      reply.likes.unshift({ user: req.user.id });
+      reply.likes.unshift({ user: req.user._id });
     } else {
       // If already liked, remove like (toggle)
-      reply.likes = reply.likes.filter(like => like.user.toString() !== req.user.id);
+      reply.likes = reply.likes.filter(like => like.user.toString() !== req.user._id);
     }
 
     post.markModified("comments");
