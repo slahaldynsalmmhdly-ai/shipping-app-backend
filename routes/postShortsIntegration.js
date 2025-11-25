@@ -53,6 +53,100 @@ function formatReply(reply, currentUserId = null) {
 }
 
 /**
+ * GET /api/v1/posts
+ * Get all posts with filtering (category, postType, etc.)
+ */
+router.get("/", protect, async (req, res) => {
+  try {
+    const { userType, limit, skip, category, postType, country, city } = req.query;
+    
+    // إذا كان category أو postType أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
+    if (category || postType || userType) {
+      // بناء مصفوفة الشروط
+      const conditions = [];
+      
+      // 1. شرط النشر (إلزامي)
+      conditions.push({ $or: [{ isPublished: true }, { isPublished: { $exists: false } }] });
+      
+      // 2. شرط userType
+      if (userType) {
+        const users = await User.find({ userType: userType }).select('_id');
+        const userIds = users.map(u => u._id);
+        conditions.push({ user: { $in: userIds } });
+      }
+      
+      // 3. شرط category
+      if (category) {
+        conditions.push({ category: category });
+      } else {
+        conditions.push({ publishScope: { $ne: 'category_only' } });
+      }
+      
+      // 4. شرط postType
+      if (postType) {
+        conditions.push({ postType: postType });
+      }
+      
+      // 5. فلترة حسب الموقع (country/city)
+      const filterCountry = country === '' ? null : country;
+      const filterCity = city === '' ? null : city;
+      
+      if (filterCountry && filterCountry !== 'عالمي') {
+        if (filterCity) {
+          conditions.push({
+            $or: [
+              { country: filterCountry, city: filterCity },
+              { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
+        } else {
+          conditions.push({
+            $or: [
+              { country: filterCountry },
+              { $or: [{ country: null }, { country: { $exists: false } }] }
+            ]
+          });
+        }
+      }
+      
+      // 6. بناء الاستعلام النهائي
+      const query = { $and: conditions };
+      
+      console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
+      console.log('📍 المعاملات:', { category, postType, country, city, userType });
+      
+      const posts = await Post.find(query)
+        .populate('user', 'name avatar userType companyName')
+        .populate('reactions.user', 'name avatar')
+        .sort({ isFeatured: -1, createdAt: -1 })
+        .limit(parseInt(limit) || 10)
+        .skip(parseInt(skip) || 0);
+      
+      console.log('✅ عدد النتائج:', posts.length);
+      
+      return res.json({ posts });
+    }
+    
+    // الخوارزمية العادية للصفحة الرئيسية (بدون فلترة)
+    const allPosts = await Post.find({ 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
+      publishScope: { $ne: 'category_only' }
+    })
+      .populate('user', 'name avatar userType companyName')
+      .populate('reactions.user', 'name avatar')
+      .sort({ isFeatured: -1, createdAt: -1 })
+      .limit(parseInt(limit) || 20)
+      .skip(parseInt(skip) || 0);
+    
+    return res.json(allPosts);
+  } catch (err) {
+    console.error('Error in GET /api/v1/posts:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+/**
  * GET /api/v1/posts/:id
  * Get a single post or short by ID
  */
