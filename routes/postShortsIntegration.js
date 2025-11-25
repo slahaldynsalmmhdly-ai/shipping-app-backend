@@ -241,8 +241,10 @@ router.post("/", protect, async (req, res) => {
     console.log('✅ تم إنشاء منشور جديد:', post._id);
     res.status(201).json(post);
   } catch (err) {
-    console.error('Error in POST /api/v1/posts:', err.message);
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    console.error('❌ Error in POST /api/v1/posts:', err.message);
+    console.error('❌ Full error:', err);
+    console.error('❌ Stack:', err.stack);
+    res.status(500).json({ message: 'Server Error', error: err.message, details: err.toString() });
   }
 });
 
