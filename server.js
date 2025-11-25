@@ -32,6 +32,7 @@ const chatProfileRoutes = require("./routes/chatProfileRoutes"); // Added chatPr
 const emailVerificationRoutes = require("./routes/emailVerificationRoutes"); // Added emailVerificationRoutes
 const shortRoutes = require("./routes/shortRoutes"); // Added shortRoutes
 const shortCommentRoutes = require("./routes/shortCommentRoutes"); // Added shortCommentRoutes
+const permalinkRoutes = require("./routes/permalinkRoutes"); // Added permalinkRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -114,6 +115,7 @@ app.use("/api/v1/chat-profile", chatProfileRoutes); // Mount chat profile routes
 app.use("/api/v1/email-verification", emailVerificationRoutes); // Mount email verification routes
 app.use("/api/v1/shorts", shortRoutes); // Mount shorts routes
 app.use("/api/v1/short-comments", shortCommentRoutes); // Mount short comments routes
+app.use("/p", permalinkRoutes); // Mount permalink routes (for social media preview)
 
 // PeerJS Server Setup (must be before 404 handler)
 const { ExpressPeerServer } = require('peer');
