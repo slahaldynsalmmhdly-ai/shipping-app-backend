@@ -52,7 +52,7 @@ router.get("/me", protect, async (req, res) => {
 // @access  Private
 router.put("/me", protect, async (req, res) => {
   try {
-    const { name, phone, description, avatar, companyName, companyDescription, companyLogo } = req.body;
+    const { name, phone, description, avatar, companyName, companyDescription, companyLogo, customDetails } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -68,6 +68,7 @@ router.put("/me", protect, async (req, res) => {
     if (companyName !== undefined) user.companyName = companyName;
     if (companyDescription !== undefined) user.companyDescription = companyDescription;
     if (companyLogo !== undefined) user.companyLogo = companyLogo;
+    if (customDetails !== undefined) user.customDetails = customDetails;
 
     await user.save();
 
