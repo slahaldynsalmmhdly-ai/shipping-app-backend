@@ -53,6 +53,69 @@ function formatReply(reply, currentUserId = null) {
 }
 
 /**
+ * GET /api/v1/posts/:id
+ * Get a single post or short by ID
+ */
+router.get("/:id", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if this is a Short
+    if (await isShort(id)) {
+      // Handle as Short
+      const short = await Short.findById(id)
+        .populate('user', 'companyName avatar firstName lastName name')
+        .populate('hashtags');
+
+      if (!short) {
+        return res.status(404).json({ message: 'الشورت غير موجود' });
+      }
+
+      // Format user name for frontend compatibility
+      const shortObj = short.toObject();
+      if (shortObj.user && !shortObj.user.name) {
+        shortObj.user.name = shortObj.user.companyName || 
+          `${shortObj.user.firstName || ''} ${shortObj.user.lastName || ''}`.trim() || 
+          'مستخدم';
+      }
+
+      return res.json(shortObj);
+    }
+
+    // Handle as Post
+    const post = await Post.findById(id)
+      .populate("user", ["name", "avatar"])
+      .populate({
+        path: "originalPost",
+        populate: {
+          path: "user",
+          select: "name avatar"
+        }
+      })
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    if (!post) {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+
+    res.json(post);
+  } catch (err) {
+    console.error('Error fetching post/short:', err.message);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
+/**
  * PUT /api/v1/posts/:id/react
  * Add/Remove a reaction to a post or short
  */
