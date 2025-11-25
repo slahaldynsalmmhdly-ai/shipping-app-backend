@@ -12,7 +12,7 @@ const { protect } = require("../middleware/authMiddleware");
 router.get(
   "/companies",
   asyncHandler(async (req, res) => {
-    const companies = await User.find({ userType: "company" }).select("-password");
+    const companies = await User.find({ userType: "company" }).select("-password -email");
     
     // Add rating and reviewCount for each company
     const companiesWithRatings = await Promise.all(
@@ -155,7 +155,7 @@ router.put(
 router.get(
   "/:userId",
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.userId).select("-password");
+    const user = await User.findById(req.params.userId).select("-password -email");
 
     if (user) {
       // Calculate rating and reviewCount
