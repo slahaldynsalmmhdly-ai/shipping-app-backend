@@ -1004,4 +1004,31 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
   }
 });
 
+/**
+ * GET /api/v1/posts/user/:userId
+ * Get all posts by a specific user
+ */
+router.get('/user/:userId', protect, async (req, res) => {
+  try {
+    const posts = await Post.find({ 
+      user: req.params.userId, 
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }] 
+    })
+      .sort({ createdAt: -1 })
+      .populate('user', ['name', 'avatar', 'userType', 'companyName'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar'
+        }
+      })
+      .populate('reactions.user', ['name', 'avatar']);
+    res.json(posts);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
