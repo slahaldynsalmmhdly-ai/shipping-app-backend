@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Short = require('../models/Short');
 const ShortComment = require('../models/ShortComment');
+const ShortInteraction = require('../models/ShortInteraction');
 const Post = require('../models/Post');
+const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
+const { generateNotificationMessage } = require('../utils/notificationHelper');
 
 /**
  * Middleware to handle Shorts through Posts API
@@ -48,6 +51,174 @@ function formatReply(reply, currentUserId = null) {
     dislikes: reply.dislikes ? reply.dislikes.map(dislike => dislike.user.toString()) : []
   };
 }
+
+/**
+ * PUT /api/v1/posts/:id/react
+ * Add/Remove a reaction to a post or short
+ */
+router.put("/:id/react", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reactionType } = req.body;
+
+    if (!reactionType || !['like'].includes(reactionType)) {
+      return res.status(400).json({ msg: "Invalid reaction type" });
+    }
+
+    // Check if this is a Short
+    if (await isShort(id)) {
+      // Handle as Short
+      const short = await Short.findById(id);
+      if (!short) {
+        return res.status(404).json({
+          success: false,
+          message: 'الشورت غير موجود'
+        });
+      }
+
+      // Update interaction record
+      let interaction = await ShortInteraction.findOne({
+        user: req.user._id,
+        short: short._id
+      });
+
+      let liked = false;
+
+      if (interaction) {
+        // Toggle like state
+        interaction.liked = !interaction.liked;
+        liked = interaction.liked;
+        interaction.calculateInterestScore();
+        await interaction.save();
+      } else {
+        // Create new interaction with like
+        interaction = await ShortInteraction.create({
+          user: req.user._id,
+          short: short._id,
+          totalDuration: short.duration,
+          liked: true,
+          hashtags: short.hashtags || []
+        });
+        interaction.calculateInterestScore();
+        await interaction.save();
+        liked = true;
+      }
+
+      // Find the view
+      const view = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
+
+      if (view) {
+        if (view.liked) {
+          // Unlike
+          view.liked = false;
+          short.likes = Math.max(0, short.likes - 1);
+        } else {
+          // Like
+          view.liked = true;
+          short.likes += 1;
+        }
+      } else {
+        // Add new view with like
+        short.viewedBy.push({
+          user: req.user._id,
+          liked: true,
+          watchDuration: 0
+        });
+        short.likes += 1;
+        short.views += 1;
+      }
+
+      await short.save();
+
+      return res.json({
+        success: true,
+        liked: liked,
+        likes: short.likes,
+        reactions: [{ user: req.user._id, type: 'like' }] // For frontend compatibility
+      });
+    }
+
+    // Handle as Post (original logic)
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ msg: "Post not found" });
+    }
+
+    // Check if the user has already reacted
+    const existingReactionIndex = post.reactions.findIndex(
+      (reaction) => reaction.user.toString() === req.user.id
+    );
+
+    if (existingReactionIndex > -1) {
+      // User has already reacted, check if it's the same reaction type
+      if (post.reactions[existingReactionIndex].type === reactionType) {
+        // Same reaction type, remove it (toggle off)
+        post.reactions.splice(existingReactionIndex, 1);
+
+        // Remove notification for the post owner
+        if (post.user.toString() !== req.user.id) {
+          const postOwner = await User.findById(post.user);
+          if (postOwner) {
+            postOwner.notifications = postOwner.notifications.filter(
+              (notif) =>
+                !(notif.type === 'like' &&
+                  notif.sender.toString() === req.user.id &&
+                  notif.post.toString() === post._id.toString())
+            );
+            await postOwner.save();
+          }
+        }
+      } else {
+        // Different reaction type, update it
+        post.reactions[existingReactionIndex].type = reactionType;
+      }
+    } else {
+      // User has not reacted, add new reaction
+      post.reactions.unshift({ user: req.user.id, type: reactionType });
+
+      // Create notification for the post owner if not self-liking
+      if (post.user.toString() !== req.user.id) {
+        const sender = await User.findById(req.user.id).select('name');
+        const postOwner = await User.findById(post.user);
+        if (postOwner && sender) {
+          postOwner.notifications.unshift({
+            type: 'like',
+            sender: req.user.id,
+            post: post._id,
+            message: generateNotificationMessage('like', sender.name)
+          });
+          await postOwner.save();
+        }
+      }
+    }
+
+    post.markModified("reactions");
+    await post.save();
+    
+    const updatedPost = await Post.findById(id)
+      .populate('user', ['name', 'avatar'])
+      .populate('reactions.user', ['name', 'avatar'])
+      .populate({
+        path: 'comments.user',
+        select: 'name avatar'
+      })
+      .populate({
+        path: 'comments.replies.user',
+        select: 'name avatar'
+      });
+
+    // Add id for frontend compatibility
+    const postWithId = {
+      ...updatedPost.toObject(),
+      id: updatedPost._id.toString()
+    };
+
+    res.json(postWithId);
+  } catch (err) {
+    console.error('Error reacting to post/short:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
 
 /**
  * GET /api/v1/posts/:id/comments
@@ -154,16 +325,41 @@ router.post("/:id/comment", protect, async (req, res) => {
 
     const newComment = {
       user: req.user._id,
-      text: text.trim()
+      text: text.trim(),
     };
 
     post.comments.unshift(newComment);
+    post.markModified("comments");
     await post.save();
 
-    const updatedPost = await Post.findById(id)
-      .populate("comments.user", "name avatar");
+    // Create notification for the post owner if not self-commenting
+    if (post.user.toString() !== req.user._id.toString()) {
+      const sender = await User.findById(req.user._id).select('name');
+      const postOwner = await User.findById(post.user);
+      if (postOwner && sender) {
+        postOwner.notifications.unshift({
+          type: 'comment',
+          sender: req.user._id,
+          post: post._id,
+          commentId: post.comments[0]._id,
+          message: generateNotificationMessage('comment', sender.name)
+        });
+        await postOwner.save();
+      }
+    }
 
-    res.json(updatedPost.comments[0]);
+    const updatedPost = await Post.findById(id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    res.status(201).json(updatedPost.comments[0]);
   } catch (err) {
     console.error('Error adding comment:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
@@ -186,30 +382,26 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
         return res.status(404).json({ message: 'التعليق غير موجود' });
       }
 
-      // Toggle like
+      // Check if already liked
       const existingLike = comment.likes.find(like => like.user.toString() === req.user._id.toString());
       
       if (existingLike) {
-        // Remove like
+        // Remove like (toggle)
         comment.likes = comment.likes.filter(like => like.user.toString() !== req.user._id.toString());
       } else {
         // Add like
         comment.likes.push({ user: req.user._id });
-        
-        // Remove dislike if exists
-        comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
       }
       
       await comment.save();
 
       return res.json({
         success: true,
-        likesCount: comment.likes.length,
-        dislikesCount: comment.dislikes.length
+        likesCount: comment.likes.length
       });
     }
 
-    // Handle as Post (original logic - simplified)
+    // Handle as Post Comment
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ msg: "Post not found" });
@@ -220,23 +412,37 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       return res.status(404).json({ msg: "Comment not found" });
     }
 
-    // Toggle like
-    const likeIndex = comment.likes.findIndex(like => like.user.toString() === req.user._id.toString());
-    
-    if (likeIndex > -1) {
-      comment.likes.splice(likeIndex, 1);
-    } else {
-      comment.likes.push({ user: req.user._id });
-      
-      // Remove dislike if exists
-      const dislikeIndex = comment.dislikes.findIndex(dislike => dislike.user.toString() === req.user._id.toString());
-      if (dislikeIndex > -1) {
-        comment.dislikes.splice(dislikeIndex, 1);
-      }
+    const alreadyLiked = comment.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = comment.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      comment.dislikes = comment.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
     }
 
+    // If user has not liked, add like
+    if (!alreadyLiked) {
+      comment.likes.unshift({ user: req.user.id });
+    } else {
+      // If already liked, remove like (toggle)
+      comment.likes = comment.likes.filter(like => like.user.toString() !== req.user.id);
+    }
+
+    post.markModified("comments");
     await post.save();
-    res.json(comment);
+
+    const updatedPost = await Post.findById(id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    res.json(updatedPost.comments.id(comment_id));
   } catch (err) {
     console.error('Error liking comment:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
@@ -265,9 +471,9 @@ router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
       }
 
       // Update comment count
-      await Short.findByIdAndUpdate(id, { $inc: { comments: -1 } });
+      await Short.findByIdAndUpdate(comment.short, { $inc: { comments: -1 } });
 
-      // Soft delete
+      // Delete comment
       comment.isDeleted = true;
       await comment.save();
 
@@ -277,7 +483,7 @@ router.delete("/:id/comment/:comment_id", protect, async (req, res) => {
       });
     }
 
-    // Handle as Post (original logic)
+    // Handle as Post Comment
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ msg: "Post not found" });
@@ -318,7 +524,7 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
 
     // Check if this is a Short
     if (await isShort(id)) {
-      // Handle as Short Comment
+      // Handle as Short Comment Reply
       const comment = await ShortComment.findById(comment_id);
       if (!comment) {
         return res.status(404).json({ message: 'التعليق غير موجود' });
@@ -333,32 +539,24 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
       comment.replies.push(reply);
       await comment.save();
 
-      // Populate and return updated comment
+      // Get updated comment with populated data
       const updatedComment = await ShortComment.findById(comment_id)
         .populate('user', 'companyName avatar firstName lastName name')
         .populate('replies.user', 'companyName avatar firstName lastName name');
 
       const formatted = formatComment(updatedComment, req.user._id);
       
-      // Ensure user names are set
+      // Ensure user has name field
       if (formatted.user && !formatted.user.name) {
         formatted.user.name = formatted.user.companyName || 
           `${formatted.user.firstName || ''} ${formatted.user.lastName || ''}`.trim() || 
           'مستخدم';
       }
-      
-      formatted.replies.forEach(reply => {
-        if (reply.user && !reply.user.name) {
-          reply.user.name = reply.user.companyName || 
-            `${reply.user.firstName || ''} ${reply.user.lastName || ''}`.trim() || 
-            'مستخدم';
-        }
-      });
 
       return res.status(201).json(formatted);
     }
 
-    // Handle as Post (original logic)
+    // Handle as Post Comment Reply
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ msg: "Post not found" });
@@ -371,17 +569,26 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
 
     const newReply = {
       user: req.user._id,
-      text: text.trim()
+      text: text.trim(),
     };
 
-    comment.replies.push(newReply);
+    comment.replies.unshift(newReply);
+    post.markModified("comments");
     await post.save();
 
     const updatedPost = await Post.findById(id)
-      .populate("comments.replies.user", "name avatar");
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
 
     const updatedComment = updatedPost.comments.id(comment_id);
-    res.json(updatedComment);
+    res.status(201).json(updatedComment);
   } catch (err) {
     console.error('Error adding reply:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
@@ -409,30 +616,26 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
         return res.status(404).json({ message: 'الرد غير موجود' });
       }
 
-      // Toggle like
+      // Check if already liked
       const existingLike = reply.likes.find(like => like.user.toString() === req.user._id.toString());
       
       if (existingLike) {
-        // Remove like
+        // Remove like (toggle)
         reply.likes = reply.likes.filter(like => like.user.toString() !== req.user._id.toString());
       } else {
         // Add like
         reply.likes.push({ user: req.user._id });
-        
-        // Remove dislike if exists
-        reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user._id.toString());
       }
-
+      
       await comment.save();
 
       return res.json({
         success: true,
-        likesCount: reply.likes.length,
-        dislikesCount: reply.dislikes.length
+        likesCount: reply.likes.length
       });
     }
 
-    // Handle as Post (original logic)
+    // Handle as Post Comment Reply
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ msg: "Post not found" });
@@ -448,23 +651,39 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       return res.status(404).json({ msg: "Reply not found" });
     }
 
-    // Toggle like
-    const likeIndex = reply.likes.findIndex(like => like.user.toString() === req.user._id.toString());
-    
-    if (likeIndex > -1) {
-      reply.likes.splice(likeIndex, 1);
-    } else {
-      reply.likes.push({ user: req.user._id });
-      
-      // Remove dislike if exists
-      const dislikeIndex = reply.dislikes.findIndex(dislike => dislike.user.toString() === req.user._id.toString());
-      if (dislikeIndex > -1) {
-        reply.dislikes.splice(dislikeIndex, 1);
-      }
+    const alreadyLiked = reply.likes.some(like => like.user.toString() === req.user.id);
+    const alreadyDisliked = reply.dislikes.some(dislike => dislike.user.toString() === req.user.id);
+
+    // If user has disliked, remove dislike
+    if (alreadyDisliked) {
+      reply.dislikes = reply.dislikes.filter(dislike => dislike.user.toString() !== req.user.id);
     }
 
+    // If user has not liked, add like
+    if (!alreadyLiked) {
+      reply.likes.unshift({ user: req.user.id });
+    } else {
+      // If already liked, remove like (toggle)
+      reply.likes = reply.likes.filter(like => like.user.toString() !== req.user.id);
+    }
+
+    post.markModified("comments");
     await post.save();
-    res.json(reply);
+
+    const updatedPost = await Post.findById(id)
+      .populate("user", "name avatar")
+      .populate({
+        path: "comments.user",
+        select: "name avatar"
+      })
+      .populate({
+        path: "comments.replies.user",
+        select: "name avatar"
+      });
+
+    const updatedComment = updatedPost.comments.id(comment_id);
+    const updatedReply = updatedComment.replies.id(reply_id);
+    res.json(updatedReply);
   } catch (err) {
     console.error('Error liking reply:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
@@ -506,7 +725,7 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
       });
     }
 
-    // Handle as Post (original logic)
+    // Handle as Post Comment Reply
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ msg: "Post not found" });
