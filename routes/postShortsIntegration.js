@@ -8,7 +8,7 @@ const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
 const { generateNotificationMessage } = require('../utils/notificationHelper');
 const Hashtag = require('../models/Hashtag');
-const { extractHashtags, extractMentionIds } = require('../utils/textHelpers');
+const { extractHashtags, extractMentionIds } = require('../utils/textParser');
 const { createFollowingPostNotifications, createMentionNotifications } = require('../utils/notificationHelpers');
 
 /**
