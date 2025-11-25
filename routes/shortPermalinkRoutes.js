@@ -43,9 +43,9 @@ router.get('/:shortId', async (req, res) => {
     if (thumbnailUrl) {
       if (thumbnailUrl.startsWith('http')) {
         fullThumbnailUrl = thumbnailUrl;
-        // If Cloudinary image, transform to larger size for better preview
+        // If Cloudinary image, transform to 9:16 aspect ratio (vertical like TikTok)
         if (fullThumbnailUrl.includes('cloudinary.com')) {
-          fullThumbnailUrl = fullThumbnailUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+          fullThumbnailUrl = fullThumbnailUrl.replace('/upload/', '/upload/w_1080,h_1920,c_fill,g_center/');
         }
       } else {
         fullThumbnailUrl = `${req.protocol}://${req.get('host')}${thumbnailUrl}`;

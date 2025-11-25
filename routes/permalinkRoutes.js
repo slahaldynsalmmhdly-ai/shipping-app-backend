@@ -59,7 +59,13 @@ router.get('/:postId', async (req, res) => {
         fullImageUrl = imageUrl;
         // If Cloudinary image, transform to larger size for better preview
         if (fullImageUrl.includes('cloudinary.com')) {
-          fullImageUrl = fullImageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+          if (hasVideo) {
+            // For videos: use 9:16 aspect ratio (vertical like TikTok)
+            fullImageUrl = fullImageUrl.replace('/upload/', '/upload/w_1080,h_1920,c_fill,g_center/');
+          } else {
+            // For images: use 16:9 aspect ratio (horizontal)
+            fullImageUrl = fullImageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+          }
         }
       } else {
         fullImageUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
