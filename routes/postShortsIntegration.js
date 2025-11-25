@@ -6,10 +6,10 @@ const ShortInteraction = require('../models/ShortInteraction');
 const Post = require('../models/Post');
 const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
-const { generateNotificationMessage } = require('../utils/notificationHelper');
+const { generateNotificationMessage, createFollowingPostNotifications } = require('../utils/notificationHelper');
+const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
 const Hashtag = require('../models/Hashtag');
 const { extractHashtags, extractMentionIds } = require('../utils/textParser');
-const { createFollowingPostNotifications, createMentionNotifications } = require('../utils/notificationHelpers');
 
 /**
  * Middleware to handle Shorts through Posts API
