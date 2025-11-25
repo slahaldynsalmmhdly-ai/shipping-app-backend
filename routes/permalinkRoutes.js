@@ -59,7 +59,10 @@ router.get('/:postId', async (req, res) => {
   <meta property="og:description" content="${postDescription}">
   <meta property="og:type" content="article">
   <meta property="og:url" content="${req.protocol}://${req.get('host')}/p/${post._id}">
-  ${fullImageUrl ? `<meta property="og:image" content="${fullImageUrl}">` : ''}
+  ${fullImageUrl ? `<meta property="og:image" content="${fullImageUrl}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">` : ''}
   
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="${fullImageUrl ? 'summary_large_image' : 'summary'}">
@@ -67,6 +70,10 @@ router.get('/:postId', async (req, res) => {
   <meta name="twitter:site" content="@Mehnaty_ly">
   <meta name="twitter:description" content="${postDescription}">
   ${fullImageUrl ? `<meta name="twitter:image" content="${fullImageUrl}">` : ''}
+  
+  <!-- WhatsApp & Telegram Optimization -->
+  <meta property="og:locale" content="ar_AR">
+  <meta name="description" content="${postDescription}">
   
   <style>
     * {
