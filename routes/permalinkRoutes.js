@@ -34,11 +34,15 @@ router.get('/:postId', async (req, res) => {
     const hasImage = post.media && post.media.length > 0 && post.media[0].type === 'image';
     const imageUrl = hasImage ? post.media[0].url : null;
 
-    // Build full image URL if exists
+    // Build full image URL if exists (use larger version for social media)
     let fullImageUrl = null;
     if (imageUrl) {
       if (imageUrl.startsWith('http')) {
         fullImageUrl = imageUrl;
+        // If Cloudinary image, transform to larger size for better preview
+        if (fullImageUrl.includes('cloudinary.com')) {
+          fullImageUrl = fullImageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+        }
       } else {
         fullImageUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
       }
