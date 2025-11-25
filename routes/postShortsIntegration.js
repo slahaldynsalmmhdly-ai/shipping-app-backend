@@ -96,20 +96,16 @@ router.get("/", protect, async (req, res) => {
       
       if (filterCountry && filterCountry !== 'عالمي') {
         if (filterCity) {
+          // فلترة صارمة: فقط المنشورات من نفس المدينة أو نفس الدولة بدون مدينة
           conditions.push({
             $or: [
               { country: filterCountry, city: filterCity },
-              { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] },
-              { $or: [{ country: null }, { country: { $exists: false } }] }
+              { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] }
             ]
           });
         } else {
-          conditions.push({
-            $or: [
-              { country: filterCountry },
-              { $or: [{ country: null }, { country: { $exists: false } }] }
-            ]
-          });
+          // فلترة صارمة: فقط المنشورات من نفس الدولة
+          conditions.push({ country: filterCountry });
         }
       }
       
