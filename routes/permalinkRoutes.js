@@ -90,8 +90,8 @@ router.get('/:postId', async (req, res) => {
   <meta property="og:type" content="${hasVideo ? 'video.other' : 'article'}">
   <meta property="og:url" content="${req.protocol}://${req.get('host')}/p/${post._id}">
   ${fullImageUrl ? `<meta property="og:image" content="${fullImageUrl}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image:width" content="${hasVideo ? '1080' : '1200'}">
+  <meta property="og:image:height" content="${hasVideo ? '1920' : '630'}">
   <meta property="og:image:type" content="image/jpeg">` : ''}
   ${fullVideoUrl ? `<meta property="og:video" content="${fullVideoUrl}">
   <meta property="og:video:type" content="video/mp4">

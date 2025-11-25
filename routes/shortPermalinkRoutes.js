@@ -76,8 +76,8 @@ router.get('/:shortId', async (req, res) => {
   <meta property="og:type" content="video.other">
   <meta property="og:url" content="${req.protocol}://${req.get('host')}/s/${short._id}">
   ${fullThumbnailUrl ? `<meta property="og:image" content="${fullThumbnailUrl}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image:width" content="1080">
+  <meta property="og:image:height" content="1920">
   <meta property="og:image:type" content="image/jpeg">` : ''}
   ${fullVideoUrl ? `<meta property="og:video" content="${fullVideoUrl}">
   <meta property="og:video:type" content="video/mp4">
