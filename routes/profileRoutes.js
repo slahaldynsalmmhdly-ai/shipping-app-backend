@@ -98,6 +98,7 @@ router.put(
       user.description = req.body.description || user.description;
       user.avatar = req.body.avatar || user.avatar;
       user.coverImage = req.body.coverImage || user.coverImage;
+      if (req.body.customDetails !== undefined) user.customDetails = req.body.customDetails;
 
       if (user.userType === "company") {
         user.companyName = req.body.companyName || user.companyName;
@@ -139,6 +140,7 @@ router.put(
         truckTypes: updatedUser.truckTypes,
         registrationNumber: updatedUser.registrationNumber,
         licenseImages: updatedUser.licenseImages,
+        customDetails: updatedUser.customDetails,
       });
     } else {
       res.status(404);
