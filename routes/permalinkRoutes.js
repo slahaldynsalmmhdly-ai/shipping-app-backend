@@ -51,10 +51,11 @@ router.get('/:postId', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${postTitle} - ${authorName}</title>
+  <title>Mehnaty.ly - ${postTitle}</title>
   
   <!-- Open Graph Meta Tags -->
-  <meta property="og:title" content="${postTitle}">
+  <meta property="og:title" content="Mehnaty.ly - ${postTitle}">
+  <meta property="og:site_name" content="Mehnaty.ly">
   <meta property="og:description" content="${postDescription}">
   <meta property="og:type" content="article">
   <meta property="og:url" content="${req.protocol}://${req.get('host')}/p/${post._id}">
@@ -62,7 +63,8 @@ router.get('/:postId', async (req, res) => {
   
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="${fullImageUrl ? 'summary_large_image' : 'summary'}">
-  <meta name="twitter:title" content="${postTitle}">
+  <meta name="twitter:title" content="Mehnaty.ly - ${postTitle}">
+  <meta name="twitter:site" content="@Mehnaty_ly">
   <meta name="twitter:description" content="${postDescription}">
   ${fullImageUrl ? `<meta name="twitter:image" content="${fullImageUrl}">` : ''}
   
@@ -185,8 +187,8 @@ router.get('/:postId', async (req, res) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>${authorName}</h1>
-      <p>منشور جديد</p>
+      <h1>Mehnaty.ly</h1>
+      <p>${authorName}</p>
     </div>
     
     <div class="content">
