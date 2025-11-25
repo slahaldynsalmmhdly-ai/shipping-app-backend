@@ -151,7 +151,16 @@ router.get("/", protect, async (req, res) => {
  */
 router.post("/", protect, async (req, res) => {
   try {
+    console.log('📹 محاولة إنشاء منشور فيديو...');
+    console.log('🔑 req.user:', req.user ? { _id: req.user._id, name: req.user.name } : 'null');
+    console.log('📦 req.body:', { text: req.body.text?.substring(0, 50), media: req.body.media?.length, category: req.body.category });
+    
     const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted, publishScope, country, city, isShort, title, privacy, allowComments, allowDownload, allowDuet, location, thumbnail } = req.body;
+
+    if (!req.user || !req.user._id) {
+      console.error('❌ req.user غير موجود أو لا يحتوي على _id');
+      return res.status(401).json({ msg: 'User not authenticated' });
+    }
 
     const user = await User.findById(req.user._id);
     if (!user) {
