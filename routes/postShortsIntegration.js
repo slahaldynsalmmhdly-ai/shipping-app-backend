@@ -7,6 +7,9 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
 const { generateNotificationMessage } = require('../utils/notificationHelper');
+const Hashtag = require('../models/Hashtag');
+const { extractHashtags, extractMentionIds } = require('../utils/textHelpers');
+const { createFollowingPostNotifications, createMentionNotifications } = require('../utils/notificationHelpers');
 
 /**
  * Middleware to handle Shorts through Posts API
@@ -142,6 +145,98 @@ router.get("/", protect, async (req, res) => {
     return res.json(allPosts);
   } catch (err) {
     console.error('Error in GET /api/v1/posts:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/posts
+ * Create a new post
+ */
+router.post("/", protect, async (req, res) => {
+  try {
+    const { text, media, scheduledTime, hashtags, mentions, category, postType, scope, contactPhone, contactEmail, contactMethods, isHighlighted, publishScope, country, city, isShort, title, privacy, allowComments, allowDownload, allowDuet, location, thumbnail } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // استخراج الهاشتاقات والإشارات
+    const extractedHashtags = text ? extractHashtags(text) : [];
+    const extractedMentions = text ? extractMentionIds(text) : [];
+    const finalHashtags = [...new Set([...extractedHashtags, ...(hashtags || [])])];
+    
+    // تحديث الهاشتاقات
+    for (const tag of finalHashtags) {
+      await Hashtag.findOneAndUpdate(
+        { tag: tag.toLowerCase() },
+        { 
+          $inc: { count: 1 },
+          $set: { lastUsed: new Date() }
+        },
+        { upsert: true, new: true }
+      );
+    }
+    const finalMentions = [...new Set([...extractedMentions, ...(mentions || [])])];
+
+    const newPost = new Post({
+      user: req.user._id,
+      text,
+      media: media || [],
+      scheduledTime: scheduledTime || null,
+      isPublished: scheduledTime ? false : true,
+      hashtags: finalHashtags,
+      mentions: finalMentions,
+      category: category || null,
+      postType: postType || null,
+      scope: scope || 'global',
+      country: country || null,
+      city: city || null,
+      contactPhone: contactPhone || '',
+      contactEmail: contactEmail || '',
+      contactMethods: contactMethods || [],
+      isFeatured: isHighlighted || false,
+      publishScope: publishScope || 'home_and_category',
+      isShort: isShort || false,
+      title: title || '',
+      privacy: privacy || 'public',
+      allowComments: allowComments !== undefined ? allowComments : true,
+      allowDownload: allowDownload !== undefined ? allowDownload : true,
+      allowDuet: allowDuet !== undefined ? allowDuet : true,
+      location: location || '',
+      thumbnail: thumbnail || null
+    });
+
+    const post = await newPost.save();
+    
+    // إخفاء المنشور من صاحبه في الصفحة الرئيسية
+    if (!scheduledTime) {
+      post.hiddenFromHomeFeedFor.push(req.user._id);
+      await post.save();
+    }
+    
+    // إرسال إشعارات
+    if (!scheduledTime) {
+      try {
+        await createFollowingPostNotifications(req.user._id, post._id, 'post', 0);
+      } catch (notifError) {
+        console.error('خطأ في إرسال الإشعارات:', notifError);
+      }
+      
+      if (finalMentions && finalMentions.length > 0) {
+        try {
+          await createMentionNotifications(req.user._id, finalMentions, post._id, 'post');
+        } catch (mentionError) {
+          console.error('خطأ في إرسال إشعارات الإشارات:', mentionError);
+        }
+      }
+    }
+    
+    console.log('✅ تم إنشاء منشور جديد:', post._id);
+    res.status(201).json(post);
+  } catch (err) {
+    console.error('Error in POST /api/v1/posts:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
