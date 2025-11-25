@@ -1,68 +1,54 @@
 const express = require('express');
 const router = express.Router();
-const Post = require('../models/Post');
+const Short = require('../models/Short');
 
-// @desc    Get post permalink preview (for social media sharing)
-// @route   GET /p/:postId
+// @desc    Get short permalink preview (for social media sharing)
+// @route   GET /s/:shortId
 // @access  Public
-router.get('/:postId', async (req, res) => {
+router.get('/:shortId', async (req, res) => {
   try {
-    const post = await Post.findById(req.params.postId)
+    const short = await Short.findById(req.params.shortId)
       .populate('user', 'name companyName avatar');
 
-    if (!post) {
+    if (!short) {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html dir="rtl" lang="ar">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>المنشور غير موجود</title>
+          <title>الفيديو غير موجود</title>
         </head>
         <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 50px;">
-          <h1>المنشور غير موجود</h1>
-          <p>عذراً، لم نتمكن من العثور على هذا المنشور.</p>
+          <h1>الفيديو غير موجود</h1>
+          <p>عذراً، لم نتمكن من العثور على هذا الفيديو.</p>
         </body>
         </html>
       `);
     }
 
-    // Extract post details
-    const postTitle = post.text ? post.text.substring(0, 100) : 'منشور جديد';
-    const postDescription = post.text || 'شاهد هذا المنشور';
-    const authorName = post.user?.companyName || post.user?.name || 'مستخدم';
+    // Extract short details
+    const shortTitle = short.title || short.description?.substring(0, 100) || 'فيديو قصير';
+    const shortDescription = short.description || short.title || 'شاهد هذا الفيديو';
+    const authorName = short.user?.companyName || short.user?.name || 'مستخدم';
     
-    // Check for media (image or video)
-    const hasMedia = post.media && post.media.length > 0;
-    const mediaItem = hasMedia ? post.media[0] : null;
-    const hasImage = mediaItem && mediaItem.type === 'image';
-    const hasVideo = mediaItem && mediaItem.type === 'video';
+    // Get thumbnail and video URLs
+    let thumbnailUrl = short.thumbnailUrl;
+    let videoUrl = short.videoUrl;
     
-    // For images: use the image URL
-    // For videos: use the thumbnail URL
-    let imageUrl = null;
-    let videoUrl = null;
-    
-    if (hasImage) {
-      imageUrl = mediaItem.url;
-    } else if (hasVideo) {
-      imageUrl = mediaItem.thumbnail; // Use video thumbnail for preview
-      videoUrl = mediaItem.url;
-    }
-
-    // Build full image URL if exists (use larger version for social media)
-    let fullImageUrl = null;
+    // Build full URLs
+    let fullThumbnailUrl = null;
     let fullVideoUrl = null;
     
-    if (imageUrl) {
-      if (imageUrl.startsWith('http')) {
-        fullImageUrl = imageUrl;
+    if (thumbnailUrl) {
+      if (thumbnailUrl.startsWith('http')) {
+        fullThumbnailUrl = thumbnailUrl;
         // If Cloudinary image, transform to larger size for better preview
-        if (fullImageUrl.includes('cloudinary.com')) {
-          fullImageUrl = fullImageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
+        if (fullThumbnailUrl.includes('cloudinary.com')) {
+          fullThumbnailUrl = fullThumbnailUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill/');
         }
       } else {
-        fullImageUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
+        fullThumbnailUrl = `${req.protocol}://${req.get('host')}${thumbnailUrl}`;
       }
     }
     
@@ -81,33 +67,33 @@ router.get('/:postId', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mehnaty.ly - ${postTitle}</title>
+  <title>Mehnaty.ly - ${shortTitle}</title>
   
   <!-- Open Graph Meta Tags -->
-  <meta property="og:title" content="Mehnaty.ly - ${postTitle}">
+  <meta property="og:title" content="Mehnaty.ly - ${shortTitle}">
   <meta property="og:site_name" content="Mehnaty.ly">
-  <meta property="og:description" content="${postDescription}">
-  <meta property="og:type" content="${hasVideo ? 'video.other' : 'article'}">
-  <meta property="og:url" content="${req.protocol}://${req.get('host')}/p/${post._id}">
-  ${fullImageUrl ? `<meta property="og:image" content="${fullImageUrl}">
+  <meta property="og:description" content="${shortDescription}">
+  <meta property="og:type" content="video.other">
+  <meta property="og:url" content="${req.protocol}://${req.get('host')}/s/${short._id}">
+  ${fullThumbnailUrl ? `<meta property="og:image" content="${fullThumbnailUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:type" content="image/jpeg">` : ''}
   ${fullVideoUrl ? `<meta property="og:video" content="${fullVideoUrl}">
   <meta property="og:video:type" content="video/mp4">
-  <meta property="og:video:width" content="1280">
-  <meta property="og:video:height" content="720">` : ''}
+  <meta property="og:video:width" content="1080">
+  <meta property="og:video:height" content="1920">` : ''}
   
   <!-- Twitter Card Meta Tags -->
-  <meta name="twitter:card" content="${fullImageUrl ? 'summary_large_image' : 'summary'}">
-  <meta name="twitter:title" content="Mehnaty.ly - ${postTitle}">
+  <meta name="twitter:card" content="player">
+  <meta name="twitter:title" content="Mehnaty.ly - ${shortTitle}">
   <meta name="twitter:site" content="@Mehnaty_ly">
-  <meta name="twitter:description" content="${postDescription}">
-  ${fullImageUrl ? `<meta name="twitter:image" content="${fullImageUrl}">` : ''}
+  <meta name="twitter:description" content="${shortDescription}">
+  ${fullThumbnailUrl ? `<meta name="twitter:image" content="${fullThumbnailUrl}">` : ''}
   
   <!-- WhatsApp & Telegram Optimization -->
   <meta property="og:locale" content="ar_AR">
-  <meta name="description" content="${postDescription}">
+  <meta name="description" content="${shortDescription}">
   
   <style>
     * {
@@ -165,25 +151,11 @@ router.get('/:postId', async (req, res) => {
       word-wrap: break-word;
     }
     
-    .post-image {
+    .post-video {
       width: 100%;
       border-radius: 12px;
       margin-bottom: 20px;
-    }
-    
-    .placeholder-container {
-      width: 100%;
-      max-width: 250px;
-      height: 250px;
-      background: #EEE;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 120px;
-      font-weight: bold;
-      color: #333;
-      margin: 0 auto 20px;
+      max-height: 500px;
     }
     
     .footer {
@@ -216,12 +188,6 @@ router.get('/:postId', async (req, res) => {
       .post-text {
         font-size: 16px;
       }
-      
-      .placeholder-container {
-        max-width: 200px;
-        height: 200px;
-        font-size: 100px;
-      }
     }
   </style>
 </head>
@@ -233,21 +199,22 @@ router.get('/:postId', async (req, res) => {
     </div>
     
     <div class="content">
-      ${post.text ? `<div class="post-text">${post.text}</div>` : ''}
+      ${short.title ? `<h2 class="post-text">${short.title}</h2>` : ''}
+      ${short.description ? `<div class="post-text">${short.description}</div>` : ''}
       
-      ${hasVideo && fullVideoUrl ? 
-        `<video controls class="post-image" poster="${fullImageUrl}">
+      ${fullVideoUrl ? 
+        `<video controls class="post-video" poster="${fullThumbnailUrl}">
           <source src="${fullVideoUrl}" type="video/mp4">
           متصفحك لا يدعم تشغيل الفيديو.
         </video>` : 
-        fullImageUrl ? 
-        `<img src="${fullImageUrl}" alt="Post content" class="post-image">` : 
-        `<div class="placeholder-container">م</div>`
+        fullThumbnailUrl ? 
+        `<img src="${fullThumbnailUrl}" alt="Video thumbnail" class="post-video">` : 
+        ''
       }
     </div>
     
     <div class="footer">
-      <a href="${req.protocol}://${req.get('host')}/api/v1/posts/${post._id}" class="btn">عرض المنشور الكامل</a>
+      <a href="${req.protocol}://${req.get('host')}/api/v1/shorts/${short._id}" class="btn">مشاهدة الفيديو الكامل</a>
     </div>
   </div>
 </body>
@@ -256,7 +223,7 @@ router.get('/:postId', async (req, res) => {
 
     res.send(html);
   } catch (err) {
-    console.error('Error in permalink route:', err.message);
+    console.error('Error in short permalink route:', err.message);
     res.status(500).send(`
       <!DOCTYPE html>
       <html dir="rtl" lang="ar">
@@ -267,7 +234,7 @@ router.get('/:postId', async (req, res) => {
       </head>
       <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 50px;">
         <h1>حدث خطأ</h1>
-        <p>عذراً، حدث خطأ أثناء تحميل المنشور.</p>
+        <p>عذراً، حدث خطأ أثناء تحميل الفيديو.</p>
       </body>
       </html>
     `);

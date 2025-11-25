@@ -33,6 +33,7 @@ const emailVerificationRoutes = require("./routes/emailVerificationRoutes"); // 
 const shortRoutes = require("./routes/shortRoutes"); // Added shortRoutes
 const shortCommentRoutes = require("./routes/shortCommentRoutes"); // Added shortCommentRoutes
 const permalinkRoutes = require("./routes/permalinkRoutes"); // Added permalinkRoutes
+const shortPermalinkRoutes = require("./routes/shortPermalinkRoutes"); // Added shortPermalinkRoutes
 const passport = require("passport");
 const cookieSession = require("cookie-session");
 const path = require("path"); // Added path module
@@ -116,6 +117,7 @@ app.use("/api/v1/email-verification", emailVerificationRoutes); // Mount email v
 app.use("/api/v1/shorts", shortRoutes); // Mount shorts routes
 app.use("/api/v1/short-comments", shortCommentRoutes); // Mount short comments routes
 app.use("/p", permalinkRoutes); // Mount permalink routes (for social media preview)
+app.use("/s", shortPermalinkRoutes); // Mount short permalink routes (for social media preview)
 
 // PeerJS Server Setup (must be before 404 handler)
 const { ExpressPeerServer } = require('peer');
