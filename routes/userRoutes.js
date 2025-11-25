@@ -47,6 +47,42 @@ router.get("/me", protect, async (req, res) => {
   }
 });
 
+// @desc    Update current user profile
+// @route   PUT /api/v1/users/me
+// @access  Private
+router.put("/me", protect, async (req, res) => {
+  try {
+    const { name, phone, description, avatar, companyName, companyDescription, companyLogo } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // Update fields
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (description !== undefined) user.description = description;
+    if (avatar !== undefined) user.avatar = avatar;
+    if (companyName !== undefined) user.companyName = companyName;
+    if (companyDescription !== undefined) user.companyDescription = companyDescription;
+    if (companyLogo !== undefined) user.companyLogo = companyLogo;
+
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(user._id).select("-password");
+
+    res.json({
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err.message);
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 // @desc    Get user notifications
 // @route   GET /api/v1/users/me/notifications
 // @access  Private
