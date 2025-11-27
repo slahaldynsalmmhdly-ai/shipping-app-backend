@@ -66,9 +66,9 @@ router.get('/:tab', protect, async (req, res) => {
         repostCount: shortObj.shares || 0,
         reposters: reposters,
         visibility: shortObj.visibility || 'everyone',
-        allowComments: shortObj.allowComments !== false,
-        allowDownload: shortObj.allowDownload !== false,
-        allowDuet: shortObj.allowDuet !== false,
+        allowComments: shortObj.allowComments ?? true,
+        allowDownload: shortObj.allowDownload ?? true,
+        allowDuet: shortObj.allowDuet ?? true,
         contactNumbers: shortObj.contactNumbers || [],
         hashtags: shortObj.hashtags || [],
         viewedBy: undefined,
@@ -473,9 +473,9 @@ router.post('/:id/react', protect, async (req, res) => {
       repostCount: updatedShort.shares || 0,
       reposters: reposters,
       visibility: updatedShort.visibility || 'everyone',
-      allowComments: updatedShort.allowComments !== false,
-      allowDownload: updatedShort.allowDownload !== false,
-      allowDuet: updatedShort.allowDuet !== false,
+      allowComments: updatedShort.allowComments ?? true,
+      allowDownload: updatedShort.allowDownload ?? true,
+      allowDuet: updatedShort.allowDuet ?? true,
       viewedBy: undefined, // إخفاء البيانات الحساسة
       repostedBy: undefined // إخفاء البيانات الحساسة
     };
@@ -766,9 +766,9 @@ router.get('/search/:query', protect, async (req, res) => {
       const shortObj = short.toObject();
       return {
         ...shortObj,
-        allowComments: shortObj.allowComments !== false,
-        allowDownload: shortObj.allowDownload !== false,
-        allowDuet: shortObj.allowDuet !== false,
+        allowComments: shortObj.allowComments ?? true,
+        allowDownload: shortObj.allowDownload ?? true,
+        allowDuet: shortObj.allowDuet ?? true,
         hashtags: shortObj.hashtags || [],
         viewedBy: undefined,
         repostedBy: undefined
