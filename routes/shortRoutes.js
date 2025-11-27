@@ -32,9 +32,8 @@ router.get('/:tab', protect, async (req, res) => {
       // جلب فيديوهات من المتابعين فقط
       query.user = { $in: followingIds };
     } else if (tab === 'for-you') {
-      // جلب فيديوهات من غير المتابعين فقط (استبعد المتابعين وأنت)
-      const excludeIds = [...followingIds, req.user._id];
-      query.user = { $nin: excludeIds };
+      // جلب فيديوهات من غير المتابعين فقط (استبعد المتابعين)
+      query.user = { $nin: followingIds };
     }
     
     const shorts = await Short.find(query)
