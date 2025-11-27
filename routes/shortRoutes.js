@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Short = require('../models/Short');
+const Post = require('../models/Post');
 const User = require('../models/User');
 const ShortInteraction = require('../models/ShortInteraction');
 const { protect } = require('../middleware/authMiddleware');
@@ -36,16 +37,84 @@ router.get('/:tab', protect, async (req, res) => {
       query.user = { $nin: followingIds };
     }
     
+    // جلب الشورتس من نموذج Short
     const shorts = await Short.find(query)
       .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactPhone contactEmail contactMethods hashtags')
       .populate('user', 'companyName avatar')
       .populate('repostedBy.user', 'companyName avatar firstName lastName')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit) * 2); // جلب ضعف العدد للدمج مع Posts
+    
+    // جلب المنشورات اللي فيها فيديو من نموذج Post
+    let postQuery = { 
+      isPublished: true,
+      'media.0.type': 'video' // المنشور الأول فيه فيديو
+    };
+    
+    if (tab === 'following') {
+      postQuery.user = { $in: followingIds };
+    } else if (tab === 'for-you') {
+      postQuery.user = { $nin: followingIds };
+    }
+    
+    const videoPosts = await Post.find(postQuery)
+      .select('_id text media user reactions comments createdAt allowComments allowDownload allowDuet contactPhone contactEmail')
+      .populate('user', 'companyName avatar')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit) * 2);
+    
+    // تحويل Posts إلى صيغة Shorts
+    const formattedPosts = videoPosts.map(post => {
+      const postObj = post.toObject();
+      const firstVideo = postObj.media?.find(m => m.type === 'video');
+      
+      return {
+        _id: postObj._id,
+        title: postObj.text?.split('\n')[0]?.substring(0, 100) || '',
+        description: postObj.text || '',
+        videoUrl: firstVideo?.url || '',
+        thumbnailUrl: firstVideo?.thumbnail || '',
+        duration: firstVideo?.duration || 0,
+        user: postObj.user,
+        likes: postObj.reactions?.length || 0,
+        comments: postObj.comments?.length || 0,
+        views: postObj.impressions || 0,
+        shares: postObj.shares || 0,
+        viewedBy: [],
+        repostedBy: [],
+        createdAt: postObj.createdAt,
+        visibility: 'everyone',
+        allowComments: postObj.allowComments ?? true,
+        allowDownload: postObj.allowDownload ?? true,
+        allowDuet: postObj.allowDuet ?? true,
+        contactPhone: postObj.contactPhone || '',
+        contactEmail: postObj.contactEmail || '',
+        contactMethods: [],
+        hashtags: postObj.hashtags || [],
+        isLiked: postObj.reactions?.some(r => r.user.toString() === req.user._id.toString()) || false,
+        shortCommentCount: postObj.comments?.length || 0,
+        commentCount: postObj.comments?.length || 0,
+        isReposted: false,
+        repostCount: postObj.shares || 0,
+        reposters: [],
+        contactNumbers: [],
+        sourceType: 'post' // علامة للتمييز
+      };
+    });
+    
+    // دمج Shorts و Posts وترتيبها حسب التاريخ
+    const allVideos = [...shorts, ...formattedPosts]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(skip, skip + parseInt(limit));
     
     // إضافة isLiked، shortCommentCount، isReposted، reposters لكل شورت
-    const formattedShorts = shorts.map(short => {
+    const formattedShorts = allVideos.map(short => {
+      // إذا كان من Posts، نرجعه كما هو
+      if (short.sourceType === 'post') {
+        return short;
+      }
+      
+      // إذا كان من Shorts، نعالجه
       const shortObj = short.toObject();
       const userView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
       const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user._id.toString());
@@ -76,7 +145,9 @@ router.get('/:tab', protect, async (req, res) => {
       };
     });
     
-    const total = await Short.countDocuments(query);
+    const totalShorts = await Short.countDocuments(query);
+    const totalPosts = await Post.countDocuments(postQuery);
+    const total = totalShorts + totalPosts;
     
     res.json({
       success: true,
