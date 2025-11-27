@@ -58,7 +58,7 @@ router.get('/:tab', protect, async (req, res) => {
     }
     
     const videoPosts = await Post.find(postQuery)
-      .select('_id text media user reactions comments createdAt allowComments allowDownload allowDuet contactPhone contactEmail')
+      .select('_id text media user reactions comments createdAt allowComments allowDownload allowDuet contactPhone contactEmail contactMethods hashtags impressions shares viewedBy')
       .populate('user', 'companyName avatar')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit) * 2);
@@ -80,7 +80,7 @@ router.get('/:tab', protect, async (req, res) => {
         comments: postObj.comments?.length || 0,
         views: postObj.impressions || 0,
         shares: postObj.shares || 0,
-        viewedBy: [],
+        viewedBy: postObj.viewedBy || [],
         repostedBy: [],
         createdAt: postObj.createdAt,
         visibility: 'everyone',
@@ -89,7 +89,7 @@ router.get('/:tab', protect, async (req, res) => {
         allowDuet: postObj.allowDuet ?? true,
         contactPhone: postObj.contactPhone || '',
         contactEmail: postObj.contactEmail || '',
-        contactMethods: [],
+        contactMethods: postObj.contactMethods || [],
         hashtags: postObj.hashtags || [],
         isLiked: postObj.reactions?.some(r => r.user.toString() === req.user._id.toString()) || false,
         shortCommentCount: postObj.comments?.length || 0,
@@ -109,13 +109,13 @@ router.get('/:tab', protect, async (req, res) => {
     
     // إضافة isLiked، shortCommentCount، isReposted، reposters لكل شورت
     const formattedShorts = allVideos.map(short => {
-      // إذا كان من Posts، نرجعه كما هو
+      // إذا كان من Posts، هو مُعالج بالفعل
       if (short.sourceType === 'post') {
         return short;
       }
       
       // إذا كان من Shorts، نعالجه
-      const shortObj = short.toObject();
+      const shortObj = short;
       const userView = short.viewedBy.find(v => v.user.toString() === req.user._id.toString());
       const isReposted = short.repostedBy.some(r => r.user._id.toString() === req.user._id.toString());
       
