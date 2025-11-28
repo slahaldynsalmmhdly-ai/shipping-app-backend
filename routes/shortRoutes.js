@@ -43,12 +43,15 @@ router.get('/:tab', protect, async (req, res) => {
       { visibility: 'friends', user: { $in: mutualFriends } }
     ];
     
+    // ✅ استبعاد صريح للفيديوهات الخاصة (private)
+    query.visibility = { $ne: 'private' };
+    
     if (tab === 'following') {
-      // جلب فيديوهات من المتابعين فقط
-      query.user = { $in: followingIds };
+      // جلب فيديوهات من المتابعين فقط (استبعد المستخدم الحالي)
+      query.user = { $in: followingIds, $ne: req.user._id };
     } else if (tab === 'for-you') {
-      // جلب فيديوهات من غير المتابعين فقط (استبعد المتابعين)
-      query.user = { $nin: followingIds };
+      // جلب فيديوهات من غير المتابعين فقط (استبعد المتابعين والمستخدم الحالي)
+      query.user = { $nin: [...followingIds, req.user._id] };
     }
     
     // جلب الشورتس من نموذج Short
