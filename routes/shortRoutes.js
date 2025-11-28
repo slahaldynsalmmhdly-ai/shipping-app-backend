@@ -780,6 +780,72 @@ router.post('/:id/repost', protect, async (req, res) => {
   }
 });
 
+
+/**
+ * PUT /api/v1/shorts/:id
+ * تعديل إعدادات الشورت (الخصوصية، العنوان، الوصف، إلخ)
+ */
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const short = await Short.findById(req.params.id);
+
+    if (!short) {
+      return res.status(404).json({
+        success: false,
+        message: 'الشورت غير موجود'
+      });
+    }
+
+    // التحقق من أن المستخدم هو صاحب الشورت
+    if (short.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بتعديل هذا الشورت'
+      });
+    }
+
+    // الحقول المسموح بتعديلها
+    const allowedUpdates = [
+      'title',
+      'description',
+      'visibility',
+      'allowComments',
+      'allowDownload',
+      'allowDuet',
+      'location',
+      'contactPhone',
+      'contactEmail',
+      'contactMethods',
+      'hashtags'
+    ];
+
+    // تطبيق التحديثات
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        short[field] = req.body[field];
+      }
+    });
+
+    await short.save();
+
+    // إعادة جلب الشورت مع بيانات المستخدم
+    const updatedShort = await Short.findById(short._id)
+      .populate('user', 'companyName avatar firstName lastName');
+
+    res.json({
+      success: true,
+      message: 'تم تحديث الشورت بنجاح',
+      data: updatedShort
+    });
+  } catch (error) {
+    console.error('خطأ في تحديث الشورت:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء تحديث الشورت'
+    });
+  }
+});
+
 /**
  * DELETE /api/v1/shorts/:id
  * حذف شورت
