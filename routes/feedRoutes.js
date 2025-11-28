@@ -80,6 +80,12 @@ router.get('/', protect, async (req, res) => {
           { publishScope: null },
           { publishScope: 'home_and_category' }
         ] },
+        // استبعاد المنشورات التي فيها فيديو (تظهر في الشورتس فقط)
+        { $or: [
+          { 'media.0.type': { $ne: 'video' } },
+          { media: { $exists: false } },
+          { media: { $size: 0 } }
+        ] },
         // فلترة حسب الموقع (الدولة والمدينة)
         locationFilter
       ]
