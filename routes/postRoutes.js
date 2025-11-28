@@ -840,24 +840,70 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
 // @access  Private
 router.delete("/:id", protect, async (req, res) => {
   try {
+    console.log('[DELETE POST] Request received:', {
+      postId: req.params.id,
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userType: req.user?.userType,
+      timestamp: new Date().toISOString()
+    });
+
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ msg: "Post not found" });
+      console.log('[DELETE POST] Post not found:', req.params.id);
+      return res.status(404).json({ msg: "Post not found", postId: req.params.id });
     }
 
-    // Check user
-    if (post.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: "User not authorized" });
+    console.log('[DELETE POST] Post found:', {
+      postId: post._id.toString(),
+      postUserId: post.user.toString(),
+      requestUserId: req.user.id,
+      isRepost: post.isRepost,
+      isShort: post.isShort,
+      hasText: !!post.text,
+      hasMedia: post.media?.length > 0
+    });
+
+    // Check user - Enhanced authorization check
+    const postUserId = post.user.toString();
+    const requestUserId = req.user.id.toString();
+    
+    if (postUserId !== requestUserId) {
+      console.log('[DELETE POST] Authorization failed:', {
+        postUserId: postUserId,
+        requestUserId: requestUserId,
+        match: postUserId === requestUserId
+      });
+      return res.status(401).json({ 
+        msg: "User not authorized",
+        details: "You can only delete your own posts"
+      });
     }
 
-    await post.deleteOne(); // Use deleteOne() instead of remove()
+    console.log('[DELETE POST] Authorization successful, proceeding with deletion');
 
-    res.json({ msg: "Post removed" });
+    // Delete the post
+    await post.deleteOne();
+    
+    console.log('[DELETE POST] Post deleted successfully:', {
+      postId: req.params.id,
+      userId: req.user.id,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ msg: "Post removed", postId: req.params.id });
   } catch (err) {
-    console.error(err.message);
+    console.error('[DELETE POST] Error occurred:', {
+      error: err.message,
+      stack: err.stack,
+      postId: req.params.id,
+      userId: req.user?.id,
+      errorKind: err.kind
+    });
+    
     if (err.kind === "ObjectId") {
-      return res.status(404).json({ msg: "Post not found" });
+      return res.status(404).json({ msg: "Post not found", error: "Invalid post ID format" });
     }
     res.status(500).json({ message: "Server Error", error: err.message });
   }
