@@ -25,9 +25,23 @@ router.get('/:tab', protect, async (req, res) => {
     
     let query = { isActive: true, isPublic: true };
     
+    // Privacy filter: exclude private videos and friends-only videos from non-friends
+    // Private videos (visibility: 'private') should only appear in user's own profile
+    // Friends-only videos (visibility: 'friends') should only appear to friends
+    // Everyone videos (visibility: 'everyone') appear to all users
+    
     // احصل على المستخدم والمتابعين
-    const user = await User.findById(req.user._id).select('following');
+    const user = await User.findById(req.user._id).select('following followers');
     const followingIds = user.following || [];
+    const followerIds = user.followers || [];
+    
+    // Apply privacy filter
+    // Show only 'everyone' and 'friends' videos (friends = mutual following)
+    const mutualFriends = followingIds.filter(id => followerIds.includes(id));
+    query.$or = [
+      { visibility: 'everyone' },
+      { visibility: 'friends', user: { $in: mutualFriends } }
+    ];
     
     if (tab === 'following') {
       // جلب فيديوهات من المتابعين فقط
@@ -233,7 +247,7 @@ router.get('/', protect, async (req, res) => {
  */
 router.post('/', protect, async (req, res) => {
   try {
-        const { title, description, videoUrl, thumbnailUrl, duration, hashtags, category, privacy, allowComments, allowDownload, allowDuet, location, contactPhone, contactEmail, contactMethods } = req.body;
+        const { title, description, videoUrl, thumbnailUrl, duration, hashtags, category, privacy, visibility, allowComments, allowDownload, allowDuet, location, contactPhone, contactEmail, contactMethods } = req.body;
 
     if (!duration || duration <= 0) {
       return res.status(400).json({ message: 'مدة الفيديو غير صالحة' });
@@ -250,6 +264,7 @@ router.post('/', protect, async (req, res) => {
       hashtags: hashtags || [],
       category: category,
       privacy: privacy || 'public',
+      visibility: visibility || 'everyone', // Privacy setting: 'everyone', 'friends', 'private'
       allowComments: allowComments !== false,
       allowDownload: allowDownload !== false,
       allowDuet: allowDuet !== false,
