@@ -946,3 +946,82 @@ router.get('/suggestions/:query', protect, async (req, res) => {
 });
 
 module.exports = router;
+
+/**
+ * GET /api/v1/shorts/user/:userId
+ * Get all shorts for a specific user (for profile page)
+ */
+router.get('/user/:userId', protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user._id.toString();
+    
+    // Build query based on privacy settings
+    let query = { user: userId, isActive: true, isPublic: true };
+    
+    // If viewing own profile, show all videos (including private)
+    if (userId === currentUserId) {
+      // Show all videos (everyone, friends, private)
+      delete query.visibility;
+    } else {
+      // If viewing someone else's profile
+      const currentUser = await User.findById(currentUserId).select('following followers');
+      const followingIds = (currentUser.following || []).map(id => id.toString());
+      const followerIds = (currentUser.followers || []).map(id => id.toString());
+      
+      // Check if mutual friends
+      const isMutualFriend = followingIds.includes(userId) && followerIds.includes(userId);
+      
+      if (isMutualFriend) {
+        // Show 'everyone' and 'friends' videos
+        query.$or = [
+          { visibility: 'everyone' },
+          { visibility: 'friends' }
+        ];
+      } else {
+        // Show only 'everyone' videos
+        query.visibility = 'everyone';
+      }
+    }
+    
+    const shorts = await Short.find(query)
+      .select('_id title description videoUrl thumbnailUrl duration user likes comments views shares viewedBy repostedBy createdAt visibility allowComments allowDownload allowDuet contactPhone contactEmail contactMethods hashtags')
+      .populate('user', 'companyName avatar firstName lastName')
+      .sort({ createdAt: -1 });
+    
+    // Transform to match Post format for consistency
+    const formattedShorts = shorts.map(short => {
+      const shortObj = short.toObject();
+      return {
+        _id: shortObj._id,
+        text: `${shortObj.title}\n\n${shortObj.description}`,
+        videoUrl: shortObj.videoUrl,
+        thumbnailUrl: shortObj.thumbnailUrl,
+        duration: shortObj.duration,
+        user: shortObj.user,
+        reactions: [], // Shorts use 'likes' not 'reactions'
+        likes: shortObj.likes || 0,
+        comments: shortObj.comments || [],
+        views: shortObj.views || 0,
+        shares: shortObj.shares || 0,
+        viewedBy: shortObj.viewedBy || [],
+        repostedBy: shortObj.repostedBy || [],
+        createdAt: shortObj.createdAt,
+        visibility: shortObj.visibility || 'everyone',
+        allowComments: shortObj.allowComments ?? true,
+        allowDownload: shortObj.allowDownload ?? true,
+        allowDuet: shortObj.allowDuet ?? true,
+        contactPhone: shortObj.contactPhone || '',
+        contactEmail: shortObj.contactEmail || '',
+        contactMethods: shortObj.contactMethods || [],
+        hashtags: shortObj.hashtags || [],
+        isShort: true // Flag to identify as short
+      };
+    });
+    
+    res.json(formattedShorts);
+  } catch (error) {
+    console.error('Error fetching user shorts:', error);
+    res.status(500).json({ message: 'Failed to fetch user shorts' });
+  }
+});
