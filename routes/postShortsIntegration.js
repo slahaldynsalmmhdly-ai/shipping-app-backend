@@ -127,16 +127,49 @@ router.get("/", protect, async (req, res) => {
       return res.json({ posts });
     }
     
-    // الخوارزمية العادية للصفحة الرئيسية (بدون فلترة)
+    // الخوارزمية العادية للصفحة الرئيسية (مع فلترة الموقع)
+    
+    // بناء فلترة الموقع
+    const filterCountry = country === '' ? null : country;
+    const filterCity = city === '' ? null : city;
+    
+    console.log(`🔍 فلترة الموقع (الصفحة الرئيسية): country=${filterCountry}, city=${filterCity}`);
+    
+    const baseConditions = [
+      { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+      { publishScope: { $ne: 'category_only' } }
+    ];
+    
+    // إضافة فلترة الموقع إذا كانت محددة
+    if (filterCountry && filterCountry !== 'عام') {
+      console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
+      
+      if (filterCity) {
+        // فلترة حسب الدولة والمدينة
+        baseConditions.push({
+          $or: [
+            { country: filterCountry, city: filterCity },
+            { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] }
+          ]
+        });
+      } else {
+        // فلترة حسب الدولة فقط
+        baseConditions.push({ country: filterCountry });
+      }
+    } else {
+      console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
+    }
+    
     const allPosts = await Post.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      publishScope: { $ne: 'category_only' }
+      $and: baseConditions
     })
       .populate('user', 'name avatar userType companyName')
       .populate('reactions.user', 'name avatar')
       .sort({ isFeatured: -1, createdAt: -1 })
       .limit(parseInt(limit) || 20)
       .skip(parseInt(skip) || 0);
+    
+    console.log(`✅ عدد المنشورات: ${allPosts.length}`);
     
     return res.json(allPosts);
   } catch (err) {
