@@ -137,7 +137,12 @@ router.get("/", protect, async (req, res) => {
     
     const baseConditions = [
       { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
-      { publishScope: { $ne: 'category_only' } }
+      // عرض المنشورات التي ليست category_only (بما في ذلك القيم الفارغة)
+      { $or: [
+        { publishScope: { $ne: 'category_only' } },
+        { publishScope: { $exists: false } },
+        { publishScope: null }
+      ]}
     ];
     
     // إضافة فلترة الموقع إذا كانت محددة
