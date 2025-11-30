@@ -228,12 +228,51 @@ router.get('/', protect, async (req, res) => {
     const following = currentUser?.following || [];
     const notifications = currentUser?.notifications || [];
 
+    // بناء فلترة الموقع (مثل feedRoutes.js)
+    const filterCountry = country === '' ? null : country;
+    const filterCity = city === '' ? null : city;
+    
+    console.log(`🔍 فلترة الموقع (الصفحة الرئيسية): country=${filterCountry}, city=${filterCity}`);
+    
+    let locationFilter = {};
+    
+    if (!filterCountry || filterCountry === 'عام') {
+      // عرض جميع المنشورات - لا نضيف شرط موقع
+      console.log('📍 عرض جميع المنشورات (بدون فلتر موقع)');
+      locationFilter = {};
+    } else {
+      // فلترة صارمة: عرض المنشورات من نفس الدولة فقط
+      console.log(`📍 فلترة صارمة - منشورات من: ${filterCountry}${filterCity ? ` - ${filterCity}` : ''}`);
+      
+      if (filterCity) {
+        // إذا كانت المدينة محددة: عرض منشورات من نفس المدينة أو بدون مدينة (لكن نفس الدولة)
+        locationFilter = {
+          $or: [
+            { country: filterCountry, city: filterCity },
+            { country: filterCountry, $or: [{ city: null }, { city: { $exists: false } }] }
+          ]
+        };
+      } else {
+        // إذا كانت الدولة فقط محددة: عرض منشورات من نفس الدولة فقط
+        locationFilter = { country: filterCountry };
+      }
+    }
+
     // Find all published posts, excluding those hidden from current user's home feed
     // وفقط المنشورات التي يجب أن تظهر في الصفحة الرئيسية
+    const baseConditions = [
+      { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+      { hiddenFromHomeFeedFor: { $ne: req.user.id } },
+      { publishScope: { $ne: 'category_only' } }
+    ];
+    
+    // إضافة فلترة الموقع إذا كانت موجودة
+    if (Object.keys(locationFilter).length > 0) {
+      baseConditions.push(locationFilter);
+    }
+    
     const allPosts = await Post.find({ 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }],
-      hiddenFromHomeFeedFor: { $ne: req.user.id },
-      publishScope: { $ne: 'category_only' } // إخفاء المنشورات التي فقط للفئة
+      $and: baseConditions
     })
       .populate('user', ['name', 'avatar', 'userType', 'companyName'])
       .populate({
