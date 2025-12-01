@@ -8,45 +8,36 @@ const ReportSchema = new mongoose.Schema({
   },
   reportType: {
     type: String,
-    enum: ['post', 'user', 'review'],
+    enum: ['post', 'user', 'review', 'comment', 'reply', 'video'],
     required: true,
   },
   targetId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     required: true,
-    refPath: 'targetModel',
   },
   targetModel: {
     type: String,
-    required: true,
-    enum: ['Post', 'User', 'Review'],
+    enum: ['Post', 'User', 'Review', 'Comment', 'Reply', 'Video', 'Short'],
   },
   reason: {
     type: String,
     required: true,
-    enum: [
-      'scam',
-      'inappropriate',
-      'spam',
-      'communication_issue',
-      'other'
-    ],
   },
   details: {
     type: String,
-    required: true,
+    default: '',
   },
   media: {
-    type: String,
-    default: '',
+    type: [String],
+    default: [],
   },
   loadingDate: {
     type: String,
-    default: '',
+    default: null,
   },
   unloadingDate: {
     type: String,
-    default: '',
+    default: null,
   },
   status: {
     type: String,
@@ -56,4 +47,3 @@ const ReportSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model("Report", ReportSchema);
-

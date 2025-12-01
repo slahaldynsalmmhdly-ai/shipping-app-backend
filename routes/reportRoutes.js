@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const Report = require("../models/Report");
 const { protect } = require("../middleware/authMiddleware");
 
-// @desc    Submit a report (post, user, or review)
+// @desc    Submit a report (post, user, review, comment, reply, video)
 // @route   POST /api/v1/reports
 // @access  Private
 router.post(
@@ -14,23 +14,21 @@ router.post(
     const { reportType, targetId, reason, details, media, loadingDate, unloadingDate } = req.body;
 
     // Validate reportType
-    const validReportTypes = ['post', 'user', 'review'];
+    const validReportTypes = ['post', 'user', 'review', 'comment', 'reply', 'video'];
     if (!reportType || !validReportTypes.includes(reportType)) {
       res.status(400);
       throw new Error("Invalid or missing report type");
     }
 
-    // Validate reason
-    const validReasons = ['scam', 'inappropriate', 'spam', 'communication_issue', 'other'];
-    if (!reason || !validReasons.includes(reason)) {
+    // Validate required fields
+    if (!targetId) {
       res.status(400);
-      throw new Error("Invalid or missing reason");
+      throw new Error("Target ID is required");
     }
 
-    // Validate required fields
-    if (!targetId || !details || !details.trim()) {
+    if (!reason || !reason.trim()) {
       res.status(400);
-      throw new Error("Target ID and details are required");
+      throw new Error("Reason is required");
     }
 
     // Determine target model based on report type
@@ -41,6 +39,12 @@ router.post(
       targetModel = 'User';
     } else if (reportType === 'review') {
       targetModel = 'Review';
+    } else if (reportType === 'comment') {
+      targetModel = 'Comment';
+    } else if (reportType === 'reply') {
+      targetModel = 'Reply';
+    } else if (reportType === 'video') {
+      targetModel = 'Short'; // Assuming videos are stored as Shorts
     }
 
     // Create report
@@ -50,16 +54,16 @@ router.post(
       targetId,
       targetModel,
       reason,
-      details,
-      media: media || '',
-      loadingDate: loadingDate || '',
-      unloadingDate: unloadingDate || '',
+      details: details || '',
+      media: Array.isArray(media) ? media : (media ? [media] : []),
+      loadingDate: loadingDate || null,
+      unloadingDate: unloadingDate || null,
     });
 
     const createdReport = await report.save();
 
     res.status(201).json({
-      message: "تم إرسال البلاغ بنجاح. سيتم مراجعته من قبل فريقنا.",
+      message: "Report submitted successfully",
       report: createdReport
     });
   })
@@ -80,5 +84,50 @@ router.get(
   })
 );
 
-module.exports = router;
+// @desc    Get user's own reports
+// @route   GET /api/v1/reports/my-reports
+// @access  Private
+router.get(
+  "/my-reports",
+  protect,
+  asyncHandler(async (req, res) => {
+    const reports = await Report.find({ reporter: req.user._id })
+      .sort({ createdAt: -1 });
 
+    res.json({ data: reports });
+  })
+);
+
+// @desc    Update report status (admin only - for future use)
+// @route   PATCH /api/v1/reports/:id/status
+// @access  Private/Admin
+router.patch(
+  "/:id/status",
+  protect,
+  asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    
+    const validStatuses = ['pending', 'reviewed', 'resolved', 'dismissed'];
+    if (!status || !validStatuses.includes(status)) {
+      res.status(400);
+      throw new Error("Invalid status");
+    }
+
+    const report = await Report.findById(req.params.id);
+    
+    if (!report) {
+      res.status(404);
+      throw new Error("Report not found");
+    }
+
+    report.status = status;
+    const updatedReport = await report.save();
+
+    res.json({
+      message: "Report status updated successfully",
+      report: updatedReport
+    });
+  })
+);
+
+module.exports = router;
