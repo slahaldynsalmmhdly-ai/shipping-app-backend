@@ -169,8 +169,8 @@ const PostSchema = new mongoose.Schema({
   postType: {
     type: String,
     enum: {
-      values: ['ابحث عن موظفين', 'ابحث عن وظيفة'],
-      message: 'PostType must be either "ابحث عن موظفين" or "ابحث عن وظيفة"'
+      values: ['ابحث عن موظفين', 'ابحث عن وظيفة', 'Looking for employees', 'Looking for a job'],
+      message: 'PostType must be a valid value'
     },
     default: null,
     required: false,
