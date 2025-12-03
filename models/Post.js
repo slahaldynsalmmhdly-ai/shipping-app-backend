@@ -148,18 +148,31 @@ const PostSchema = new mongoose.Schema({
     type: String,
     enum: {
       values: [
-        // تصنيفات الوظائف (من JobsView.tsx)
+        // تصنيفات الوظائف (من JobsView.tsx) - Arabic
         'سائق خاص', 'حارس أمن', 'طباخ', 'محاسب', 'مهندس مدني',
         'طبيب/ممرض', 'نجار', 'كاتب محتوى', 'كهربائي', 'ميكانيكي',
         'بائع / كاشير', 'مبرمج', 'مصمم جرافيك', 'مترجم', 'مدرس خصوصي',
         'مدير مشاريع', 'خدمة عملاء', 'مقدم طعام', 'توصيل', 'حلاق / خياط', 'مزارع',
         
-        // تصنيفات الحراج (من HarajView.tsx)
+        // تصنيفات الحراج (من HarajView.tsx) - Arabic
         'سيارات', 'عقارات', 'أجهزة منزلية', 'أثاث ومفروشات', 'جوالات',
         'لابتوبات وكمبيوتر', 'كاميرات وتصوير', 'ألعاب فيديو', 'ملابس وموضة',
         'ساعات ومجوهرات', 'حيوانات أليفة', 'طيور', 'معدات ثقيلة', 'قطع غيار',
         'تحف ومقتنيات', 'كتب ومجلات', 'أدوات رياضية', 'مستلزمات أطفال',
-        'خيم وتخييم', 'أرقام مميزة', 'نقل عفش'
+        'خيم وتخييم', 'أرقام مميزة', 'نقل عفش',
+
+        // Job Categories - English
+        'Private Driver', 'Security Guard', 'Chef', 'Accountant', 'Civil Engineer',
+        'Doctor/Nurse', 'Carpenter', 'Content Writer', 'Electrician', 'Mechanic',
+        'Sales / Cashier', 'Programmer', 'Graphic Designer', 'Translator', 'Tutor',
+        'Project Manager', 'Customer Service', 'Food Server', 'Delivery', 'Barber / Tailor', 'Farmer',
+
+        // Haraj Categories - English
+        'Cars', 'Real Estate', 'Home Appliances', 'Furniture', 'Mobile Phones',
+        'Laptops & Computers', 'Cameras & Photography', 'Video Games', 'Clothing & Fashion',
+        'Watches & Jewelry', 'Pets', 'Birds', 'Heavy Equipment', 'Spare Parts',
+        'Collectibles', 'Books & Magazines', 'Sports Equipment', 'Baby Items',
+        'Camping & Tents', 'Special Numbers', 'Moving Services'
       ],
       message: 'Category must be a valid value'
     },
@@ -169,7 +182,12 @@ const PostSchema = new mongoose.Schema({
   postType: {
     type: String,
     enum: {
-      values: ['ابحث عن موظفين', 'ابحث عن وظيفة', 'Looking for employees', 'Looking for a job'],
+      values: [
+        // Arabic
+        'ابحث عن موظفين', 'ابحث عن وظيفة',
+        // English
+        'Looking for employees', 'Looking for a job'
+      ],
       message: 'PostType must be a valid value'
     },
     default: null,
@@ -256,7 +274,12 @@ const PostSchema = new mongoose.Schema({
   },
   contactMethods: [{
     type: String,
-    enum: ['واتساب', 'اتصال', 'بريد إلكتروني', 'الكل'],
+    enum: [
+      // Arabic
+      'واتساب', 'اتصال', 'بريد إلكتروني', 'الكل',
+      // English
+      'Whatsapp', 'Call', 'Email', 'All'
+    ],
   }],
   
   // Video/Shorts specific fields
@@ -308,4 +331,3 @@ PostSchema.index({ viewedBy: 1 });
 PostSchema.index({ isShort: 1, createdAt: -1 }); // For shorts filtering
 
 module.exports = mongoose.model('Post', PostSchema);
-
