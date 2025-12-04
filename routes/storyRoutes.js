@@ -224,6 +224,36 @@ router.post('/:id/view', protect, async (req, res) => {
   }
 });
 
+// @desc    Get story viewers
+// @route   GET /api/v1/stories/:id/viewers
+// @access  Private
+router.get('/:id/viewers', protect, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id)
+      .populate('views.user', 'name avatar userType companyName');
+
+    if (!story) {
+      return res.status(404).json({ message: 'القصة غير موجودة' });
+    }
+
+    // التحقق من أن المستخدم هو صاحب القصة
+    if (story.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'غير مصرح لك بعرض مشاهدات هذه القصة' });
+    }
+
+    // إرجاع قائمة المشاهدين مع معلومات تفصيلية
+    const viewers = story.views.map(view => ({
+      user: view.user,
+      viewedAt: view.viewedAt
+    }));
+
+    res.json(viewers);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'خطأ في الخادم', error: err.message });
+  }
+});
+
 // @desc    Delete a story
 // @route   DELETE /api/v1/stories/:id
 // @access  Private
