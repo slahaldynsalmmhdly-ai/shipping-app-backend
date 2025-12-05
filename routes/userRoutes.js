@@ -511,5 +511,52 @@ router.get("/:userId", protect, async (req, res) => {
   }
 });
 
+// @desc    Add custom section to profile
+// @route   POST /api/v1/users/sections
+// @access  Private
+router.post("/sections", protect, async (req, res) => {
+  try {
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ message: 'Title and content are required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.sections.push({ title, content });
+    await user.save();
+
+    const addedSection = user.sections[user.sections.length - 1];
+    res.json({ section: addedSection });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Delete custom section from profile
+// @route   DELETE /api/v1/users/sections/:sectionId
+// @access  Private
+router.delete("/sections/:sectionId", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.sections = user.sections.filter(s => s._id.toString() !== req.params.sectionId);
+    await user.save();
+
+    res.json({ message: 'Section deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
 

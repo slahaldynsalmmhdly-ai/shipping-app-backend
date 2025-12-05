@@ -229,6 +229,12 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Custom profile sections
+  sections: [{
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
   // AI Bot Settings removed - all bot features disabled
 }, { timestamps: true });
 
