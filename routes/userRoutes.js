@@ -424,5 +424,52 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
+// @desc    Get user profile by ID
+// @route   GET /api/v1/users/:userId
+// @access  Private
+router.get("/:userId", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select('-password')
+      .populate('following', 'name avatar')
+      .populate('followers', 'name avatar');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // حساب عدد المنشورات
+    const Post = require('../models/Post');
+    const postsCount = await Post.countDocuments({ user: user._id });
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      cover: user.coverImage,
+      bio: user.description,
+      phone: user.phone,
+      userType: user.userType,
+      companyName: user.companyName,
+      companyDescription: user.companyDescription,
+      companyLogo: user.companyLogo,
+      followers: user.followers?.length || 0,
+      following: user.following?.length || 0,
+      postsCount: postsCount,
+      city: user.city,
+      country: user.country,
+      address: user.address,
+      createdAt: user.createdAt
+    });
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 module.exports = router;
 
