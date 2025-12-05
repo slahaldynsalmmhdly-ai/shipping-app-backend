@@ -1,7 +1,28 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
-const User = require("../models/User");
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const { protect } = require('../middleware/authMiddleware');
+const User = require('../models/User');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure storage for profile images
+const profileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'shipping-app/profiles',
+    resource_type: 'image',
+  },
+});
+
+const uploadProfile = multer({ storage: profileStorage });
 const Post = require("../models/Post");
 const ShipmentAd = require("../models/ShipmentAd");
 const EmptyTruckAd = require("../models/EmptyTruckAd");
@@ -47,10 +68,10 @@ router.get("/me", protect, async (req, res) => {
   }
 });
 
-// @desc    Update current user profile
+/// @desc    Update user profile
 // @route   PUT /api/v1/users/me
 // @access  Private
-router.put("/me", protect, async (req, res) => {
+router.put("/me", protect, uploadProfile.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, phone, description, avatar, companyName, companyDescription, companyLogo, customDetails } = req.body;
 
@@ -60,11 +81,21 @@ router.put("/me", protect, async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    // Update fields
+    // Handle uploaded files
+    if (req.files) {
+      if (req.files.avatar && req.files.avatar[0]) {
+        user.avatar = req.files.avatar[0].path;
+      }
+      if (req.files.cover && req.files.cover[0]) {
+        user.coverImage = req.files.cover[0].path;
+      }
+    }
+
+    // Update text fields
     if (name !== undefined) user.name = name;
     if (phone !== undefined) user.phone = phone;
     if (description !== undefined) user.description = description;
-    if (avatar !== undefined) user.avatar = avatar;
+    if (avatar !== undefined && !req.files?.avatar) user.avatar = avatar;
     if (companyName !== undefined) user.companyName = companyName;
     if (companyDescription !== undefined) user.companyDescription = companyDescription;
     if (companyLogo !== undefined) user.companyLogo = companyLogo;
@@ -442,6 +473,14 @@ router.get("/:userId", protect, async (req, res) => {
     const Post = require('../models/Post');
     const postsCount = await Post.countDocuments({ user: user._id });
 
+    // حساب عدد الإعجابات على جميع منشورات المستخدم
+    const userPosts = await Post.find({ user: user._id });
+    const totalLikes = userPosts.reduce((sum, post) => {
+      const reactions = post.reactions || [];
+      const likesCount = reactions.filter(r => !r.type || r.type === 'like').length;
+      return sum + likesCount;
+    }, 0);
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -457,6 +496,7 @@ router.get("/:userId", protect, async (req, res) => {
       followers: user.followers?.length || 0,
       following: user.following?.length || 0,
       postsCount: postsCount,
+      totalLikes: totalLikes,
       city: user.city,
       country: user.country,
       address: user.address,
