@@ -132,6 +132,9 @@ router.get("/me/notifications", protect, async (req, res) => {
     }).populate({
       path: "notifications.emptyTruckAd",
       select: "currentLocation preferredDestination additionalNotes media",
+    }).populate({
+      path: "notifications.short",
+      select: "title description videoUrl thumbnailUrl",
     }).sort({"notifications.createdAt": -1});
 
     if (!user) {
@@ -174,6 +177,7 @@ router.get("/me/notifications", protect, async (req, res) => {
 
       return {
         ...notif.toObject(), // Convert mongoose document to plain object
+        isRead: notif.read,  // إضافة isRead للتوافق مع الواجهة الأمامية
         comment: commentData, // Attach the found comment object
         reply: replyData,     // Attach the found reply object
       };
