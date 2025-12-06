@@ -3,6 +3,7 @@ const router = express.Router();
 const ShortComment = require('../models/ShortComment');
 const Short = require('../models/Short');
 const { protect } = require('../middleware/authMiddleware');
+const { createShortCommentNotification, createShortReplyNotification, createShortCommentLikeNotification, createShortReplyLikeNotification } = require('../utils/notificationHelper');
 
 /**
  * POST /api/v1/short-comments/:shortId
@@ -32,6 +33,9 @@ router.post('/:shortId', protect, async (req, res) => {
 
     // تحديث عدد التعليقات
     await Short.findByIdAndUpdate(shortId, { $inc: { comments: 1 } });
+
+    // إرسال إشعار لصاحب الفيديو
+    await createShortCommentNotification(req.user._id, short.user.toString(), shortId, comment._id);
 
     // جلب التعليق مع بيانات المستخدم
     const populatedComment = await comment.populate('user', 'companyName avatar firstName lastName');
@@ -125,15 +129,22 @@ router.post('/:commentId/like', protect, async (req, res) => {
     // التحقق من وجود الإعجاب بالفعل
     const existingLike = comment.likes.find(like => like.user.toString() === req.user._id.toString());
     
+    let isNewLike = false;
     if (existingLike) {
       // إزالة الإعجاب (تبديل)
       comment.likes = comment.likes.filter(like => like.user.toString() !== req.user._id.toString());
     } else {
       // إضافة الإعجاب
       comment.likes.push({ user: req.user._id });
+      isNewLike = true;
     }
     
     await comment.save();
+
+    // إرسال إشعار إذا كان إعجاب جديد
+    if (isNewLike) {
+      await createShortCommentLikeNotification(req.user._id, comment.user.toString(), comment.short, commentId);
+    }
 
     res.json({
       success: true,
@@ -199,6 +210,10 @@ router.post('/:commentId/reply', protect, async (req, res) => {
     comment.replies.push(reply);
     await comment.save();
 
+    // إرسال إشعار لصاحب التعليق
+    const replyId = comment.replies[comment.replies.length - 1]._id;
+    await createShortReplyNotification(req.user._id, comment.user.toString(), comment.short, commentId, replyId);
+
     // جلب التعليق مع البيانات المحدثة
     const updatedComment = await ShortComment.findById(commentId)
       .populate('user', 'companyName avatar firstName lastName')
@@ -263,6 +278,9 @@ router.post('/:commentId/replies/:replyIndex/like', protect, async (req, res) =>
     // إضافة الإعجاب
     reply.likes.push({ user: req.user._id });
     await comment.save();
+
+    // إرسال إشعار لصاحب الرد
+    await createShortReplyLikeNotification(req.user._id, reply.user.toString(), comment.short, commentId, reply._id);
 
     res.json({
       success: true,

@@ -5,6 +5,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const ShortInteraction = require('../models/ShortInteraction');
 const { protect } = require('../middleware/authMiddleware');
+const { createShortLikeNotification } = require('../utils/notificationHelper');
 // تم إزالة smartShortsAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 
 /**
@@ -441,6 +442,11 @@ router.post('/:id/like', protect, async (req, res) => {
     }
 
     await short.save();
+
+    // إرسال إشعار إذا كان إعجاب جديد
+    if (liked) {
+      await createShortLikeNotification(req.user._id, short.user.toString(), short._id);
+    }
 
     res.json({
       success: true,

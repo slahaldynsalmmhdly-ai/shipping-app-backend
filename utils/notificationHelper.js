@@ -18,7 +18,13 @@ function generateNotificationMessage(notificationType, senderName) {
     'reply_like': `قام ${senderName} بالإعجاب بردك`,
     'new_message': `أرسل ${senderName} رسالة جديدة`,
     'new_call': `اتصل ${senderName} بك`,
-    'ai_generated_post': 'AI قام بنشر إعلان للأسطول الفارغ'
+    'ai_generated_post': 'AI قام بنشر إعلان للأسطول الفارغ',
+    // إشعارات الشورتس
+    'short_like': `قام ${senderName} بالإعجاب بفيديوك`,
+    'short_comment': `علق ${senderName} على فيديوك`,
+    'short_reply': `رد ${senderName} على تعليقك في الفيديو`,
+    'short_comment_like': `قام ${senderName} بالإعجاب بتعليقك في الفيديو`,
+    'short_reply_like': `قام ${senderName} بالإعجاب بردك في الفيديو`
   };
   
   return messages[notificationType] || 'إشعار جديد';
@@ -265,11 +271,183 @@ async function createCallNotification(senderId, receiverId, callType, callLogId)
   }
 }
 
+/**
+ * إنشاء إشعار للإعجاب بفيديو (شورت)
+ */
+async function createShortLikeNotification(senderId, receiverId, shortId) {
+  try {
+    if (senderId === receiverId) {
+      return;
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'short_like',
+      sender: senderId,
+      itemType: 'short',
+      shortId: shortId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('short_like', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار الإعجاب بالفيديو:', error);
+  }
+}
+
+/**
+ * إنشاء إشعار للتعليق على فيديو (شورت)
+ */
+async function createShortCommentNotification(senderId, receiverId, shortId, commentId) {
+  try {
+    if (senderId === receiverId) {
+      return;
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'short_comment',
+      sender: senderId,
+      itemType: 'short',
+      shortId: shortId,
+      commentId: commentId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('short_comment', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار التعليق على الفيديو:', error);
+  }
+}
+
+/**
+ * إنشاء إشعار للرد على تعليق في فيديو (شورت)
+ */
+async function createShortReplyNotification(senderId, receiverId, shortId, commentId, replyId) {
+  try {
+    if (senderId === receiverId) {
+      return;
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'short_reply',
+      sender: senderId,
+      itemType: 'short',
+      shortId: shortId,
+      commentId: commentId,
+      replyId: replyId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('short_reply', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار الرد في الفيديو:', error);
+  }
+}
+
+/**
+ * إنشاء إشعار للإعجاب بتعليق في فيديو (شورت)
+ */
+async function createShortCommentLikeNotification(senderId, receiverId, shortId, commentId) {
+  try {
+    if (senderId === receiverId) {
+      return;
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'short_comment_like',
+      sender: senderId,
+      itemType: 'short',
+      shortId: shortId,
+      commentId: commentId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('short_comment_like', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار الإعجاب بالتعليق في الفيديو:', error);
+  }
+}
+
+/**
+ * إنشاء إشعار للإعجاب بالرد في فيديو (شورت)
+ */
+async function createShortReplyLikeNotification(senderId, receiverId, shortId, commentId, replyId) {
+  try {
+    if (senderId === receiverId) {
+      return;
+    }
+    
+    const sender = await User.findById(senderId).select('name');
+    if (!sender) return;
+    
+    const notification = {
+      type: 'short_reply_like',
+      sender: senderId,
+      itemType: 'short',
+      shortId: shortId,
+      commentId: commentId,
+      replyId: replyId,
+      read: false,
+      createdAt: new Date(),
+      message: generateNotificationMessage('short_reply_like', sender.name)
+    };
+    
+    await User.findByIdAndUpdate(
+      receiverId,
+      { $push: { notifications: notification } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء إشعار الإعجاب بالرد في الفيديو:', error);
+  }
+}
+
 module.exports = {
   createFollowingPostNotifications,
   deleteFollowingPostNotifications,
   createLikeNotification,
   createCommentNotification,
   createCallNotification,
-  generateNotificationMessage
+  generateNotificationMessage,
+  // إشعارات الشورتس
+  createShortLikeNotification,
+  createShortCommentNotification,
+  createShortReplyNotification,
+  createShortCommentLikeNotification,
+  createShortReplyLikeNotification
 };
