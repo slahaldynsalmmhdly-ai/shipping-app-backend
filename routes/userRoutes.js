@@ -562,5 +562,32 @@ router.delete("/sections/:sectionId", protect, async (req, res) => {
   }
 });
 
+// @desc    Delete a single notification
+// @route   DELETE /api/v1/users/me/notifications/:id
+// @access  Private
+router.delete("/me/notifications/:id", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    const notification = user.notifications.id(req.params.id);
+    if (!notification) {
+      return res.status(404).json({ msg: "Notification not found" });
+    }
+
+    // Remove notification using pull
+    user.notifications.pull(req.params.id);
+    await user.save();
+    
+    res.json({ msg: "Notification deleted successfully" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 module.exports = router;
 
