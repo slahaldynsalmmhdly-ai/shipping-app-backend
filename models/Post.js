@@ -281,6 +281,10 @@ const PostSchema = new mongoose.Schema({
       'Whatsapp', 'Call', 'Email', 'All'
     ],
   }],
+  contactDisabled: {
+    type: Boolean,
+    default: false, // true if contact is disabled by owner
+  },
   
   // Video/Shorts specific fields
   isShort: {

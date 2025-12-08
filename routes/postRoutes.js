@@ -284,30 +284,8 @@ router.get('/', protect, async (req, res) => {
       })
       .lean();
 
-    // عرض جميع المنشورات (بدون فلتر متابعة)
-    const filteredPosts = allPosts;
-
-    // توزيع 100%: منشور واحد فقط من كل مستخدم (مثل Facebook)
-    const userPostsMap = new Map();
-    filteredPosts.forEach(post => {
-      const userId = post.user._id.toString();
-      if (!userPostsMap.has(userId)) {
-        userPostsMap.set(userId, []);
-      }
-      userPostsMap.get(userId).push(post);
-    });
-    
-    // أخذ أحدث منشور من كل مستخدم
-    const distributedPosts = [];
-    userPostsMap.forEach((userPosts) => {
-      // ترتيب حسب التاريخ (الأحدث أولاً)
-      userPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      // أخذ الأحدث فقط
-      distributedPosts.push(userPosts[0]);
-    });
-    
-    // ترتيب بسيط وسريع حسب التفاعلات والوقت (بدون AI)
-    const sortedPosts = distributedPosts.sort((a, b) => {
+    // عرض جميع المنشورات مرتبة حسب التفاعل والتاريخ
+    const sortedPosts = allPosts.sort((a, b) => {
       // المنشورات المميزة تظهر أولاً دائماً
       const aFeatured = a.isFeatured && (!a.featuredUntil || new Date(a.featuredUntil) > new Date());
       const bFeatured = b.isFeatured && (!b.featuredUntil || new Date(b.featuredUntil) > new Date());
@@ -1066,7 +1044,7 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(400).json({ msg: "Cannot edit a repost" });
     }
 
-    const { text, media, contactPhone, contactEmail, contactMethods } = req.body;
+    const { text, media, contactPhone, contactEmail, contactMethods, contactDisabled } = req.body;
 
     // Update fields
     if (text !== undefined) {
@@ -1083,6 +1061,9 @@ router.put("/:id", protect, async (req, res) => {
     }
     if (contactMethods !== undefined) {
       post.contactMethods = contactMethods;
+    }
+    if (contactDisabled !== undefined) {
+      post.contactDisabled = contactDisabled;
     }
 
     await post.save();
