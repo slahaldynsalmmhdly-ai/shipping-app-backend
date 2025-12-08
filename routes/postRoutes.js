@@ -284,21 +284,8 @@ router.get('/', protect, async (req, res) => {
       })
       .lean();
 
-    // تم تعديل النظام: منشورات المتابعين لا تظهر في الصفحة الرئيسية أبداً (100% إشعارات فقط)
-    const filteredPosts = [];
-    
-    for (const post of allPosts) {
-      // إخفاء منشورات المتابعين تماماً (100% إشعارات فقط)
-      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
-      
-      if (isFollowing) {
-        // منشورات المتابعين لا تظهر في الصفحة الرئيسية أبداً
-        continue;
-      }
-      
-      // غير المتابعين فقط: يظهر في الصفحة الرئيسية
-      filteredPosts.push(post);
-    }
+    // عرض جميع المنشورات (بدون فلتر متابعة)
+    const filteredPosts = allPosts;
 
     // توزيع 100%: منشور واحد فقط من كل مستخدم (مثل Facebook)
     const userPostsMap = new Map();
