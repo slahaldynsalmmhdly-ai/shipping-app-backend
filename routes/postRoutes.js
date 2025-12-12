@@ -220,11 +220,12 @@ router.get('/', protect, async (req, res) => {
         const following = currentUser?.following || [];
         
         if (following.length > 0) {
-          // جلب فيديوهات المتابعين
+          // جلب فيديوهات المتابعين (فقط الشورتس)
           const followingVideos = await Post.find({
             $and: [
               { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
               { 'media.type': 'video' },
+              { isShort: true }, // فقط الفيديوهات المنشورة من صفحة الشورتس
               { user: { $in: following } }
             ]
           })
@@ -1254,11 +1255,12 @@ router.get('/shorts/for-you', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following');
     const following = currentUser?.following || [];
 
-    // Find all published posts that contain videos
+    // Find all published posts that contain videos AND are marked as shorts
     const allVideoPosts = await Post.find({
       $and: [
         { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
-        { 'media.type': 'video' } // Only posts with videos
+        { 'media.type': 'video' }, // Only posts with videos
+        { isShort: true } // Only posts marked as shorts (from shorts creation page)
       ]
     })
       .sort({ createdAt: -1 })
@@ -1362,11 +1364,12 @@ router.get('/shorts/friends', protect, async (req, res) => {
       });
     }
 
-    // Find all published video posts from followed users only
+    // Find all published video posts from followed users only AND marked as shorts
     const followingVideoPosts = await Post.find({
       $and: [
         { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
         { 'media.type': 'video' }, // Only posts with videos
+        { isShort: true }, // Only posts marked as shorts
         { user: { $in: following } } // Only from followed users
       ]
     })
@@ -1388,6 +1391,7 @@ router.get('/shorts/friends', protect, async (req, res) => {
       $and: [
         { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
         { 'media.type': 'video' },
+        { isShort: true },
         { user: { $in: following } }
       ]
     });
