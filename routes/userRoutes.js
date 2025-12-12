@@ -73,7 +73,7 @@ router.get("/me", protect, async (req, res) => {
 // @access  Private
 router.put("/me", protect, uploadProfile.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
   try {
-    const { name, phone, description, avatar, companyName, companyDescription, companyLogo, customDetails } = req.body;
+    const { name, phone, description, avatar, companyName, companyDescription, companyLogo, customDetails, website, bio } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -95,11 +95,13 @@ router.put("/me", protect, uploadProfile.fields([{ name: 'avatar', maxCount: 1 }
     if (name !== undefined) user.name = name;
     if (phone !== undefined) user.phone = phone;
     if (description !== undefined) user.description = description;
+    if (bio !== undefined) user.description = bio; // Support 'bio' as alias for 'description'
     if (avatar !== undefined && !req.files?.avatar) user.avatar = avatar;
     if (companyName !== undefined) user.companyName = companyName;
     if (companyDescription !== undefined) user.companyDescription = companyDescription;
     if (companyLogo !== undefined) user.companyLogo = companyLogo;
     if (customDetails !== undefined) user.customDetails = customDetails;
+    if (website !== undefined) user.website = website; // FIX: Add support for website field
 
     await user.save();
 
@@ -493,6 +495,7 @@ router.get("/:userId", protect, async (req, res) => {
       cover: user.coverImage,
       bio: user.description,
       phone: user.phone,
+      website: user.website, // FIX: Add website field to response
       userType: user.userType,
       companyName: user.companyName,
       companyDescription: user.companyDescription,
