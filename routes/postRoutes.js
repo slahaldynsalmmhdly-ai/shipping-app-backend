@@ -137,10 +137,10 @@ router.get('/user/:userId', protect, async (req, res) => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { userType, limit, skip, category, postType, country, city } = req.query;
+    const { userType, limit, skip, category, postType, country, city, isShort } = req.query;
     
-    // إذا كان category أو postType أو userType محدد، نستخدم فلترة بسيطة بدون خوارزمية
-    if (category || postType || userType) {
+    // إذا كان category أو postType أو userType أو isShort محدد، نستخدم فلترة بسيطة بدون خوارزمية
+    if (category || postType || userType || isShort) {
       // بناء مصفوفة الشروط (مثل feedRoutes.js)
       const conditions = [];
       
@@ -164,6 +164,11 @@ router.get('/', protect, async (req, res) => {
       // 4. شرط postType
       if (postType) {
         conditions.push({ postType: postType });
+      }
+      
+      // 4.5. شرط isShort (فيديوهات فقط)
+      if (isShort === 'true') {
+        conditions.push({ 'media.type': 'video' }); // فقط المنشورات التي تحتوي على فيديو
       }
       
       // 5. فلترة حسب الموقع (country/city)
@@ -202,12 +207,51 @@ router.get('/', protect, async (req, res) => {
       console.log('\n🔍 استعلام المنشورات:', JSON.stringify(query, null, 2));
       console.log('📍 المعاملات:', { category, postType, country, city, userType });
       
-      const posts = await Post.find(query)
+      let posts = await Post.find(query)
         .populate('user', 'name avatar userType companyName')
         .populate('reactions.user', 'name avatar')
         .sort({ isFeatured: -1, createdAt: -1 }) // المنشورات المميزة أولاً
-        .limit(parseInt(limit) || 10)
+        .limit(parseInt(limit) || 50)
         .skip(parseInt(skip) || 0);
+      
+      // إذا كان isShort وليس category محدد، نضيف 10% من فيديوهات المتابعين
+      if (isShort === 'true' && !category) {
+        const currentUser = await User.findById(req.user.id).select('following');
+        const following = currentUser?.following || [];
+        
+        if (following.length > 0) {
+          // جلب فيديوهات المتابعين
+          const followingVideos = await Post.find({
+            $and: [
+              { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+              { 'media.type': 'video' },
+              { user: { $in: following } }
+            ]
+          })
+            .populate('user', 'name avatar userType companyName')
+            .populate('reactions.user', 'name avatar')
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
+          
+          // حساب 10% من المتابعين
+          const totalLimit = parseInt(limit) || 50;
+          const followingCount = Math.floor(totalLimit * 0.10); // 10%
+          const nonFollowingCount = totalLimit - followingCount;
+          
+          // اختيار عشوائي من فيديوهات المتابعين
+          const selectedFollowing = followingVideos
+            .sort(() => Math.random() - 0.5)
+            .slice(0, followingCount);
+          
+          // اختيار من غير المتابعين
+          const selectedNonFollowing = posts.slice(0, nonFollowingCount);
+          
+          // دمج وخلط
+          posts = [...selectedFollowing, ...selectedNonFollowing]
+            .sort(() => Math.random() - 0.5);
+        }
+      }
       
       console.log('✅ عدد النتائج:', posts.length);
       if (posts.length > 0) {
@@ -1242,8 +1286,8 @@ router.get('/shorts/for-you', protect, async (req, res) => {
     });
 
     // TikTok-style algorithm:
-    // 10-15% from following (rare), 85-90% from non-following (discovery)
-    const followingPercentage = 0.12; // 12% من المتابعين (نادر)
+    // 10% from following (rare), 90% from non-following (discovery)
+    const followingPercentage = 0.10; // 10% من المتابعين (نادر)
     const totalPosts = Math.min(allVideoPosts.length, parseInt(limit));
     const followingCount = Math.floor(totalPosts * followingPercentage);
     const nonFollowingCount = totalPosts - followingCount;
@@ -1296,10 +1340,10 @@ router.get('/shorts/for-you', protect, async (req, res) => {
   }
 });
 
-// @desc    Get shorts feed - "Following" tab (only from followed users)
-// @route   GET /api/v1/posts/shorts/following
+// @desc    Get shorts feed - "Friends" tab (only from followed users)
+// @route   GET /api/v1/posts/shorts/friends
 // @access  Private
-router.get('/shorts/following', protect, async (req, res) => {
+router.get('/shorts/friends', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
@@ -1356,7 +1400,7 @@ router.get('/shorts/following', protect, async (req, res) => {
       hasMore: skip + followingVideoPosts.length < totalCount
     });
   } catch (err) {
-    console.error('Error in shorts/following:', err.message);
+    console.error('Error in shorts/friends:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
