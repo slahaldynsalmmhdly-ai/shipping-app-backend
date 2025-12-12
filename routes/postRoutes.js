@@ -157,7 +157,9 @@ router.get('/', protect, async (req, res) => {
       // 3. شرط category
       if (category) {
         conditions.push({ category: category });
-      } else {
+      } else if (isShort !== 'true') {
+        // فقط إذا لم يكن isShort، نضيف شرط publishScope
+        // لأن الشورتس يجب أن تظهر جميع الفئات
         conditions.push({ publishScope: { $ne: 'category_only' } });
       }
       
