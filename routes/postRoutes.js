@@ -171,6 +171,7 @@ router.get('/', protect, async (req, res) => {
       // 4.5. شرط isShort (فيديوهات فقط)
       if (isShort === 'true') {
         conditions.push({ 'media.type': 'video' }); // فقط المنشورات التي تحتوي على فيديو
+        conditions.push({ isShort: true }); // فقط الفيديوهات المنشورة من صفحة الشورتس
       }
       
       // 5. فلترة حسب الموقع (country/city)
