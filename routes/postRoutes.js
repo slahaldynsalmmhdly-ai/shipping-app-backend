@@ -9,6 +9,7 @@ const Hashtag = require('../models/Hashtag');
 const { createFollowingPostNotifications, createLikeNotification, createCommentNotification, generateNotificationMessage } = require('../utils/notificationHelper');
 const { extractHashtags, extractMentionIds } = require('../utils/textParser');
 const { createMentionNotifications } = require('../utils/mentionNotificationHelper');
+const { HARAJ_CATEGORIES, JOB_CATEGORIES } = require('../constants/categories');
 
 // @desc    Create a new post
 // @route   POST /api/v1/posts
@@ -1428,6 +1429,136 @@ router.get('/shorts/friends', protect, async (req, res) => {
     });
   } catch (err) {
     console.error('Error in shorts/friends:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Get shorts feed - "Haraj" tab (only haraj categories)
+// @route   GET /api/v1/posts/shorts/haraj
+// @access  Private
+router.get('/shorts/haraj', protect, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (page - 1) * limit;
+
+    console.log('🛍️ [SHORTS/HARAJ] Fetching haraj shorts');
+
+    // Find all published video posts that are shorts AND have haraj category
+    const harajVideoPosts = await Post.find({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' }, // Only posts with videos
+        { isShort: true }, // Only posts marked as shorts
+        { category: { $in: HARAJ_CATEGORIES } } // Only haraj categories
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', ['name', 'avatar', 'isVerified', 'username'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar isVerified username'
+        }
+      })
+      .lean();
+
+    console.log('✅ [SHORTS/HARAJ] Found videos:', harajVideoPosts.length);
+    if (harajVideoPosts.length > 0) {
+      console.log('📹 [SHORTS/HARAJ] First video:', {
+        id: harajVideoPosts[0]._id,
+        user: harajVideoPosts[0].user?.name,
+        category: harajVideoPosts[0].category,
+        isShort: harajVideoPosts[0].isShort
+      });
+    }
+
+    // Get total count for pagination
+    const totalCount = await Post.countDocuments({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' },
+        { isShort: true },
+        { category: { $in: HARAJ_CATEGORIES } }
+      ]
+    });
+
+    res.json({
+      posts: harajVideoPosts,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalCount,
+      hasMore: skip + harajVideoPosts.length < totalCount
+    });
+  } catch (err) {
+    console.error('Error in shorts/haraj:', err.message);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @desc    Get shorts feed - "Jobs" tab (only job categories)
+// @route   GET /api/v1/posts/shorts/jobs
+// @access  Private
+router.get('/shorts/jobs', protect, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (page - 1) * limit;
+
+    console.log('💼 [SHORTS/JOBS] Fetching jobs shorts');
+
+    // Find all published video posts that are shorts AND have job category
+    const jobVideoPosts = await Post.find({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' }, // Only posts with videos
+        { isShort: true }, // Only posts marked as shorts
+        { category: { $in: JOB_CATEGORIES } } // Only job categories
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', ['name', 'avatar', 'isVerified', 'username'])
+      .populate({
+        path: 'originalPost',
+        populate: {
+          path: 'user',
+          select: 'name avatar isVerified username'
+        }
+      })
+      .lean();
+
+    console.log('✅ [SHORTS/JOBS] Found videos:', jobVideoPosts.length);
+    if (jobVideoPosts.length > 0) {
+      console.log('📹 [SHORTS/JOBS] First video:', {
+        id: jobVideoPosts[0]._id,
+        user: jobVideoPosts[0].user?.name,
+        category: jobVideoPosts[0].category,
+        isShort: jobVideoPosts[0].isShort
+      });
+    }
+
+    // Get total count for pagination
+    const totalCount = await Post.countDocuments({
+      $and: [
+        { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] },
+        { 'media.type': 'video' },
+        { isShort: true },
+        { category: { $in: JOB_CATEGORIES } }
+      ]
+    });
+
+    res.json({
+      posts: jobVideoPosts,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalCount,
+      hasMore: skip + jobVideoPosts.length < totalCount
+    });
+  } catch (err) {
+    console.error('Error in shorts/jobs:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
