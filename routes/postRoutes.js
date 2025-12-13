@@ -172,6 +172,7 @@ router.get('/', protect, async (req, res) => {
       if (isShort === 'true') {
         conditions.push({ 'media.type': 'video' }); // فقط المنشورات التي تحتوي على فيديو
         conditions.push({ isShort: true }); // فقط الفيديوهات المنشورة من صفحة الشورتس
+        console.log('📹 [SHORTS QUERY] Fetching shorts with category:', category);
       }
       
       // 5. فلترة حسب الموقع (country/city)
@@ -259,13 +260,17 @@ router.get('/', protect, async (req, res) => {
       
       console.log('✅ عدد النتائج:', posts.length);
       if (posts.length > 0) {
-        console.log('📝 أول منشور:', {
+        console.log('📋 أول منشور:', {
           text: posts[0].text?.substring(0, 50),
           category: posts[0].category,
+          isShort: posts[0].isShort,
           scope: posts[0].scope,
           country: posts[0].country,
-          city: posts[0].city
+          city: posts[0].city,
+          hasVideo: posts[0].media?.some(m => m.type === 'video')
         });
+      } else {
+        console.log('⚠️ [SHORTS QUERY] No results found with conditions:', JSON.stringify(conditions, null, 2));
       }
       
       return res.json({ posts });
@@ -1356,6 +1361,10 @@ router.get('/shorts/friends', protect, async (req, res) => {
     const currentUser = await User.findById(req.user.id).select('following');
     const following = currentUser?.following || [];
 
+    console.log('🔍 [SHORTS/FRIENDS] User ID:', req.user.id);
+    console.log('🔍 [SHORTS/FRIENDS] Following count:', following.length);
+    console.log('🔍 [SHORTS/FRIENDS] Following IDs:', following.map(id => id.toString()));
+
     if (following.length === 0) {
       return res.json({
         posts: [],
@@ -1388,6 +1397,17 @@ router.get('/shorts/friends', protect, async (req, res) => {
         }
       })
       .lean();
+
+    console.log('✅ [SHORTS/FRIENDS] Found videos:', followingVideoPosts.length);
+    if (followingVideoPosts.length > 0) {
+      console.log('📹 [SHORTS/FRIENDS] First video:', {
+        id: followingVideoPosts[0]._id,
+        user: followingVideoPosts[0].user?.name,
+        isShort: followingVideoPosts[0].isShort,
+        category: followingVideoPosts[0].category,
+        hasVideo: followingVideoPosts[0].media?.some(m => m.type === 'video')
+      });
+    }
 
     // Get total count for pagination
     const totalCount = await Post.countDocuments({
