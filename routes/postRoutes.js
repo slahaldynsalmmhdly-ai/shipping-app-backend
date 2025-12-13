@@ -1283,67 +1283,66 @@ router.get('/shorts/for-you', protect, async (req, res) => {
       })
       .lean();
 
-    // Separate posts into following and non-following
-    const followingPosts = [];
-    const nonFollowingPosts = [];
-
+    // خوارزمية توصية بسيطة ومتنوعة:
+    // 1. تجميع الفيديوهات حسب المستخدم
+    const postsByUser = new Map();
     allVideoPosts.forEach(post => {
-      const isFollowing = following.some(id => id.toString() === post.user._id.toString());
-      if (isFollowing) {
-        followingPosts.push(post);
-      } else {
-        nonFollowingPosts.push(post);
+      const userId = post.user._id.toString();
+      if (!postsByUser.has(userId)) {
+        postsByUser.set(userId, []);
       }
+      postsByUser.get(userId).push(post);
     });
 
-    // TikTok-style algorithm:
-    // 10% from following (rare), 90% from non-following (discovery)
-    const followingPercentage = 0.10; // 10% من المتابعين (نادر)
-    const totalPosts = Math.min(allVideoPosts.length, parseInt(limit));
-    const followingCount = Math.floor(totalPosts * followingPercentage);
-    const nonFollowingCount = totalPosts - followingCount;
+    // 2. اختيار فيديو واحد من كل مستخدم بشكل عشوائي (للتنوع)
+    const diversePosts = [];
+    postsByUser.forEach(userPosts => {
+      // اختيار فيديو عشوائي من فيديوهات المستخدم
+      const randomIndex = Math.floor(Math.random() * userPosts.length);
+      diversePosts.push(userPosts[randomIndex]);
+    });
 
-    // Randomly select posts from following (to make it "rare")
-    const selectedFollowingPosts = followingPosts
-      .sort(() => Math.random() - 0.5) // Random shuffle
-      .slice(0, followingCount);
-
-    // Select posts from non-following with engagement-based scoring
-    const scoredNonFollowingPosts = nonFollowingPosts.map(post => {
-      // Simple engagement score: likes + comments + shares
+    // 3. ترتيب حسب engagement + randomness
+    const scoredPosts = diversePosts.map(post => {
       const engagementScore = 
-        (post.likes?.length || 0) * 1 +
+        (post.reactions?.length || 0) * 1 +
         (post.comments?.length || 0) * 2 +
         (post.shares?.length || 0) * 3;
       
-      // Add randomness to prevent always showing the same posts
       const randomFactor = Math.random() * 100;
+      const recencyBonus = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60 * 24); // days ago
+      const recencyScore = Math.max(0, 50 - recencyBonus); // newer = higher score
       
       return {
         ...post,
-        score: engagementScore + randomFactor
+        score: engagementScore + randomFactor + recencyScore
       };
     });
 
-    // Sort by score and select top posts
-    const selectedNonFollowingPosts = scoredNonFollowingPosts
+    // 4. ترتيب وخلط
+    let finalPosts = scoredPosts
       .sort((a, b) => b.score - a.score)
-      .slice(0, nonFollowingCount)
-      .map(({ score, ...post }) => post); // Remove score from final result
-
-    // Merge and shuffle for natural feel
-    let finalPosts = [...selectedFollowingPosts, ...selectedNonFollowingPosts]
-      .sort(() => Math.random() - 0.5); // Final shuffle
+      .map(({ score, ...post }) => post);
+    
+    // 5. خلط نهائي خفيف للتنوع (shuffle top 50%)
+    const halfLength = Math.floor(finalPosts.length / 2);
+    const topHalf = finalPosts.slice(0, halfLength).sort(() => Math.random() - 0.5);
+    const bottomHalf = finalPosts.slice(halfLength);
+    finalPosts = [...topHalf, ...bottomHalf];
 
     // Apply pagination
-    finalPosts = finalPosts.slice(skip, skip + parseInt(limit));
+    const paginatedPosts = finalPosts.slice(skip, skip + parseInt(limit));
+
+    console.log('✅ [SHORTS/FOR-YOU] Total unique users:', postsByUser.size);
+    console.log('✅ [SHORTS/FOR-YOU] Diverse posts:', diversePosts.length);
+    console.log('✅ [SHORTS/FOR-YOU] Returning:', paginatedPosts.length);
 
     res.json({
-      posts: finalPosts,
+      posts: paginatedPosts,
       page: parseInt(page),
       limit: parseInt(limit),
       total: allVideoPosts.length,
-      hasMore: skip + finalPosts.length < allVideoPosts.length
+      hasMore: skip + paginatedPosts.length < allVideoPosts.length
     });
   } catch (err) {
     console.error('Error in shorts/for-you:', err.message);
