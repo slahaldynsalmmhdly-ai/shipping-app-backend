@@ -113,11 +113,40 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.get('/user/:userId', protect, async (req, res) => {
   try {
-    const posts = await Post.find({ 
-      user: req.params.userId, 
-      $or: [{ isPublished: true }, { isPublished: { $exists: false } }] 
-    })
+    const { page = 1, limit = 10, type } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    console.log('[GET USER POSTS] Request:', {
+      userId: req.params.userId,
+      page,
+      limit,
+      type,
+      skip
+    });
+
+    // Build query conditions
+    const conditions = {
+      user: req.params.userId,
+      $or: [{ isPublished: true }, { isPublished: { $exists: false } }]
+    };
+
+    // Filter by media type if specified
+    if (type === 'video') {
+      conditions['media.type'] = 'video';
+      console.log('[GET USER POSTS] Filtering for videos only');
+    } else if (type === 'image') {
+      conditions['media.type'] = 'image';
+      console.log('[GET USER POSTS] Filtering for images only');
+    }
+
+    // Get total count for pagination
+    const totalCount = await Post.countDocuments(conditions);
+
+    // Get paginated posts
+    const posts = await Post.find(conditions)
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
       .populate('user', ['name', 'avatar'])
       .populate({
         path: 'originalPost',
@@ -126,9 +155,22 @@ router.get('/user/:userId', protect, async (req, res) => {
           select: 'name avatar'
         }
       });
-    res.json(posts);
+
+    console.log('[GET USER POSTS] Results:', {
+      totalCount,
+      returnedCount: posts.length,
+      hasMore: skip + posts.length < totalCount
+    });
+
+    res.json({
+      posts,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalCount,
+      hasMore: skip + posts.length < totalCount
+    });
   } catch (err) {
-    console.error(err.message);
+    console.error('[GET USER POSTS] Error:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
