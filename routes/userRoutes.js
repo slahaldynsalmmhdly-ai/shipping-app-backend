@@ -592,5 +592,102 @@ router.delete("/me/notifications/:id", protect, async (req, res) => {
   }
 });
 
+// @desc    Delete user account permanently
+// @route   DELETE /api/v1/users/me
+// @access  Private
+router.delete("/me", protect, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    console.log('[DELETE ACCOUNT] Request received:', {
+      userId: userId.toString(),
+      userName: req.user.name,
+      timestamp: new Date().toISOString()
+    });
+
+    // Find user
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      console.log('[DELETE ACCOUNT] User not found:', userId);
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    console.log('[DELETE ACCOUNT] Starting account deletion process...');
+
+    // Delete all user's posts
+    const deletedPosts = await Post.deleteMany({ user: userId });
+    console.log('[DELETE ACCOUNT] Deleted posts:', deletedPosts.deletedCount);
+
+    // Delete all user's shorts
+    const Short = require('../models/Short');
+    const deletedShorts = await Short.deleteMany({ user: userId });
+    console.log('[DELETE ACCOUNT] Deleted shorts:', deletedShorts.deletedCount);
+
+    // Delete all user's shipment ads
+    const deletedShipmentAds = await ShipmentAd.deleteMany({ user: userId });
+    console.log('[DELETE ACCOUNT] Deleted shipment ads:', deletedShipmentAds.deletedCount);
+
+    // Delete all user's empty truck ads
+    const deletedEmptyTruckAds = await EmptyTruckAd.deleteMany({ user: userId });
+    console.log('[DELETE ACCOUNT] Deleted empty truck ads:', deletedEmptyTruckAds.deletedCount);
+
+    // Delete all user's reviews
+    const deletedReviews = await Review.deleteMany({ user: userId });
+    console.log('[DELETE ACCOUNT] Deleted reviews:', deletedReviews.deletedCount);
+
+    // Remove user from followers/following lists
+    await User.updateMany(
+      { followers: userId },
+      { $pull: { followers: userId } }
+    );
+    await User.updateMany(
+      { following: userId },
+      { $pull: { following: userId } }
+    );
+    console.log('[DELETE ACCOUNT] Removed from followers/following lists');
+
+    // Delete user's notifications from other users
+    await User.updateMany(
+      { 'notifications.sender': userId },
+      { $pull: { notifications: { sender: userId } } }
+    );
+    console.log('[DELETE ACCOUNT] Removed notifications');
+
+    // Finally, delete the user account
+    await User.findByIdAndDelete(userId);
+    
+    console.log('[DELETE ACCOUNT] Account deleted successfully:', {
+      userId: userId.toString(),
+      timestamp: new Date().toISOString(),
+      deletedData: {
+        posts: deletedPosts.deletedCount,
+        shorts: deletedShorts.deletedCount,
+        shipmentAds: deletedShipmentAds.deletedCount,
+        emptyTruckAds: deletedEmptyTruckAds.deletedCount,
+        reviews: deletedReviews.deletedCount
+      }
+    });
+
+    res.json({ 
+      msg: "Account deleted successfully",
+      deletedData: {
+        posts: deletedPosts.deletedCount,
+        shorts: deletedShorts.deletedCount,
+        shipmentAds: deletedShipmentAds.deletedCount,
+        emptyTruckAds: deletedEmptyTruckAds.deletedCount,
+        reviews: deletedReviews.deletedCount
+      }
+    });
+  } catch (err) {
+    console.error('[DELETE ACCOUNT] Error occurred:', {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?._id
+    });
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 module.exports = router;
 
