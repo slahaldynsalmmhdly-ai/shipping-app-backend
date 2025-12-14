@@ -929,7 +929,7 @@ router.delete("/:id/comment/:comment_id/reply/:reply_id", protect, async (req, r
   }
 });
 
-// @desc    Delete a post
+// @desc    Delete a post or short
 // @route   DELETE /api/v1/posts/:id
 // @access  Private
 router.delete("/:id", protect, async (req, res) => {
@@ -942,22 +942,44 @@ router.delete("/:id", protect, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    const post = await Post.findById(req.params.id);
+    // Try to find in Post collection first
+    let post = await Post.findById(req.params.id);
+    let isShortCollection = false;
 
+    // If not found in Post, try Short collection
     if (!post) {
-      console.log('[DELETE POST] Post not found:', req.params.id);
-      return res.status(404).json({ msg: "Post not found", postId: req.params.id });
+      console.log('[DELETE POST] Not found in Post collection, checking Short collection...');
+      const Short = require('../models/Short');
+      post = await Short.findById(req.params.id);
+      isShortCollection = true;
+      
+      if (!post) {
+        console.log('[DELETE POST] Not found in any collection:', {
+          postId: req.params.id,
+          searchedIn: ['Post', 'Short']
+        });
+        return res.status(404).json({ 
+          msg: "Post not found in any collection",
+          postId: req.params.id,
+          searchedCollections: ['Post', 'Short']
+        });
+      }
+      
+      console.log('[DELETE POST] Found in Short collection:', {
+        shortId: post._id.toString(),
+        userId: post.user.toString()
+      });
+    } else {
+      console.log('[DELETE POST] Found in Post collection:', {
+        postId: post._id.toString(),
+        postUserId: post.user.toString(),
+        requestUserId: req.user.id,
+        isRepost: post.isRepost,
+        isShort: post.isShort,
+        hasText: !!post.text,
+        hasMedia: post.media?.length > 0
+      });
     }
-
-    console.log('[DELETE POST] Post found:', {
-      postId: post._id.toString(),
-      postUserId: post.user.toString(),
-      requestUserId: req.user.id,
-      isRepost: post.isRepost,
-      isShort: post.isShort,
-      hasText: !!post.text,
-      hasMedia: post.media?.length > 0
-    });
 
     // Check user - Enhanced authorization check
     const postUserId = post.user.toString();
@@ -967,7 +989,8 @@ router.delete("/:id", protect, async (req, res) => {
       console.log('[DELETE POST] Authorization failed:', {
         postUserId: postUserId,
         requestUserId: requestUserId,
-        match: postUserId === requestUserId
+        match: postUserId === requestUserId,
+        collection: isShortCollection ? 'Short' : 'Post'
       });
       return res.status(401).json({ 
         msg: "User not authorized",
@@ -977,16 +1000,21 @@ router.delete("/:id", protect, async (req, res) => {
 
     console.log('[DELETE POST] Authorization successful, proceeding with deletion');
 
-    // Delete the post
+    // Delete the post/short
     await post.deleteOne();
     
-    console.log('[DELETE POST] Post deleted successfully:', {
-      postId: req.params.id,
+    console.log('[DELETE POST] Deleted successfully:', {
+      id: req.params.id,
+      collection: isShortCollection ? 'Short' : 'Post',
       userId: req.user.id,
       timestamp: new Date().toISOString()
     });
 
-    res.json({ msg: "Post removed", postId: req.params.id });
+    res.json({ 
+      msg: isShortCollection ? "Short removed" : "Post removed",
+      postId: req.params.id,
+      collection: isShortCollection ? 'Short' : 'Post'
+    });
   } catch (err) {
     console.error('[DELETE POST] Error occurred:', {
       error: err.message,
