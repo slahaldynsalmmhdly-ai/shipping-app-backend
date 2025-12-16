@@ -137,10 +137,6 @@ router.get("/me/notifications", protect, async (req, res) => {
     }).populate({
       path: "notifications.short",
       select: "title description videoUrl thumbnailUrl",
-    }).populate({
-      path: "notifications.shortId",
-      select: "_id",
-      model: "Post"
     }).sort({"notifications.createdAt": -1});
 
     if (!user) {
@@ -181,18 +177,11 @@ router.get("/me/notifications", protect, async (req, res) => {
         }
       }
 
-      // Handle short notifications - use shortId to get the post
-      let shortData = null;
-      if (notif.shortId) {
-        shortData = notif.shortId;
-      }
-
       return {
         ...notif.toObject(), // Convert mongoose document to plain object
         isRead: notif.read,  // إضافة isRead للتوافق مع الواجهة الأمامية
         comment: commentData, // Attach the found comment object
         reply: replyData,     // Attach the found reply object
-        short: shortData || notif.short, // Use shortId if available, otherwise use short
       };
     });
 
