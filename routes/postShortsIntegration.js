@@ -688,6 +688,10 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
       } else {
         // Add like
         comment.likes.push({ user: req.user._id });
+        
+        // Send notification for new like
+        const { createShortCommentLikeNotification } = require('../utils/notificationHelper');
+        await createShortCommentLikeNotification(req.user._id, comment.user.toString(), id, comment_id);
       }
       
       await comment.save();
@@ -836,6 +840,11 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
       comment.replies.push(reply);
       await comment.save();
 
+      // Send notification for new reply
+      const replyId = comment.replies[comment.replies.length - 1]._id;
+      const { createShortReplyNotification } = require('../utils/notificationHelper');
+      await createShortReplyNotification(req.user._id, comment.user.toString(), id, comment_id, replyId);
+
       // Get updated comment with populated data
       const updatedComment = await ShortComment.findById(comment_id)
         .populate('user', 'companyName avatar firstName lastName name')
@@ -922,6 +931,10 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
       } else {
         // Add like
         reply.likes.push({ user: req.user._id });
+        
+        // Send notification for new like on reply
+        const { createShortReplyLikeNotification } = require('../utils/notificationHelper');
+        await createShortReplyLikeNotification(req.user._id, reply.user.toString(), id, comment_id, reply_id);
       }
       
       await comment.save();
