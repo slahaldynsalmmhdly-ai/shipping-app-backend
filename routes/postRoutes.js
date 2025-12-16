@@ -459,11 +459,13 @@ router.put("/:id/react", protect, async (req, res) => {
           const sender = await User.findById(req.user.id).select('name');
           const postOwner = await User.findById(post.user);
           if (postOwner && sender) {
+            // تحديد نوع الإشعار بناءً على نوع المنشور
+            const notifType = post.isShort ? 'short_like' : 'like';
             postOwner.notifications.unshift({
-              type: 'like',
+              type: notifType,
               sender: req.user.id,
               post: post._id,
-              message: generateNotificationMessage('like', sender.name)
+              message: generateNotificationMessage(notifType, sender.name)
             });
             await postOwner.save();
           }
@@ -553,12 +555,14 @@ router.post("/:id/comment", protect, async (req, res) => {
       const sender = await User.findById(req.user.id).select('name');
       const postOwner = await User.findById(post.user);
       if (postOwner && sender) {
+        // تحديد نوع الإشعار بناءً على نوع المنشور
+        const notifType = post.isShort ? 'short_comment' : 'comment';
         postOwner.notifications.unshift({
-          type: 'comment',
+          type: notifType,
           sender: req.user.id,
           post: post._id,
           commentId: post.comments[0]._id,
-          message: generateNotificationMessage('comment', sender.name)
+          message: generateNotificationMessage(notifType, sender.name)
         });
         await postOwner.save();
       }
@@ -699,12 +703,14 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
         const sender = await User.findById(req.user.id).select('name');
         const commentOwner = await User.findById(comment.user);
         if (commentOwner && sender) {
+          // تحديد نوع الإشعار بناءً على نوع المنشور
+          const notifType = post.isShort ? 'short_comment_like' : 'comment_like';
           commentOwner.notifications.unshift({
-            type: 'comment_like',
+            type: notifType,
             sender: req.user.id,
             post: post._id,
             commentId: comment._id,
-            message: generateNotificationMessage('comment_like', sender.name)
+            message: generateNotificationMessage(notifType, sender.name)
           });
           await commentOwner.save();
         }
@@ -765,13 +771,15 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
       const sender = await User.findById(req.user.id).select('name');
       const commentOwner = await User.findById(comment.user);
       if (commentOwner && sender) {
+        // تحديد نوع الإشعار بناءً على نوع المنشور
+        const notifType = post.isShort ? 'short_reply' : 'reply';
         commentOwner.notifications.unshift({
-          type: 'reply',
+          type: notifType,
           sender: req.user.id,
           post: post._id,
           commentId: comment._id,
           replyId: comment.replies[0]._id,
-          message: generateNotificationMessage('reply', sender.name)
+          message: generateNotificationMessage(notifType, sender.name)
         });
         await commentOwner.save();
       }
@@ -830,13 +838,15 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
         const sender = await User.findById(req.user.id).select('name');
         const replyOwner = await User.findById(reply.user);
         if (replyOwner && sender) {
+          // تحديد نوع الإشعار بناءً على نوع المنشور
+          const notifType = post.isShort ? 'short_reply_like' : 'reply_like';
           replyOwner.notifications.unshift({
-            type: 'reply_like',
+            type: notifType,
             sender: req.user.id,
             post: post._id,
             commentId: comment._id,
             replyId: reply._id,
-            message: generateNotificationMessage('reply_like', sender.name)
+            message: generateNotificationMessage(notifType, sender.name)
           });
           await replyOwner.save();
         }
