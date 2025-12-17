@@ -5,7 +5,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const ShortInteraction = require('../models/ShortInteraction');
 const { protect } = require('../middleware/authMiddleware');
-const { createShortLikeNotification } = require('../utils/notificationHelper');
+const { createShortLikeNotification, createShortCommentNotification } = require('../utils/notificationHelper');
 // تم إزالة smartShortsAlgorithm (بطيء جداً) - نستخدم خوارزمية بسيطة وسريعة
 
 /**
@@ -639,6 +639,12 @@ router.post('/:id/comment', protect, async (req, res) => {
 
     short.comments += 1;
     await short.save();
+
+    // إرسال إشعار لصاحب الفيديو إذا لم يكن المستخدم هو نفسه
+    if (short.user.toString() !== req.user._id.toString()) {
+      // نستخدم short._id كـ commentId لأن هذا endpoint لا ينشئ تعليق في ShortComment
+      await createShortCommentNotification(req.user._id, short.user.toString(), short._id, short._id);
+    }
 
     res.json({
       success: true,
