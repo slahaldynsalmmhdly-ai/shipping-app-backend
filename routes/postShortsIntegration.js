@@ -720,6 +720,23 @@ router.put("/:id/comment/:comment_id/like", protect, async (req, res) => {
     // If user has not liked, add like
     if (!alreadyLiked) {
       comment.likes.unshift({ user: req.user._id });
+
+      // Create notification for the comment owner if not self-liking
+      if (comment.user.toString() !== req.user._id.toString()) {
+        const sender = await User.findById(req.user._id).select('name');
+        const commentOwner = await User.findById(comment.user);
+        if (commentOwner && sender) {
+          const notifType = post.isShort ? 'short_comment_like' : 'comment_like';
+          commentOwner.notifications.unshift({
+            type: notifType,
+            sender: req.user._id,
+            post: post._id,
+            commentId: comment._id,
+            message: generateNotificationMessage(notifType, sender.name)
+          });
+          await commentOwner.save();
+        }
+      }
     } else {
       // If already liked, remove like (toggle)
       comment.likes = comment.likes.filter(like => like.user.toString() !== req.user._id);
@@ -873,6 +890,24 @@ router.post("/:id/comment/:comment_id/reply", protect, async (req, res) => {
     post.markModified("comments");
     await post.save();
 
+    // Create notification for the comment owner if not self-replying
+    if (comment.user.toString() !== req.user._id.toString()) {
+      const sender = await User.findById(req.user._id).select('name');
+      const commentOwner = await User.findById(comment.user);
+      if (commentOwner && sender) {
+        const notifType = post.isShort ? 'short_reply' : 'reply';
+        commentOwner.notifications.unshift({
+          type: notifType,
+          sender: req.user._id,
+          post: post._id,
+          commentId: comment._id,
+          replyId: comment.replies[0]._id,
+          message: generateNotificationMessage(notifType, sender.name)
+        });
+        await commentOwner.save();
+      }
+    }
+
     const updatedPost = await Post.findById(id)
       .populate("user", "name avatar")
       .populate({
@@ -959,6 +994,24 @@ router.put("/:id/comment/:comment_id/reply/:reply_id/like", protect, async (req,
     // If user has not liked, add like
     if (!alreadyLiked) {
       reply.likes.unshift({ user: req.user._id });
+
+      // Create notification for the reply owner if not self-liking
+      if (reply.user.toString() !== req.user._id.toString()) {
+        const sender = await User.findById(req.user._id).select('name');
+        const replyOwner = await User.findById(reply.user);
+        if (replyOwner && sender) {
+          const notifType = post.isShort ? 'short_reply_like' : 'reply_like';
+          replyOwner.notifications.unshift({
+            type: notifType,
+            sender: req.user._id,
+            post: post._id,
+            commentId: comment._id,
+            replyId: reply._id,
+            message: generateNotificationMessage(notifType, sender.name)
+          });
+          await replyOwner.save();
+        }
+      }
     } else {
       // If already liked, remove like (toggle)
       reply.likes = reply.likes.filter(like => like.user.toString() !== req.user._id);
