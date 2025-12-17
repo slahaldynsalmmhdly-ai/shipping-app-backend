@@ -127,7 +127,17 @@ router.get("/me/notifications", protect, async (req, res) => {
       select: "name avatar",
     }).populate({
       path: "notifications.post",
-      select: "text originalPost originalPostType media",
+      select: "text originalPost originalPostType media comments",
+      populate: [
+        {
+          path: "comments.user",
+          select: "name avatar"
+        },
+        {
+          path: "comments.replies.user",
+          select: "name avatar"
+        }
+      ]
     }).populate({
       path: "notifications.shipmentAd",
       select: "pickupLocation deliveryLocation description media",
